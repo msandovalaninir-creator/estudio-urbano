@@ -1,0 +1,1764 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador Urbano Profesional HUD - Ultimate Pro Interactivo</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { display: flex; height: 100vh; overflow: hidden; background: #0f1115; position: relative; color: #f1f5f9; }
+        
+        #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; background: #181b22; }
+        
+        /* Ocultar caja de texto nativa del ruteador para mantener el diseño limpio del HUD */
+        .leaflet-routing-container { display: none !important; }
+        
+        /* Personalización HUD para el control de capas nativo de Leaflet */
+        .leaflet-control-layers {
+            background: rgba(17, 20, 26, 0.9) !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(46, 53, 69, 0.8) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+            font-size: 11px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+        .leaflet-control-layers-toggle {
+            background-color: rgba(17, 20, 26, 0.9) !important;
+            border-radius: 8px !important;
+        }
+        
+        /* Panel Izquierdo de Mandos */
+        #control-panel { 
+            position: absolute; top: 20px; left: 20px; bottom: 20px; width: 380px; 
+            background: rgba(17, 20, 26, 0.94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 24px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05); 
+            z-index: 1000; overflow-y: auto; border: 1px solid rgba(46, 53, 69, 0.6); border-radius: 16px;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        #control-panel.hidden-sidebar { transform: translateX(-420px); opacity: 0; }
+
+        /* Panel Derecho de Resultados */
+        #results-panel { 
+            position: absolute; top: 20px; right: 20px; bottom: 20px; width: 360px; 
+            background: rgba(17, 20, 26, 0.94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 24px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05); 
+            z-index: 1000; overflow-y: auto; border: 1px solid rgba(46, 53, 69, 0.6); border-radius: 16px;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        #results-panel.hidden-sidebar { transform: translateX(420px); opacity: 0; }
+        
+        /* Botones de Colapso HUD */
+        .toggle-sidebar-btn {
+            position: absolute; top: 50%; transform: translateY(-50%); width: 32px; height: 65px;
+            background: #11141a; color: #4facfe; border: 2px solid #2e3545; display: flex;
+            align-items: center; justify-content: center; cursor: pointer; z-index: 3000; 
+            font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            transition: all 0.3s ease;
+        }
+        .toggle-sidebar-btn:hover { background: #1f242e; color: #ffffff; border-color: #4facfe; }
+        #toggle-left-btn { left: 410px; border-radius: 0 12px 12px 0; border-left: none; }
+        #toggle-left-btn.collapsed { left: 0px; }
+        #toggle-right-btn { right: 390px; border-radius: 12px 0 0 12px; border-right: none; }
+        #toggle-right-btn.collapsed { right: 0px; }
+
+        /* Acordeones */
+        .collapsible-header { 
+            background: linear-gradient(135deg, #1a1f29 0%, #151922 100%); color: #f1f5f9; 
+            padding: 12px 14px; font-size: 11.5px; font-weight: 600; border-radius: 8px; 
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center; 
+            margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.7px;
+            border: 1px solid rgba(62, 74, 97, 0.4); box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .collapsible-header:hover { border-color: rgba(79, 172, 254, 0.5); }
+        .collapsible-content { padding: 14px; background: rgba(11, 13, 17, 0.6); border: 1px solid rgba(30, 36, 48, 0.8); border-radius: 8px; margin-bottom: 15px; }
+        .collapsible-content.collapsed { display: none; }
+        
+        h2 { color: #ffffff; margin-bottom: 20px; border-bottom: 2px solid #3b4252; padding-bottom: 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; background: linear-gradient(to right, #ffffff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        input[type="text"], input[type="number"], select, input[type="file"] { width: 100%; padding: 9px 12px; border: 1px solid #2a313d; border-radius: 8px; font-size: 12.5px; background: #0b0d11; color: #fff; }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus { outline: none; border-color: #4facfe; box-shadow: 0 0 8px rgba(79, 172, 254, 0.3); }
+        
+        .slider-container { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+        input[type="range"] { flex-grow: 1; cursor: pointer; height: 5px; background: #2a313d; border-radius: 5px; accent-color: #4facfe; }
+        .slider-value { font-weight: 600; color: #f1f5f9; min-width: 55px; font-size: 11px; text-align: right; }
+
+        button { width: 100%; padding: 10px 14px; background: #1a1f29; color: #cbd5e1; border: 1px solid #2e3545; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 6px; font-size: 11px; text-transform: uppercase; transition: all 0.2s; }
+        button:hover { background: #242b3a; color: #ffffff; border-color: #4facfe; }
+        .btn-secondary { border-color: #2e3545; color: #94a3b8; background: #11141a; }
+        .btn-success { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; }
+        .btn-danger-hud { background: #2e1619; color: #f87171; border: 1px solid #4c1d24; }
+        .btn-danger-hud:hover { background: #4c1d24; color: #ffffff; border-color: #ef4444; }
+        
+        #btn-analizar { background: linear-gradient(135deg, #2e3748 0%, #1f2533 100%); color: white; border: 1px solid #45526c; font-size: 12px; padding: 14px; letter-spacing: 1.2px; font-weight: 700; box-shadow: 0 4px 15px rgba(0,0,0,0.3); margin-top: 10px; margin-bottom: 15px; }
+        #btn-analizar:hover { background: linear-gradient(135deg, #3b475c 0%, #2e3748 100%); border-color: #4facfe; transform: translateY(-1px); }
+        
+        #kmz-history-list { max-height: 150px; overflow-y: auto; padding-right: 4px; }
+        .kmz-historial-item { background: #141820; padding: 8px 10px; border: 1px solid #1e2430; border-radius: 6px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+        .kmz-historial-item.active-kmz-item { border-color: #10b981; background: #111a16; }
+
+        /* Contenedores de Servicios Dinámicos */
+        .servicio-container-block { background: #161a24; padding: 12px; border: 1px solid #222836; border-radius: 8px; margin-bottom: 10px; }
+        .servicio-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .servicio-control-left { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #fff; flex-grow: 1; }
+        .servicio-control-left input[type="checkbox"] { accent-color: #4facfe; cursor: pointer; }
+        .servicio-picker-right { display: flex; align-items: center; gap: 6px; }
+        
+        .preview-img-frame { width: 26px; height: 26px; border: 1px solid #2e3545; display: flex; align-items: center; justify-content: center; background: #0b0d11; border-radius: 4px; font-size: 14px; overflow: hidden; position: relative; }
+        .preview-img-frame img { width: 100%; height: 100%; object-fit: cover; }
+        .picker-color { width: 22px; height: 22px; border: none; padding: 0; cursor: pointer; background: none; border-radius: 4px; }
+        
+        .upload-icon-label { background: #242b3a; color: #94a3b8; padding: 3px 6px; font-size: 9px; font-weight: bold; border-radius: 4px; cursor: pointer; border: 1px solid #2e3545; display: inline-block; }
+        .upload-icon-label:hover { border-color: #4facfe; color: #fff; }
+
+        .circle-design-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #0f121a; padding: 6px 8px; border: 1px solid #1e2430; border-radius: 6px; margin-bottom: 5px; }
+        .circle-design-row label { margin-bottom: 0; font-weight: normal; font-size: 11px; color: #cbd5e1; text-transform: none; }
+
+        #bitacora-lista-contenedor { max-height: 200px; overflow-y: auto; padding-right: 4px; }
+        .bitacora-item { background: #141820; border: 1px solid #1e2430; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s; }
+        .bitacora-item:hover { background: #1e2432; border-color: #4facfe; }
+
+        /* Categorías de Resultados */
+        .service-category-title { background: #1a1f29; padding: 8px 10px; font-weight: 700; margin-top: 15px; border-radius: 6px; font-size: 11px; color: #ffffff; border-left: 4px solid #4facfe; text-transform: uppercase; }
+        .service-item { padding: 10px 8px; border-bottom: 1px solid #1a1f29; font-size: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .service-item:hover { background: #161a24; }
+        .item-name { font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: #e2e8f0; }
+        .distance { font-weight: 600; color: #38bdf8; font-size: 11px; margin-right: 8px; }
+        
+        /* Botón de eliminación manual en el panel derecho */
+        .btn-remove-item { background: transparent; color: #ef4444; border: none; font-size: 11px; cursor: pointer; padding: 2px 6px; width: auto; margin-bottom: 0; font-weight: bold; border-radius: 4px; transition: background 0.2s; }
+        .btn-remove-item:hover { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+        
+        #btn-copiar-reporte { width: 100%; background: #242b3a; color: #ffffff; font-size: 11px; font-weight: 700; padding: 10px; border: 1px solid #3b475c; border-radius: 6px; margin-bottom: 14px; display: none; }
+        #loading { display: none; text-align: center; color: #cbd5e1; font-weight: 600; padding: 12px; background: #161a24; border: 1px solid #2e3748; border-radius: 6px; margin-bottom: 15px; font-size: 11px; letter-spacing: 0.5px; }
+        
+        .hud-area-tooltip { background: rgba(15, 23, 42, 0.95) !important; border: 2px solid #10b981 !important; color: #ffffff !important; font-weight: 800; font-size: 13px; padding: 5px 10px !important; border-radius: 6px; }
+
+        /* Switches Estilo Moderno */
+        .switch-container { display: flex; align-items: center; justify-content: space-between; }
+        .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider-switch { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #2a313d; transition: .3s; border-radius: 20px; }
+        .slider-switch:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider-switch { background-color: #4facfe; }
+        input:checked + .slider-switch:before { transform: translateX(16px); }
+
+        .custom-hud-icon { display: flex; justify-content: center; align-items: center; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); background: white; overflow: hidden; }
+        .custom-hud-icon img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Botonera de Selección Rápida Masiva */
+        .mass-toggle-container { display: flex; gap: 6px; margin-bottom: 12px; background: rgba(0, 0, 0, 0.2); padding: 6px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .mass-toggle-container button { margin-bottom: 0; padding: 6px; font-size: 10px; letter-spacing: 0.3px; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+    <div id="toggle-left-btn" class="toggle-sidebar-btn" onclick="toggleLeftSidebar()">◀</div>
+
+    <div id="control-panel">
+        <h2>1. Ubicación y Capas</h2>
+        <div class="form-group">
+            <label>Dirección / Intersección o Nombre Específico (Ej: Jumbo)</label>
+            <input type="text" id="address-input" placeholder="Ej: Av. Vitacura 3565, Vitacura o Jumbo">
+            <div style="display: flex; gap: 5px; margin-top: 8px;">
+                <button id="btn-buscar-direccion" style="margin-bottom: 0; flex-grow: 2;">Buscar Origen</button>
+                <button class="btn-secondary" style="margin-bottom: 0; width: auto;" onclick="document.getElementById('address-input').value='';">🧹</button>
+                <button class="btn-success" style="margin-top: 0; margin-bottom: 0; width: auto;" onclick="guardarUbicacionActualEnBitacora()">📌 Guardar</button>
+            </div>
+        </div>
+
+        <button id="btn-analizar">🎯 GENERAR STUDY URBANO</button>
+        <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
+
+        <button id="btn-trazado-manual" style="background:#1e293b; color:#7dd3fc; border:1px solid #38bdf8; font-size:11px; padding:10px; font-weight:700; width:100%; margin-bottom:10px; border-radius:6px; cursor:pointer;" onclick="activarModoTrazadoManual()">✏️ TRAZAR RUTA MANUAL A UN SERVICIO</button>
+        <div id="banner-trazado-manual" style="display:none; background:#0c4a6e; border:1px solid #38bdf8; color:#e0f2fe; font-size:11.5px; padding:10px; border-radius:6px; margin-bottom:12px; line-height:1.5;">
+            <b>Modo trazado activo:</b> haz clic en el mapa siguiendo la calle real, punto por punto, desde tu dirección. Termina haciendo clic directo sobre el ícono del servicio correcto.
+            <div style="margin-top:8px; display:flex; gap:6px;">
+                <button style="flex:1; background:#dc2626; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="cancelarTrazadoManual()">Cancelar</button>
+                <button style="flex:1; background:#334155; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="deshacerUltimoPuntoTrazado()">Deshacer último punto</button>
+            </div>
+        </div>
+        
+        <div class="collapsible-header" onclick="toggleSection('sec-capas-kmz', 'arrow-kmz-capas')">
+            <span>🗺️ Capas Planificación (.kml / .kmz)</span>
+            <span id="arrow-kmz-capas">▼</span>
+        </div>
+        <div id="sec-capas-kmz" class="collapsible-content">
+            <input type="file" id="kmz-file" accept=".kml,.kmz" multiple onchange="procesarArchivosKMZMasivos(this)" style="margin-bottom: 10px;">
+            
+            <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+                <input type="text" id="kmz-search-input" placeholder="🔍 Buscar KMZ por nombre..." oninput="filtrarListaKMZLocalmente(this.value)" style="flex-grow: 1; padding: 6px 10px; font-size: 11.5px;">
+                <button class="btn-danger-hud" onclick="eliminarAbsolutamenteTodosLosKMZ()" style="width: auto; margin-bottom: 0; padding: 6px 10px; font-size: 11px;">🗑️ Borrar Todos</button>
+            </div>
+
+            <div id="kmz-history-list"></div>
+        </div>
+
+        <div class="collapsible-header" onclick="toggleSection('sec-radio-captura', 'arrow-radio-captura')">
+            <span>📏 Radios de Corte y Análisis</span>
+            <span id="arrow-radio-captura">▼</span>
+        </div>
+        <div id="sec-radio-captura" class="collapsible-content">
+            <div class="form-group" style="margin-bottom: 14px; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                <div class="switch-container" style="margin-bottom: 6px;">
+                    <label style="color: #ffffff; font-weight: bold;">Habilitar Radio Línea Recta</label>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-lineal-filter" checked onchange="conmutarFiltroLinealCirculo(this.checked); persistirConfiguracionGlobalEnStorage();">
+                        <span class="slider-switch"></span>
+                    </label>
+                </div>
+                <div class="slider-container">
+                    <input type="range" id="search-radius" min="100" max="3000" step="50" value="1500" oninput="document.getElementById('radius-val-display').innerText = this.value + ' m'; cambiarRadioCapturaDesdeSlider(this.value); persistirConfiguracionGlobalEnStorage();">
+                    <span id="radius-val-display" class="slider-value">1500 m</span>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px; background: rgba(56, 189, 248, 0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.1);">
+                <div class="switch-container" style="margin-bottom: 6px;">
+                    <label style="color: #38bdf8; font-weight: bold;">Habilitar Corte Real Walk</label>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-walk-filter" checked onchange="persistirConfiguracionGlobalEnStorage();">
+                        <span class="slider-switch"></span>
+                    </label>
+                </div>
+                <div class="slider-container">
+                    <input type="range" id="walk-filter-radius" min="100" max="3000" step="50" value="1200" oninput="document.getElementById('walk-radius-val-display').innerText = this.value + ' m'; persistirConfiguracionGlobalEnStorage();">
+                    <span id="walk-radius-val-display" class="slider-value" style="color: #38bdf8;">1200 m</span>
+                </div>
+                <small style="font-size: 9.5px; color: #94a3b8; display: block; margin-top: 4px;">Filtra y remueve dinámicamente elementos cuya ruta real caminando por calles supere el umbral.</small>
+            </div>
+
+            <div class="circle-design-row" style="background: #1e2430; margin-bottom: 12px; padding: 8px;">
+                <label><b>Tamaño de Iconos General:</b></label>
+                <div class="slider-container" style="width: 60%; margin-top: 0;">
+                    <input type="range" id="global-icon-size-slider" min="16" max="64" step="2" value="30" oninput="document.getElementById('global-icon-size-display').innerText = this.value + 'px'; reescalarIconosSimultaneamente(this.value); persistirConfiguracionGlobalEnStorage();">
+                    <span id="global-icon-size-display" class="slider-value">30px</span>
+                </div>
+            </div>
+            <div class="circle-design-row">
+                <label>Color de Contorno:</label>
+                <input type="color" id="capture-border-color" value="#4facfe" class="picker-color" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
+            </div>
+            <div class="circle-design-row">
+                <label>Grosor Línea:</label>
+                <input type="range" id="capture-border-weight" min="1" max="10" step="1" value="2" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
+            </div>
+            <div class="circle-design-row">
+                <label>Opacidad Línea:</label>
+                <input type="range" id="capture-border-opacity" min="0.1" max="1" step="0.1" value="1" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
+            </div>
+        </div>
+
+        <div class="collapsible-header" onclick="toggleSection('sec-circulo', 'arrow-2')">
+            <span>2. Área Visual de Influencia</span>
+            <span id="arrow-2">▼</span>
+        </div>
+        <div id="sec-circulo" class="collapsible-content">
+            <div class="circle-design-row switch-container">
+                <label>Mostrar Área Visual:</label>
+                <label class="switch">
+                    <input type="checkbox" id="circle-toggle-visibility" checked onchange="conmutarVisibilidadAreaVisual(this.checked); persistirConfiguracionGlobalEnStorage();">
+                    <span class="slider-switch"></span>
+                </label>
+            </div>
+            <div class="circle-design-row">
+                <label>Tamaño (Radio Metros):</label>
+                <input type="range" id="circle-size-slider" min="50" max="2000" step="25" value="250" oninput="document.getElementById('circle-size-display').innerText = this.value + ' m'; refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
+                <span id="circle-size-display" class="slider-value">250 m</span>
+            </div>
+            <div class="circle-design-row">
+                <label>Color Fondo/Borde:</label>
+                <input type="color" id="circle-color-picker" value="#2563eb" class="picker-color" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
+            </div>
+            <div class="circle-design-row">
+                <label>Grosor Borde:</label>
+                <input type="range" id="circle-weight-slider" min="0" max="8" step="1" value="1" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
+            </div>
+            <div class="circle-design-row">
+                <label>Opacidad Fondo:</label>
+                <input type="range" id="circle-opacity-slider" min="0" max="1" step="0.05" value="0.15" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
+            </div>
+        </div>
+
+        <div class="collapsible-header" onclick="toggleSection('sec-iconos', 'arrow-3')">
+            <span>3. Filtros Estratégicos Inteligentes</span>
+            <span id="arrow-3">▼</span>
+        </div>
+        <div id="sec-iconos" class="collapsible-content" style="padding: 8px;">
+            <div class="circle-design-row switch-container" style="margin-bottom: 8px; background: #1e2430;">
+                <label><b>Mostrar Líneas de Tránsito Peatonal:</b></label>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-rutas-visibles" checked onchange="conmutarVisibilidadLineasRuta(this.checked); persistirConfiguracionGlobalEnStorage();">
+                    <span class="slider-switch"></span>
+                </label>
+            </div>
+
+            <div class="form-group" style="background: rgba(255, 255, 255, 0.02); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 12px;">
+                <div style="margin-bottom: 6px;">
+                    <label style="color:#cbd5e1;">Tipo de Línea Peatonal</label>
+                    <select id="route-line-style-select" onchange="redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();">
+                        <option value="continua">Sólida / Continua ⎯⎯⎯</option>
+                        <option value="segmentada">Segmentada / Discontinua ╌╌╌</option>
+                        <option value="punteada">Punteada / Densa ┈┈┈┈</option>
+                        <option value="guiones-largos">Guiones Largos ▬ ▬ ▬</option>
+                        <option value="mixta">Mixta (Guión - Punto) ─ ∙ ─</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="color:#cbd5e1;">Grosor de Línea Peatonal</label>
+                    <div class="slider-container" style="margin-top:0;">
+                        <input type="range" id="route-line-weight-slider" min="1" max="10" step="1" value="4" oninput="document.getElementById('route-weight-display').innerText = this.value + 'px'; redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();">
+                        <span id="route-weight-display" class="slider-value">4px</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mass-toggle-container">
+                <button type="button" class="btn-secondary" onclick="conmutarTodosLosServiciosCheckbox(false)">⬜ Desmarcar Todos</button>
+                <button type="button" class="btn-success" onclick="conmutarTodosLosServiciosCheckbox(true)">☑️ Marcar Todos</button>
+            </div>
+
+            <div id="dynamic-services-container"></div>
+            
+            <div style="border-top: 1px solid #2e3545; padding-top: 12px; margin-top: 12px;">
+                <label style="color: #4facfe; margin-bottom: 10px;">➕ AGREGAR SERVICIO PERSONALIZADO</label>
+                <div class="form-group">
+                    <input type="text" id="new-srv-name" placeholder="Ej: Compañías de Gas" style="margin-bottom:6px;">
+                    <input type="text" id="new-srv-query" placeholder='Ej: nwr["amenity"="fuel"]{{GEO}};' style="margin-bottom:6px;">
+                    <div style="display:flex; gap: 6px;">
+                        <input type="text" id="new-srv-emoji" placeholder="🎫 Emoji" style="width:30%;">
+                        <input type="color" id="new-srv-color" value="#f59e0b" style="width:20%; height:36px; padding:0; border:1px solid #2a313d; border-radius:8px; background:none; cursor:pointer;">
+                        <button onclick="registrarNuevoServicioHUD()" style="margin:0; flex-grow:1;">Agregar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="collapsible-header" onclick="toggleSection('sec-bitacora', 'arrow-4-bit')">
+            <span>📔 Bitácora de Ubicaciones y KMZ</span>
+            <span id="arrow-4-bit">▼</span>
+        </div>
+        <div id="sec-bitacora" class="collapsible-content">
+            <div id="bitacora-lista-contenedor"></div>
+        </div>
+    </div>
+
+    <div id="toggle-right-btn" class="toggle-sidebar-btn" onclick="toggleRightSidebar()">▶</div>
+
+    <div id="results-panel">
+        <h2>Servicios Validados</h2>
+        <button id="btn-copiar-reporte" onclick="copiarReporteResultadosAlPortapapeles()">📋 COPIAR REPORTE HUD</button>
+        <div id="results-container">
+            <p style="color: #94a3b8; font-size: 12px; line-height: 1.5;">Haz Clic Derecho en el mapa para fijar un origen exacto o busca una dirección, luego presiona "Generar Estudio Urbano". <br><br>💡<b>Tip Interactividad:</b> Haz clic y arrastra cualquier point intermedio de los trazos para recalcular rutas alternativas utilizando pasarelas y puentes peatonales.</p>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <script>
+        let CONFIG_SERVICIOS_PREDEFINIDOS = [
+            { id: 'metro', title: 'Estaciones de Metro', em: '🚇', col: '#e11d48', query: 'nwr["station"="subway"]{{GEO}};nwr["railway"="station"]["station"!="subway"]{{GEO}};', max: 10, img: null },
+            { id: 'supermercado', title: 'Supermercados', em: '🛒', col: '#2563eb', query: 'nwr["shop"="supermarket"]{{GEO}};', max: 10, img: null },
+            { id: 'mall', title: 'Centros Comerciales / Malls', em: '🏢', col: '#3b82f6', query: 'nwr["shop"="mall"]{{GEO}};', max: 5, img: null },
+            { id: 'colegios', title: 'Colegios y Liceos', em: '🎓', col: '#a855f7', query: 'nwr["amenity"="school"]{{GEO}};', max: 10, img: null },
+            { id: 'universidades', title: 'Universidades e Institutos', em: '🏛️', col: '#6366f1', query: 'nwr["amenity"="university"]{{GEO}};', max: 5, img: null },
+            { id: 'jardin_infantil', title: 'Jardines Infantiles / Sala Cuna', em: '🧸', col: '#ec4899', query: 'nwr["amenity"="kindergarten"]{{GEO}};', max: 8, img: null },
+            { id: 'salud', title: 'Salud y Clínicas', em: '🏥', col: '#06b6d4', query: 'nwr["amenity"="hospital"]{{GEO}};nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="pharmacy"]{{GEO}};', max: 15, img: null },
+            { id: 'seguridad', title: 'Seguridad y Policía', em: '🚓', col: '#ef4444', query: 'nwr["amenity"="police"]{{GEO}};', max: 5, img: null },
+            { id: 'bomberos', title: 'Bomberos', em: '🚒', col: '#f43f5e', query: 'nwr["amenity"="fire_station"]{{GEO}};', max: 4, img: null },
+            { id: 'cultura', title: 'Cine, Teatro y Museos', em: '🎭', col: '#eab308', query: 'nwr["amenity"="cinema"]{{GEO}};nwr["amenity"="theatre"]{{GEO}};nwr["tourism"="museum"]{{GEO}};', max: 8, img: null },
+            { id: 'paraderos', title: 'Paraderos de Micro / Buses', em: '🚏', col: '#64748b', query: 'nwr["highway"="bus_stop"]{{GEO}};', max: 20, img: null },
+            { id: 'finanzas', title: 'Bancos y Notarías', em: '🏦', col: '#10b981', query: 'nwr["amenity"="bank"]{{GEO}};nwr["amenity"="atm"]{{GEO}};', max: 10, img: null },
+            { id: 'deporte', title: 'Centros Deportivos', em: '🏋️', col: '#f97316', query: 'nwr["leisure"="sports_centre"]{{GEO}};nwr["leisure"="fitness_centre"]{{GEO}};', max: 10, img: null },
+            { id: 'parques', title: 'Parques y Plazas', em: '🌳', col: '#10b981', query: 'nwr["leisure"="park"]{{GEO}};', max: 10, img: null }
+        ];
+
+        let coordenadasOrigen = null;
+        let nombreUbicacionActual = "Punto de Estudio";
+        let listaBitacoraMemoria = [];
+        let listaKMZMemoria = [];
+        let cacheUltimoAnalisisExportable = [];
+        let elementosMapeadosActivos = {};
+        let esVisibleAreaVisualGlobal = true;
+        let esVisibleLineasRutaGlobal = true;
+        let controlesRuteoActivos = [];
+
+        const ENDPOINTS_OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://lz4.overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+
+        // SEGURIDAD: los nombres de lugares vienen de OpenStreetMap, una base de datos editable
+        // por cualquier persona. Antes de insertarlos en el HTML (popups, listas de resultados),
+        // se escapan para evitar que un nombre malicioso ejecute código en la página (XSS).
+        function escaparHTML(texto) {
+            if (texto === null || texto === undefined) return "";
+            const div = document.createElement('div');
+            div.textContent = String(texto);
+            return div.innerHTML;
+        }
+
+        let analisisEnProgreso = false;
+
+        function toggleLeftSidebar() {
+            const panel = document.getElementById('control-panel');
+            const btn = document.getElementById('toggle-left-btn');
+            panel.classList.toggle('hidden-sidebar');
+            btn.innerText = panel.classList.contains('hidden-sidebar') ? "▶" : "◀";
+            if (panel.classList.contains('hidden-sidebar')) btn.classList.add('collapsed'); else btn.classList.remove('collapsed');
+        }
+
+        function toggleRightSidebar() {
+            const panel = document.getElementById('results-panel');
+            const btn = document.getElementById('toggle-right-btn');
+            panel.classList.toggle('hidden-sidebar');
+            btn.innerText = panel.classList.contains('hidden-sidebar') ? "◀" : "▶";
+            if (panel.classList.contains('hidden-sidebar')) btn.classList.add('collapsed'); else btn.classList.remove('collapsed');
+        }
+
+        function toggleSection(cId, aId) {
+            const content = document.getElementById(cId); 
+            const arrow = document.getElementById(aId);
+            if(content) content.classList.toggle('collapsed');
+            if(arrow && content) arrow.innerText = content.classList.contains('collapsed') ? '▲' : '▼';
+        }
+
+        function conmutarVisibilidadAreaVisual(visible) {
+            esVisibleAreaVisualGlobal = visible;
+            if (areaInfluenciaCirculo) {
+                if (esVisibleAreaVisualGlobal) areaInfluenciaCirculo.addTo(map);
+                else map.removeLayer(areaInfluenciaCirculo);
+            }
+        }
+
+        function conmutarFiltroLinealCirculo(activo) {
+            if (radioCirculo) {
+                if (activo) radioCirculo.addTo(map);
+                else map.removeLayer(radioCirculo);
+            }
+        }
+
+        function conmutarVisibilidadLineasRuta(visible) {
+            esVisibleLineasRutaGlobal = visible;
+            let grosorEstilo = parseInt(document.getElementById('route-line-weight-slider').value) || 4;
+            let tipoEstilo = document.getElementById('route-line-style-select').value;
+            let nuevoDash = obtenerDashArrayPorEstiloHUD(tipoEstilo);
+
+            for (let uid in elementosMapeadosActivos) {
+                let item = elementosMapeadosActivos[uid];
+                if (item.lineaManual) {
+                    if (esVisibleLineasRutaGlobal) {
+                        item.lineaManual.setStyle({ opacity: 0.9, weight: grosorEstilo, dashArray: nuevoDash });
+                    } else {
+                        item.lineaManual.setStyle({ opacity: 0, weight: 0 });
+                    }
+                }
+            }
+        }
+
+        function conmutarTodosLosServiciosCheckbox(estado) {
+            CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                let checkbox = document.getElementById(`srv-${s.id}`);
+                if(checkbox) checkbox.checked = estado;
+            });
+        }
+
+        function obtenerDashArrayPorEstiloHUD(tipoEstilo) {
+            switch(tipoEstilo) {
+                case 'segmentada': return '8, 8';
+                case 'punteada': return '2, 5';
+                case 'guiones-largos': return '15, 10';
+                case 'mixta': return '12, 5, 2, 5';
+                case 'continua':
+                default: return null;
+            }
+        }
+
+        function redibujarEstilosLineasExistentesActivas() {
+            if (!document.getElementById('toggle-rutas-visibles').checked) return;
+            let tipoEstilo = document.getElementById('route-line-style-select').value;
+            let grosorEstilo = parseInt(document.getElementById('route-line-weight-slider').value) || 4;
+            let nuevoDash = obtenerDashArrayPorEstiloHUD(tipoEstilo);
+
+            for (let uid in elementosMapeadosActivos) {
+                let item = elementosMapeadosActivos[uid];
+                if (item.lineaManual) {
+                    item.lineaManual.setStyle({ weight: grosorEstilo, dashArray: nuevoDash, opacity: 0.9 });
+                }
+            }
+        }
+
+        const capaMapaCalles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' });
+        const capaSateliteEsri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+
+        const map = L.map('map', { center: [-33.4372, -70.6152], zoom: 14, layers: [capaMapaCalles] });
+        
+        const capasBaseHUD = {
+            "Vista Mapa": capaMapaCalles,
+            "Vista Satélite": capaSateliteEsri
+        };
+        L.control.layers(capasBaseHUD, null, { position: 'topright' }).addTo(map);
+
+        let origenMarker = null, radioCirculo = null, areaInfluenciaCirculo = null;
+        let serviciosLayerGroup = L.layerGroup().addTo(map);
+        let capaGeometriasDibujadas = new L.FeatureGroup().addTo(map);
+
+        // --- TRAZADO MANUAL DE RUTA ---
+        // Le permite a la persona dibujar el camino real calle por calle cuando el motor de rutas
+        // automático (OSRM) elige un camino equivocado por datos incompletos de OpenStreetMap.
+        // La distancia se mide sumando los tramos reales del dibujo a escala real del mapa — el
+        // mismo principio que usa la herramienta "medir distancia" de Google Maps.
+        let modoTrazadoManualActivo = false;
+        let puntosTrazadoActual = [];
+        let lineaTrazadoTemporal = null;
+        let marcadoresPuntosTrazado = [];
+        let servicioObjetivoTrazado = null; // uid del servicio al que se está trazando, si se inició desde el panel
+
+        function hayAlgunTrazadoDisponible() {
+            return Object.values(elementosMapeadosActivos).some(it => it.trazadoManual && it.trazadoPuntos && it.trazadoPuntos.length > 1);
+        }
+
+        // Disparador desde el botón "✏️ Trazar" de cada ítem en el panel "Servicios Validados".
+        function iniciarTrazadoParaServicio(uid) {
+            if (!coordenadasOrigen) { alert("Primero fija un origen (dirección) antes de trazar una ruta."); return; }
+            servicioObjetivoTrazado = uid;
+            modoTrazadoManualActivo = true;
+            document.getElementById('btn-trazado-manual').innerText = '🔴 DESACTIVAR TRAZADO MANUAL';
+            map.getContainer().style.cursor = 'crosshair';
+
+            if (hayAlgunTrazadoDisponible()) {
+                mostrarBannerEleccionInicio();
+            } else {
+                comenzarTrazadoDesdeOrigen();
+            }
+        }
+
+        function activarModoTrazadoManual() {
+            if (modoTrazadoManualActivo) {
+                // Ya está activo: en vez de apagarlo (lo que confundía al intentar pasar al
+                // siguiente servicio), se muestra de nuevo el punto de partida para encadenar
+                // otro recorrido. Para salir del modo de verdad, se usa el botón "Salir" del panel.
+                if (hayAlgunTrazadoDisponible()) {
+                    mostrarBannerEleccionInicio();
+                } else {
+                    comenzarTrazadoDesdeOrigen();
+                }
+                return;
+            }
+            if (!coordenadasOrigen) { alert("Primero fija un origen (dirección) antes de trazar una ruta."); return; }
+            servicioObjetivoTrazado = null;
+            modoTrazadoManualActivo = true;
+            document.getElementById('btn-trazado-manual').innerText = '🔴 DESACTIVAR TRAZADO MANUAL';
+            map.getContainer().style.cursor = 'crosshair';
+
+            if (hayAlgunTrazadoDisponible()) {
+                mostrarBannerEleccionInicio();
+            } else {
+                comenzarTrazadoDesdeOrigen();
+            }
+        }
+
+        function mostrarBannerEleccionInicio() {
+            let banner = document.getElementById('banner-trazado-manual');
+            banner.style.display = 'block';
+
+            // Se listan TODOS los servicios ya trazados (no solo el último) como posibles puntos
+            // de partida, ya que cualquiera de ellos puede compartir tramo de calle con el próximo.
+            let trazadosDisponibles = Object.entries(elementosMapeadosActivos)
+                .filter(([uid, it]) => it.trazadoManual && it.trazadoPuntos && it.trazadoPuntos.length > 1);
+
+            let botonesContinuar = trazadosDisponibles.map(([uid, it]) => 
+                `<button style="width:100%; text-align:left; background:#0369a1; color:#fff; border:none; padding:7px 10px; border-radius:4px; font-size:11px; cursor:pointer; margin-bottom:5px;" onclick="comenzarTrazadoContinuandoDesde('${uid}')">↳ Desde "${escaparHTML(it.name)}" (${it.distance} m)</button>`
+            ).join('');
+
+            banner.innerHTML = `
+                <b>¿Desde dónde parte este recorrido?</b>
+                <div style="margin-top:8px; max-height:160px; overflow-y:auto;">
+                    ${botonesContinuar || '<div style="font-size:10.5px; opacity:0.7;">Aún no hay trazados anteriores para continuar.</div>'}
+                </div>
+                <button style="width:100%; margin-top:6px; background:#334155; color:#fff; border:none; padding:8px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="comenzarTrazadoDesdeOrigen()">Empezar desde el origen</button>
+                <div style="margin-top:6px; font-size:10.5px; opacity:0.8;">Útil cuando varios servicios comparten el mismo tramo de calle ya dibujado.</div>
+                <button style="width:100%; margin-top:8px; background:#dc2626; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="cancelarTrazadoManual()">Salir del modo trazado</button>
+            `;
+        }
+
+        function comenzarTrazadoContinuandoDesde(uidBase) {
+            let base = elementosMapeadosActivos[uidBase];
+            if (!base || !base.trazadoPuntos) { comenzarTrazadoDesdeOrigen(); return; }
+            limpiarVisualesTrazadoTemporal();
+            puntosTrazadoActual = base.trazadoPuntos.map(p => L.latLng(p.lat, p.lng));
+            marcadoresPuntosTrazado = puntosTrazadoActual.slice(1).map(p =>
+                L.circleMarker(p, { radius: 4, color: '#38bdf8', fillColor: '#fff', fillOpacity: 1, weight: 2 }).addTo(map)
+            );
+            redibujarLineaTrazadoTemporal();
+            mostrarBannerTrazadoActivo();
+        }
+
+        function comenzarTrazadoDesdeOrigen() {
+            limpiarVisualesTrazadoTemporal();
+            puntosTrazadoActual = [L.latLng(coordenadasOrigen.lat, coordenadasOrigen.lng)];
+            redibujarLineaTrazadoTemporal();
+            mostrarBannerTrazadoActivo();
+        }
+
+        function mostrarBannerTrazadoActivo() {
+            let banner = document.getElementById('banner-trazado-manual');
+            banner.style.display = 'block';
+            let item = servicioObjetivoTrazado ? elementosMapeadosActivos[servicioObjetivoTrazado] : null;
+            let botonFinalizarDirecto = item
+                ? `<button style="width:100%; margin-top:6px; background:#16a34a; color:#fff; border:none; padding:8px; border-radius:4px; font-size:11px; font-weight:700; cursor:pointer;" onclick="finalizarTrazadoManualSobreServicio('${servicioObjetivoTrazado}')">✅ Finalizar en "${escaparHTML(item.name)}"</button>`
+                : '';
+            banner.innerHTML = `
+                <b>Modo trazado activo${item ? ' → ' + escaparHTML(item.name) : ''}:</b> haz clic en el mapa siguiendo la calle real${item ? '' : '. Termina haciendo clic directo sobre el ícono del servicio correcto'}.
+                ${botonFinalizarDirecto}
+                <div style="margin-top:8px; display:flex; gap:6px;">
+                    <button style="flex:1; background:#dc2626; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="cancelarTrazadoManual()">Salir</button>
+                    <button style="flex:1; background:#334155; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="deshacerUltimoPuntoTrazado()">Deshacer último punto</button>
+                </div>
+            `;
+        }
+
+        function limpiarVisualesTrazadoTemporal() {
+            puntosTrazadoActual = [];
+            if (lineaTrazadoTemporal) { map.removeLayer(lineaTrazadoTemporal); lineaTrazadoTemporal = null; }
+            marcadoresPuntosTrazado.forEach(m => map.removeLayer(m));
+            marcadoresPuntosTrazado = [];
+        }
+
+        function cancelarTrazadoManual() {
+            modoTrazadoManualActivo = false;
+            servicioObjetivoTrazado = null;
+            limpiarVisualesTrazadoTemporal();
+            document.getElementById('banner-trazado-manual').style.display = 'none';
+            map.getContainer().style.cursor = '';
+            document.getElementById('btn-trazado-manual').innerText = '✏️ TRAZAR RUTA MANUAL A UN SERVICIO';
+        }
+
+        function deshacerUltimoPuntoTrazado() {
+            if (puntosTrazadoActual.length > 1) {
+                puntosTrazadoActual.pop();
+                let ultimoMarcador = marcadoresPuntosTrazado.pop();
+                if (ultimoMarcador) map.removeLayer(ultimoMarcador);
+                redibujarLineaTrazadoTemporal();
+            }
+        }
+
+        function redibujarLineaTrazadoTemporal() {
+            if (lineaTrazadoTemporal) map.removeLayer(lineaTrazadoTemporal);
+            lineaTrazadoTemporal = L.polyline(puntosTrazadoActual, { color: '#38bdf8', weight: 4, dashArray: '2,8' }).addTo(map);
+        }
+
+        // Suma la distancia real (en metros) de una sucesión de puntos lat/lng, tramo por tramo,
+        // usando la misma función de distancia geográfica que usa Leaflet para todo lo demás.
+        function sumarDistanciaDeTrazado(puntos) {
+            let total = 0;
+            for (let i = 1; i < puntos.length; i++) {
+                total += map.distance(puntos[i - 1], puntos[i]);
+            }
+            return Math.round(total);
+        }
+
+        function finalizarTrazadoManualSobreServicio(uid) {
+            if (!modoTrazadoManualActivo) return;
+            let item = elementosMapeadosActivos[uid];
+            if (!item) return;
+
+            let puntosFinales = puntosTrazadoActual.concat([L.latLng(item.lat, item.lng)]);
+            let distanciaMedida = sumarDistanciaDeTrazado(puntosFinales);
+            // Velocidad de referencia ~5 km/h (1.39 m/s), un estándar habitual de referencia peatonal.
+            let tiempoEstimado = Math.round(distanciaMedida / 1.39);
+
+            // Si ya existía un trazado anterior para este mismo servicio, se reemplaza por el nuevo.
+            if (item.lineaManual) { serviciosLayerGroup.removeLayer(item.lineaManual); }
+
+            let colorServicio = targetColorInput(item.catId);
+            let grosorActual = parseInt(document.getElementById('route-line-weight-slider').value) || 4;
+            let lineasVisiblesAhora = document.getElementById('toggle-rutas-visibles').checked;
+            let lineaManualDefinitiva = L.polyline(puntosFinales, {
+                color: colorServicio,
+                weight: lineasVisiblesAhora ? grosorActual : 0,
+                opacity: lineasVisiblesAhora ? 0.9 : 0
+            }).addTo(serviciosLayerGroup);
+
+            item.distance = distanciaMedida;
+            item.tiempo = tiempoEstimado;
+            item.trazadoManual = true;
+            item.lineaManual = lineaManualDefinitiva;
+            item.trazadoPuntos = puntosFinales; // Se guarda completo para poder reusarlo después
+
+            item.marker.setPopupContent(`<b>${escaparHTML(item.name)}</b><br>📏 ${distanciaMedida} m · 🚶 ${formatoTiempoCaminando(tiempoEstimado)} <span style="color:#38bdf8;">trazado manual</span>`);
+
+            // Se sigue en modo trazado para encadenar varios recorridos sin tener que activar el
+            // botón de nuevo cada vez; el propio trazadoPuntos guardado arriba queda disponible
+            // como punto de partida para cualquier servicio futuro.
+            servicioObjetivoTrazado = null;
+            limpiarVisualesTrazadoTemporal();
+            rebuildPanelResultadosAcumulado();
+            mostrarBannerEleccionInicio();
+        }
+
+        map.on('click', function(e) {
+            if (!modoTrazadoManualActivo) return;
+            puntosTrazadoActual.push(e.latlng);
+            let punto = L.circleMarker(e.latlng, { radius: 4, color: '#38bdf8', fillColor: '#fff', fillOpacity: 1, weight: 2 }).addTo(map);
+            marcadoresPuntosTrazado.push(punto);
+            redibujarLineaTrazadoTemporal();
+        });
+
+        let drawControl = new L.Control.Draw({
+            position: 'topleft',
+            draw: { polygon: true, rectangle: true, polyline: false, circle: false, circlemarker: false, marker: false },
+            edit: { featureGroup: capaGeometriasDibujadas, remove: true }
+        });
+        map.addControl(drawControl);
+
+        map.on(L.Draw.Event.CREATED, function (e) {
+            let layer = e.layer; 
+            capaGeometriasDibujadas.addLayer(layer);
+            if (layer instanceof L.Polygon) {
+                let latlngs = layer.getLatLngs()[0];
+                let area = L.GeometryUtil.geodesicArea(latlngs);
+                let txt = area >= 10000 ? `${(area / 10000).toFixed(2)} ha` : `${Math.round(area).toLocaleString()} m²`;
+                layer.bindTooltip(txt, { permanent: true, direction: 'center', className: 'hud-area-tooltip' }).addTo(map);
+            }
+        });
+
+        function reescalarIconosSimultaneamente(sizePx) {
+            let sizeDinamico = parseInt(sizePx) || 30;
+            let halfSize = Math.floor(sizeDinamico / 2);
+
+            for (let uid in elementosMapeadosActivos) {
+                let item = elementosMapeadosActivos[uid];
+                let m = item.marker;
+                
+                if (m) {
+                    let nuevoIcono;
+                    if(item.img) {
+                        nuevoIcono = L.divIcon({ 
+                            className: 'custom-hud-icon', 
+                            html: `<img src="${item.img}">`, 
+                            iconSize: [sizeDinamico, sizeDinamico], 
+                            iconAnchor: [halfSize, halfSize] 
+                        });
+                    } else {
+                        nuevoIcono = L.divIcon({ 
+                            className: 'custom-hud-icon', 
+                            html: `<span style="font-size:${Math.floor(sizeDinamico * 0.48)}px;">${item.em}</span>`, 
+                            iconSize: [sizeDinamico, sizeDinamico], 
+                            iconAnchor: [halfSize, halfSize] 
+                        });
+                    }
+                    m.setIcon(nuevoIcono);
+                }
+            }
+        }
+
+        function persistirConfiguracionGlobalEnStorage() {
+            let configMapas = {
+                radius: document.getElementById('search-radius').value,
+                linealFilterActive: document.getElementById('toggle-lineal-filter').checked,
+                walkRadius: document.getElementById('walk-filter-radius').value,
+                walkFilterActive: document.getElementById('toggle-walk-filter').checked,
+                iconSizeGlobal: document.getElementById('global-icon-size-slider').value,
+                cBorder: document.getElementById('capture-border-color').value,
+                cWeight: document.getElementById('capture-border-weight').value,
+                cOpacity: document.getElementById('capture-border-opacity').value,
+                visArea: document.getElementById('circle-toggle-visibility').checked,
+                rArea: document.getElementById('circle-size-slider').value,
+                colArea: document.getElementById('circle-color-picker').value,
+                wArea: document.getElementById('circle-weight-slider').value,
+                opArea: document.getElementById('circle-opacity-slider').value,
+                visLines: document.getElementById('toggle-rutas-visibles').checked,
+                routeLineStyle: document.getElementById('route-line-style-select').value,
+                routeLineWeight: document.getElementById('route-line-weight-slider').value
+            };
+            try {
+                localStorage.setItem('hud_config_mapas', JSON.stringify(configMapas));
+                localStorage.setItem('hud_servicios', JSON.stringify(CONFIG_SERVICIOS_PREDEFINIDOS));
+            } catch (e) {
+                // Suele ocurrir cuando se suben varios íconos personalizados como imagen y
+                // se supera el límite de almacenamiento local del navegador (~5-10MB).
+                console.error('No se pudo guardar la configuración localmente:', e);
+                alert('No se pudo guardar la configuración: el almacenamiento del navegador está lleno (probablemente por íconos personalizados muy grandes o muy numerosos). Prueba con imágenes más livianas.');
+            }
+        }
+
+        function recuperarConfiguracionGlobalStorage() {
+          try {
+            let cfg = localStorage.getItem('hud_config_mapas');
+            if(cfg) {
+                let o = JSON.parse(cfg);
+                document.getElementById('search-radius').value = o.radius;
+                document.getElementById('radius-val-display').innerText = o.radius + " m";
+                
+                if (o.linealFilterActive !== undefined) document.getElementById('toggle-lineal-filter').checked = o.linealFilterActive;
+                if (o.walkFilterActive !== undefined) document.getElementById('toggle-walk-filter').checked = o.walkFilterActive;
+
+                if(o.walkRadius) {
+                    document.getElementById('walk-filter-radius').value = o.walkRadius;
+                    document.getElementById('walk-radius-val-display').innerText = o.walkRadius + " m";
+                }
+                
+                if(o.iconSizeGlobal) {
+                    document.getElementById('global-icon-size-slider').value = o.iconSizeGlobal;
+                    document.getElementById('global-icon-size-display').innerText = o.iconSizeGlobal + "px";
+                }
+                
+                document.getElementById('capture-border-color').value = o.cBorder;
+                document.getElementById('capture-border-weight').value = o.cWeight;
+                document.getElementById('capture-border-opacity').value = o.cOpacity;
+                document.getElementById('circle-size-slider').value = o.rArea;
+                document.getElementById('circle-size-display').innerText = o.rArea + " m";
+                document.getElementById('circle-color-picker').value = o.colArea;
+                document.getElementById('circle-weight-slider').value = o.wArea;
+                document.getElementById('circle-opacity-slider').value = o.opArea;
+                // Este interruptor ahora controla la visibilidad de tus TRAZADOS MANUALES (las
+                // líneas automáticas ya no existen). Se deja siempre encendido por defecto al abrir
+                // la app, ya que son recorridos que tú dibujaste a propósito.
+                document.getElementById('toggle-rutas-visibles').checked = true;
+                esVisibleLineasRutaGlobal = true;
+                
+                if(o.routeLineStyle) document.getElementById('route-line-style-select').value = o.routeLineStyle;
+                if(o.routeLineWeight) {
+                    document.getElementById('route-line-weight-slider').value = o.routeLineWeight;
+                    document.getElementById('route-weight-display').innerText = o.routeLineWeight + "px";
+                }
+
+                esVisibleAreaVisualGlobal = (typeof o.visArea === 'boolean') ? o.visArea : true;
+                document.getElementById('circle-toggle-visibility').checked = esVisibleAreaVisualGlobal;
+            }
+            let srvs = localStorage.getItem('hud_servicios');
+            if(srvs) { 
+                CONFIG_SERVICIOS_PREDEFINIDOS = JSON.parse(srvs);
+            }
+            
+            let bit = localStorage.getItem('hud_bitacora');
+            if(bit) { listaBitacoraMemoria = JSON.parse(bit); renderizarBitacora(); }
+          } catch (e) {
+            // Datos guardados corruptos o incompatibles: se ignoran y la app sigue con sus valores
+            // por defecto, en vez de quedar rota sin cargar.
+            console.error('Configuración guardada corrupta, se ignoró:', e);
+          }
+        }
+
+        function renderizarEstructuraServiciosFijos() {
+            const container = document.getElementById('dynamic-services-container');
+            container.innerHTML = "";
+            CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                let block = document.createElement('div');
+                block.className = 'servicio-container-block';
+                block.innerHTML = `
+                    <div class="servicio-row">
+                        <div class="servicio-control-left">
+                            <input type="checkbox" id="srv-${s.id}" checked>
+                            <strong>${s.title}</strong>
+                        </div>
+                        <div class="servicio-picker-right">
+                            <div id="prev-${s.id}" class="preview-img-frame">${s.img ? `<img src="${s.img}">` : s.em}</div>
+                            <input type="color" id="ico-col-${s.id}" class="picker-color" value="${s.col}" oninput="actualizarColorServicioMemoria('${s.id}', this.value)">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 8px; align-items: center; justify-content: space-between;">
+                        <div style="width: 48%;">
+                            <label style="font-size:9px; margin-bottom:2px;">Cant. Máx</label>
+                            <input type="number" id="srv-max-${s.id}" value="${s.max}" min="1" max="100" style="padding:4px 6px; font-size:11px;" oninput="actualizarCantidadMaxServicioMemoria('${s.id}', this.value)">
+                        </div>
+                        <div style="width: 48%; text-align: right;">
+                            <label style="font-size:9px; margin-bottom:2px;">Icono Fichero</label>
+                            <label class="upload-icon-label" for="file-icon-${s.id}" style="margin-top:2px; width: 100%; text-align:center;">Subir Imagen</label>
+                            <input type="file" id="file-icon-${s.id}" accept="image/*" style="display:none;" onchange="procesarIconoSubido('${s.id}', this)">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(block);
+            });
+        }
+
+        function actualizarColorServicioMemoria(id, value) {
+            let target = CONFIG_SERVICIOS_PREDEFINIDOS.find(s => s.id === id);
+            if(target) { target.col = value; persistirConfiguracionGlobalEnStorage(); }
+        }
+
+        function actualizarCantidadMaxServicioMemoria(id, value) {
+            let target = CONFIG_SERVICIOS_PREDEFINIDOS.find(s => s.id === id);
+            if(target) { target.max = parseInt(value) || 10; persistirConfiguracionGlobalEnStorage(); }
+        }
+
+        function procesarIconoSubido(id, input) {
+            if (input.files && input.files[0]) {
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    let target = CONFIG_SERVICIOS_PREDEFINIDOS.find(s => s.id === id);
+                    if(target) {
+                        target.img = e.target.result;
+                        document.getElementById(`prev-${id}`).innerHTML = `<img src="${e.target.result}">`;
+                        persistirConfiguracionGlobalEnStorage();
+                    }
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function registrarNuevoServicioHUD() {
+            let name = document.getElementById('new-srv-name').value.trim();
+            let query = document.getElementById('new-srv-query').value.trim();
+            let emoji = document.getElementById('new-srv-emoji').value.trim() || "📍";
+            let color = document.getElementById('new-srv-color').value;
+
+            if(!name || !query) return alert("Ingrese el nombre y la query estructurada de Overpass.");
+            let id = "custom_" + Date.now();
+            CONFIG_SERVICIOS_PREDEFINIDOS.push({ id, title: name, em: emoji, col: color, query: query, max: 10, img: null });
+            
+            document.getElementById('new-srv-name').value = "";
+            document.getElementById('new-srv-query').value = "";
+            document.getElementById('new-srv-emoji').value = "";
+            
+            persistirConfiguracionGlobalEnStorage();
+            renderizarEstructuraServiciosFijos();
+        }
+
+        map.on('contextmenu', function(e) {
+            nombreUbicacionActual = `Coordenadas: ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+            document.getElementById('address-input').value = nombreUbicacionActual;
+            establecerPuntoOrigen(e.latlng, nombreUbicacionActual);
+        });
+
+        function limpiarControlesRuteoExistentes() {
+            controlesRuteoActivos.forEach(control => {
+                map.removeLayer(control);
+            });
+            controlesRuteoActivos = [];
+        }
+
+        function establecerPuntoOrigen(latlng, name) {
+            coordenadasOrigen = { lat: latlng.lat, lng: latlng.lng };
+            if(origenMarker) map.removeLayer(origenMarker); 
+            if(radioCirculo) map.removeLayer(radioCirculo); 
+            if(areaInfluenciaCirculo) map.removeLayer(areaInfluenciaCirculo);
+            
+            serviciosLayerGroup.clearLayers(); 
+            limpiarControlesRuteoExistentes();
+            elementosMapeadosActivos = {};
+            
+            origenMarker = L.marker(latlng).addTo(map).bindPopup(`<b>${escaparHTML(name)}</b>`).openPopup();
+            actualizarFisicamenteTodosLosVectores();
+            
+            let currentZoom = map.getZoom();
+            map.setView(latlng, currentZoom);
+        }
+
+        function cambiarRadioCapturaDesdeSlider(m) { 
+            if(radioCirculo) radioCirculo.setRadius(parseInt(m)); 
+        }
+
+        function actualizarEstiloRadioCaptura() { 
+            if(radioCirculo) {
+                let color = document.getElementById('capture-border-color').value;
+                let weight = parseInt(document.getElementById('capture-border-weight').value);
+                let opacity = parseFloat(document.getElementById('capture-border-opacity').value);
+                radioCirculo.setStyle({ color: color, weight: weight, opacity: opacity });
+            }
+        }
+
+        function refrescarAtributosCirculo() {
+            if(areaInfluenciaCirculo) {
+                let rVis = parseInt(document.getElementById('circle-size-slider').value);
+                let colFondoVis = document.getElementById('circle-color-picker').value;
+                let weight = parseInt(document.getElementById('circle-weight-slider').value);
+                let opFondo = parseFloat(document.getElementById('circle-opacity-slider').value);
+
+                areaInfluenciaCirculo.setRadius(rVis);
+                areaInfluenciaCirculo.setStyle({ fillColor: colFondoVis, fillOpacity: opFondo, color: colFondoVis, weight: weight });
+            }
+        }
+
+        function actualizarFisicamenteTodosLosVectores() {
+            if(!coordenadasOrigen) return;
+            let radioMetros = parseInt(document.getElementById('search-radius').value);
+            let colorBorde = document.getElementById('capture-border-color').value;
+            let weightBorde = parseInt(document.getElementById('capture-border-weight').value);
+            let opacityBorde = parseFloat(document.getElementById('capture-border-opacity').value);
+
+            radioCirculo = L.circle([coordenadasOrigen.lat, coordenadasOrigen.lng], { 
+                color: colorBorde, fillColor: '#2e3545', fillOpacity: 0.03, weight: weightBorde, opacity: opacityBorde, radius: radioMetros 
+            });
+            
+            if (document.getElementById('toggle-lineal-filter').checked) {
+                radioCirculo.addTo(map);
+            }
+
+            let rVis = parseInt(document.getElementById('circle-size-slider').value);
+            let colFondoVis = document.getElementById('circle-color-picker').value;
+            let weightVis = parseInt(document.getElementById('circle-weight-slider').value);
+            let opFondoVis = parseFloat(document.getElementById('circle-opacity-slider').value);
+
+            areaInfluenciaCirculo = L.circle([coordenadasOrigen.lat, coordenadasOrigen.lng], { 
+                radius: rVis, fillColor: colFondoVis, fillOpacity: opFondoVis, color: colFondoVis, weight: weightVis 
+            });
+            if (esVisibleAreaVisualGlobal) areaInfluenciaCirculo.addTo(map);
+        }
+
+        document.getElementById('btn-buscar-direccion').addEventListener('click', function() {
+            let q = document.getElementById('address-input').value; if(!q) return;
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ", Chile")}`).then(res => res.json()).then(d => {
+                if(d && d.length > 0) establecerPuntoOrigen(L.latLng(parseFloat(d[0].lat), parseFloat(d[0].lon)), d[0].display_name);
+            });
+        });
+
+        document.getElementById('btn-analizar').addEventListener('click', function() {
+            if(!coordenadasOrigen) return alert("Fije un origen mediante clic derecho o escriba una dirección.");
+
+            // Evita que un segundo clic mientras el análisis anterior sigue en curso
+            // mezcle resultados de dos análisis distintos.
+            if(analisisEnProgreso) return;
+            
+            let linealFiltroActivo = document.getElementById('toggle-lineal-filter').checked;
+            let walkFiltroActivo = document.getElementById('toggle-walk-filter').checked;
+
+            if(!linealFiltroActivo && !walkFiltroActivo) {
+                return alert("Debe tener al menos uno de los dos filtros activados para procesar la información.");
+            }
+
+            analisisEnProgreso = true;
+            let btnAnalizar = document.getElementById('btn-analizar');
+            btnAnalizar.disabled = true;
+            btnAnalizar.style.opacity = '0.6';
+            btnAnalizar.style.cursor = 'not-allowed';
+
+            serviciosLayerGroup.clearLayers(); 
+            limpiarControlesRuteoExistentes();
+            elementosMapeadosActivos = {};
+            document.getElementById('loading').style.display = 'block';
+
+            // Contador visible de segundos transcurridos, para que quede claro que la búsqueda
+            // sigue intentando (no que la app se congeló) mientras se espera la respuesta.
+            let segundosTranscurridos = 0;
+            document.getElementById('loading-segundos').innerText = '0';
+            if (window.intervaloContadorBusqueda) clearInterval(window.intervaloContadorBusqueda);
+            window.intervaloContadorBusqueda = setInterval(() => {
+                segundosTranscurridos++;
+                let elSeg = document.getElementById('loading-segundos');
+                if (elSeg) elSeg.innerText = segundosTranscurridos;
+            }, 1000);
+
+            let rMaxLineal = parseInt(document.getElementById('search-radius').value);
+            let rMaxWalk = parseInt(document.getElementById('walk-filter-radius').value);
+
+            // CORRECCIÓN: si ambos filtros están activos, se debe consultar con el radio MAYOR
+            // de los dos, porque la distancia caminando siempre es >= a la distancia en línea recta.
+            // Antes se usaba solo rMaxLineal, lo que descartaba servicios válidos que caminando
+            // quedaban dentro del rango pero en línea recta parecían estar más lejos.
+            let radioConsultaOverpass;
+            if (linealFiltroActivo && walkFiltroActivo) {
+                radioConsultaOverpass = Math.max(rMaxLineal, rMaxWalk);
+            } else if (linealFiltroActivo) {
+                radioConsultaOverpass = rMaxLineal;
+            } else {
+                radioConsultaOverpass = rMaxWalk;
+            }
+            // Ya no hace falta ampliar el radio un 50% extra: ese margen compensaba que la ruta
+            // caminando podía ser más larga que la línea recta cuando calculábamos todo
+            // automáticamente. Ahora el filtro es directamente en línea recta, así que se consulta
+            // exactamente el radio pedido — menos elementos que traer y procesar, más rápido.
+            let geoFiltro = `(around:${radioConsultaOverpass},${coordenadasOrigen.lat},${coordenadasOrigen.lng})`;
+
+            // VUELTA A LA VELOCIDAD ORIGINAL: se había separado esto en una consulta por categoría
+            // para que una categoría caída no bloqueara a las demás, pero con muchas categorías
+            // marcadas eso multiplicaba los viajes de ida y vuelta al servidor y se sentía lento.
+            // Se vuelve a UNA sola consulta combinada (como la versión original y más rápida),
+            // conservando igual los 3 servidores de respaldo por si la consulta completa falla.
+            let categoriasSeleccionadas = CONFIG_SERVICIOS_PREDEFINIDOS.filter(s => {
+                let checkObj = document.getElementById(`srv-${s.id}`);
+                return checkObj && checkObj.checked;
+            });
+
+            if(categoriasSeleccionadas.length === 0) {
+                document.getElementById('loading').style.display = 'none';
+                liberarBotonAnalizar();
+                return alert("Selecciona al menos una categoría de servicio para analizar.");
+            }
+
+            // Se usa "out center" (liviano) en vez de "out geom" (geometría completa): ya no hace
+            // falta la geometría detallada porque la distancia real ahora la mides tú trazando a
+            // mano. Esto reduce bastante el peso de la respuesta que hay que descargar y procesar,
+            // que era la única razón real para pedir la geometría completa.
+            let queryCombinada = `[out:json][timeout:25];\n(\n${categoriasSeleccionadas.map(s => s.query.replace(/{{GEO}}/g, geoFiltro)).join('\n')}\n);\nout center;`;
+
+            consultarCategoriaConReintentos(queryCombinada, "Estudio Urbano").then(res => {
+                if(!res || !res.ok) {
+                    document.getElementById('loading').style.display = 'none';
+                    liberarBotonAnalizar();
+                    alert("Los servidores públicos de Overpass no respondieron (están saturados o caídos en este momento, incluso tras reintentar automáticamente).\n\nEsto es una limitación del servicio gratuito, no un error de la app. Prueba:\n• Esperar 1-2 minutos y volver a intentar\n• Reducir el radio de búsqueda\n• Desmarcar categorías de servicios que no necesites");
+                    return;
+                }
+                // PROTECCIÓN: si algo falla procesando los resultados (incluso un error que no se
+                // haya detectado antes), esto asegura que la app NUNCA se quede "cargando" para
+                // siempre en silencio — se muestra el error real y se libera el botón.
+                try {
+                    procesarElementosFiltrosVariables(res.elements, rMaxLineal, linealFiltroActivo, rMaxWalk, walkFiltroActivo);
+                } catch (errProcesamiento) {
+                    console.error("Error procesando resultados de búsqueda:", errProcesamiento);
+                    document.getElementById('loading').style.display = 'none';
+                    liberarBotonAnalizar();
+                    alert("Ocurrió un error inesperado mostrando los resultados. Detalle técnico (revisa también la consola F12):\n\n" + errProcesamiento.message);
+                }
+            }).catch(errGeneral => {
+                console.error("Error inesperado en la búsqueda:", errGeneral);
+                document.getElementById('loading').style.display = 'none';
+                liberarBotonAnalizar();
+                alert("Ocurrió un error inesperado durante la búsqueda. Detalle técnico (revisa también la consola F12):\n\n" + errGeneral.message);
+            });
+        });
+
+        // Intenta obtener los datos de una categoría probando los 3 servidores de Overpass.
+        // Si ninguno responde en la primera vuelta, espera un momento y hace UNA vuelta más
+        // completa antes de dar la categoría por perdida (hasta 6 intentos en total).
+        // El servidor puede recibir la orden de "rendirse a los 25 segundos", pero si la conexión
+        // se cae o el servidor no responde absolutamente nada, el navegador puede quedar esperando
+        // mucho más tiempo por su cuenta. Esta función corta la espera de forma forzada después de
+        // "msMax" milisegundos, para que los reintentos avancen rápido en vez de quedar colgados.
+        function fetchConTiempoMaximo(url, opciones, msMax) {
+            let controlador = new AbortController();
+            let temporizador = setTimeout(() => controlador.abort(), msMax);
+            return fetch(url, Object.assign({}, opciones, { signal: controlador.signal }))
+                .finally(() => clearTimeout(temporizador));
+        }
+
+        function consultarCategoriaConReintentos(query, categoriaTitulo) {
+            function intentarEndpoint(endpointIdx) {
+                if(endpointIdx >= ENDPOINTS_OVERPASS.length) {
+                    return { ok: false, elements: [], title: categoriaTitulo };
+                }
+                // El cliente debe esperar MÁS que el timeout que le pedimos al servidor (25s),
+                // nunca menos — si se corta antes, se aborta una consulta que quizás sí iba a
+                // responder bien, solo un poco lenta, y eso obliga a reintentar sin necesidad.
+                return fetchConTiempoMaximo(ENDPOINTS_OVERPASS[endpointIdx] + '?data=' + encodeURIComponent(query), { method: 'GET' }, 30000)
+                    .then(res => {
+                        if(!res.ok) {
+                            return res.text().then(txt => {
+                                console.error(`Overpass [${ENDPOINTS_OVERPASS[endpointIdx]}] (${categoriaTitulo}) respondió ${res.status}: ${txt.slice(0,200)}`);
+                                throw new Error(`HTTP ${res.status}`);
+                            });
+                        }
+                        return res.json();
+                    })
+                    .then(json => ({ ok: true, elements: json.elements || [], title: categoriaTitulo }))
+                    .catch(err => {
+                        console.error(`Fallo consultando ${ENDPOINTS_OVERPASS[endpointIdx]} para "${categoriaTitulo}":`, err);
+                        return intentarEndpoint(endpointIdx + 1);
+                    });
+            }
+            return intentarEndpoint(0);
+        }
+
+        // Ejecuta un arreglo de "tareas" (funciones que devuelven una promesa) permitiendo
+        // solo un número limitado en simultáneo, en vez de lanzar todas a la vez con Promise.all.
+        // Esto evita saturar el servidor gratuito de OSRM cuando hay muchos servicios que calcular
+        // (por ejemplo, decenas de paraderos de micro), reduciendo el riesgo de bloqueos o respuestas
+        // incompletas por exceso de solicitudes simultáneas.
+        function ejecutarConPoolConcurrencia(tareas, limiteConcurrencia) {
+            return new Promise((resolve) => {
+                let resultados = new Array(tareas.length);
+                let siguienteIndice = 0;
+                let completadas = 0;
+
+                if (tareas.length === 0) { resolve(resultados); return; }
+
+                function lanzarSiguiente() {
+                    if (siguienteIndice >= tareas.length) return;
+                    let idxActual = siguienteIndice++;
+                    tareas[idxActual]()
+                        .then(r => { resultados[idxActual] = r; })
+                        .catch(() => { resultados[idxActual] = { valid: false }; })
+                        .finally(() => {
+                            completadas++;
+                            if (completadas === tareas.length) resolve(resultados);
+                            else lanzarSiguiente();
+                        });
+                }
+
+                let arranques = Math.min(limiteConcurrencia, tareas.length);
+                for (let i = 0; i < arranques; i++) lanzarSiguiente();
+            });
+        }
+
+        // Distancia euclidiana simple en grados (no en metros): solo sirve para COMPARAR qué punto
+        // está relativamente más cerca dentro del mismo elemento; la distancia real en metros se
+        // sigue calculando después con OSRM sobre el punto ya elegido.
+        function distanciaComparativa(lat1, lng1, lat2, lng2) {
+            let dLat = lat1 - lat2, dLng = lng1 - lng2;
+            return dLat * dLat + dLng * dLng;
+        }
+
+        // MEJORA DE PRECISIÓN AUTOMÁTICA: para elementos que son un área/polígono grande (por
+        // ejemplo, una estación de Metro combinada que ocupa varias cuadras), Overpass antes
+        // entregaba solo el "centro" geométrico de toda la forma, que puede caer lejos de
+        // cualquier punto real por el que se pueda entrar caminando. Ahora se pide la geometría
+        // completa (out geom) y aquí se recorre cada punto real del contorno (y de cada miembro,
+        // si es una relación que agrupa varias partes) para quedarse con el más cercano a la
+        // dirección de origen. Esto no requiere ninguna acción manual del usuario.
+        function obtenerPuntoMasCercano(el, origenLat, origenLng) {
+            if (el.type === 'node' && el.lat !== undefined && el.lon !== undefined) {
+                return { lat: el.lat, lng: el.lon };
+            }
+
+            let puntosCandidatos = [];
+
+            if (el.geometry && Array.isArray(el.geometry)) {
+                el.geometry.forEach(p => { if (p) puntosCandidatos.push({ lat: p.lat, lng: p.lon }); });
+            }
+
+            if (el.members && Array.isArray(el.members)) {
+                el.members.forEach(miembro => {
+                    if (miembro.lat !== undefined && miembro.lon !== undefined) {
+                        puntosCandidatos.push({ lat: miembro.lat, lng: miembro.lon });
+                    }
+                    if (miembro.geometry && Array.isArray(miembro.geometry)) {
+                        miembro.geometry.forEach(p => { if (p) puntosCandidatos.push({ lat: p.lat, lng: p.lon }); });
+                    }
+                });
+            }
+
+            if (puntosCandidatos.length === 0) {
+                // Sin geometría detallada disponible (respaldo por si Overpass no la entregó):
+                // se usa el centro de la forma, que sigue siendo mejor que no tener nada.
+                if (el.center) return { lat: el.center.lat, lng: el.center.lon };
+                return null;
+            }
+
+            let mejor = puntosCandidatos[0];
+            let mejorDist = distanciaComparativa(origenLat, origenLng, mejor.lat, mejor.lng);
+            for (let i = 1; i < puntosCandidatos.length; i++) {
+                let d = distanciaComparativa(origenLat, origenLng, puntosCandidatos[i].lat, puntosCandidatos[i].lng);
+                if (d < mejorDist) { mejorDist = d; mejor = puntosCandidatos[i]; }
+            }
+            return mejor;
+        }
+
+        // CAPA AUTOMÁTICA ADICIONAL: para los resultados que quedaron marcados como "sospechosos"
+        // (ruta a pie desproporcionadamente más larga que la línea recta), se hace una búsqueda
+        // adicional, chica y liviana, de puntos de acceso reales (entradas, andenes, etc.) cerca
+        // del punto ya encontrado. Si se halla uno que reduzca claramente la distancia, se reemplaza
+        // automáticamente y se marca como "auto-corregido" — sin pedirle nada al usuario.
+        function refinarResultadosSospechosos(items) {
+            // DESACTIVADO POR DECISIÓN: esta revisión extra (una consulta adicional a Overpass +
+            // otra a OSRM por cada resultado sospechoso) daba más precisión automática, pero a
+            // costa de tiempo real de espera — justo lo que se decidió priorizar en contra. La
+            // bandera "⚠️ revisar ubicación" sigue funcionando igual, así que nada queda oculto:
+            // simplemente ya no se intenta corregir sola, queda para el trazado manual si hace falta.
+            return Promise.resolve(items);
+            // eslint-disable-next-line no-unreachable
+            let sospechosos = items.filter(r => r.sospechoso);
+            if (sospechosos.length === 0) return Promise.resolve(items);
+
+            let tareasRefinamiento = sospechosos.map(r => () => {
+                let query = `[out:json][timeout:15];(node(around:250,${r.lat},${r.lng})["entrance"];node(around:250,${r.lat},${r.lng})["railway"="subway_entrance"];node(around:250,${r.lat},${r.lng})["public_transport"];);out body;`;
+                return fetch(ENDPOINTS_OVERPASS[0] + '?data=' + encodeURIComponent(query), { method: 'GET' })
+                    .then(res => res.ok ? res.json() : { elements: [] })
+                    .catch(() => ({ elements: [] }))
+                    .then(data => {
+                        let candidatos = (data.elements || []).filter(e => e.lat !== undefined && e.lon !== undefined);
+                        if (candidatos.length === 0) return null;
+                        let mejorCand = candidatos.reduce((mejor, actual) => {
+                            let dActual = distanciaComparativa(coordenadasOrigen.lat, coordenadasOrigen.lng, actual.lat, actual.lon);
+                            let dMejor = distanciaComparativa(coordenadasOrigen.lat, coordenadasOrigen.lng, mejor.lat, mejor.lon);
+                            return dActual < dMejor ? actual : mejor;
+                        }, candidatos[0]);
+                        return { lat: mejorCand.lat, lng: mejorCand.lon };
+                    })
+                    .then(candidato => {
+                        if (!candidato) return { r, mejorado: false };
+                        return fetch(`https://router.project-osrm.org/route/v1/foot/${coordenadasOrigen.lng},${coordenadasOrigen.lat};${candidato.lng},${candidato.lat}?overview=false&steps=false`)
+                            .then(res => res.json())
+                            .then(rd => {
+                                if (rd.routes && rd.routes.length > 0) {
+                                    let nuevaDist = Math.round(rd.routes[0].distance);
+                                    // Solo se reemplaza si es una mejora clara (al menos 40% más corta),
+                                    // para no cambiar el punto por otro que en realidad no sea el correcto.
+                                    if (nuevaDist < r.dReal * 0.6) {
+                                        return { r, mejorado: true, lat: candidato.lat, lng: candidato.lng, dReal: nuevaDist, tReal: Math.round(rd.routes[0].duration) };
+                                    }
+                                }
+                                return { r, mejorado: false };
+                            }).catch(() => ({ r, mejorado: false }));
+                    });
+            });
+
+            return ejecutarConPoolConcurrencia(tareasRefinamiento, 4).then(resultadosRefinamiento => {
+                resultadosRefinamiento.forEach(res => {
+                    if (res && res.mejorado) {
+                        res.r.lat = res.lat;
+                        res.r.lng = res.lng;
+                        res.r.dReal = res.dReal;
+                        res.r.tReal = res.tReal;
+                        res.r.sospechoso = false;
+                        res.r.autoCorregido = true;
+                    }
+                });
+                return items;
+            });
+        }
+
+        function procesarElementosFiltrosVariables(elements, rMaxLineal, linealFiltroActivo, rMaxWalk, walkFiltroActivo) {
+            let validos = [];
+            let sizeDinamico = parseInt(document.getElementById('global-icon-size-slider').value) || 30;
+
+            elements.forEach(el => {
+                let puntoElegido = obtenerPuntoMasCercano(el, coordenadasOrigen.lat, coordenadasOrigen.lng);
+                if(!puntoElegido) return;
+                let lat = puntoElegido.lat;
+                let lng = puntoElegido.lng;
+
+                let nombreReal = el.tags.name || el.tags.brand || el.tags.operator || "";
+                let esGenerico = !nombreReal; // true = el nombre viene de un valor por defecto, no de OSM
+                if(!nombreReal) {
+                    if(el.tags.railway === 'subway_entrance') nombreReal = el.tags.ref ? `Acceso Metro (${el.tags.ref})` : "Acceso de Metro";
+                    else if(el.tags.station === 'subway' || el.tags.railway === 'station') nombreReal = el.tags.u_name || "Estación de Metro";
+                    else if(el.tags.highway === 'bus_stop') nombreReal = el.tags.local_ref || el.tags.ref || "Paradero de Micro Red";
+                    else return;
+                }
+
+                let catAsignada = null;
+                CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                    if(s.id.startsWith("custom_")) {
+                        let indicator = s.query.match(/"([^"]+)"/g);
+                        if(indicator) {
+                            indicator.forEach(ind => {
+                                let val = ind.replace(/"/g, "");
+                                for(let key in el.tags) { if(el.tags[key] === val || key === val) catAsignada = s; }
+                            });
+                        }
+                    }
+                });
+
+                if(!catAsignada) {
+                    if(el.tags.railway === 'subway_entrance' || el.tags.station === 'subway' || el.tags.railway === 'station') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'metro');
+                    else if(el.tags.shop === 'supermarket') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'supermercado');
+                    else if(el.tags.shop === 'mall') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'mall');
+                    else if(el.tags.amenity === 'school') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'colegios');
+                    else if(el.tags.amenity === 'university') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'universidades');
+                    else if(el.tags.amenity === 'kindergarten') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'jardin_infantil');
+                    else if(el.tags.amenity === 'hospital' || el.tags.amenity === 'clinic' || el.tags.amenity === 'pharmacy') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'salud');
+                    else if(el.tags.amenity === 'police') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'seguridad');
+                    else if(el.tags.amenity === 'fire_station') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'bomberos');
+                    else if(el.tags.amenity === 'cinema' || el.tags.amenity === 'theatre' || el.tags.tourism === 'museum') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'cultura');
+                    else if(el.tags.highway === 'bus_stop') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'paraderos');
+                    else if(el.tags.amenity === 'bank' || el.tags.atm === 'atm' || el.tags.amenity === 'atm') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'finanzas');
+                    else if(el.tags.leisure === 'sports_centre' || el.tags.leisure === 'fitness_centre') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'deporte');
+                    else if(el.tags.leisure === 'park' || el.tags.leisure === 'playground') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'parques');
+                }
+
+                if(!catAsignada) return;
+
+                let dLineaRecta = Math.round(map.distance([coordenadasOrigen.lat, coordenadasOrigen.lng], [lat, lng]));
+                if(linealFiltroActivo && dLineaRecta > rMaxLineal) return;
+                // OPTIMIZACIÓN DE VELOCIDAD: la distancia caminando SIEMPRE es >= a la distancia en
+                // línea recta, así que si ya en línea recta un elemento supera el radio de caminata,
+                // es matemáticamente imposible que califique. Se descarta aquí, sin gastar tiempo
+                // en consultarle una ruta real a OSRM. Antes esto solo se filtraba cuando el filtro
+                // de línea recta estaba activo, obligando a consultar TODOS los elementos (incluso
+                // los evidentemente lejanos) cuando solo el filtro de caminata estaba activo.
+                if(walkFiltroActivo && dLineaRecta > rMaxWalk) return;
+
+                // Ya no se le pide ruta a ningún servidor externo para calcular distancia. La
+                // distancia real de cada servicio va a salir de que TÚ la traces a mano desde el
+                // panel de resultados — esto elimina por completo la espera de red en esta etapa,
+                // que era la causa principal de la lentitud. Por ahora se guarda solo la distancia
+                // en línea recta, como referencia inicial mientras no se ha trazado.
+                validos.push({ valid: true, catId: catAsignada.id, titleGrupo: catAsignada.title, nombre: nombreReal, esGenerico, lat, lng, distanciaLinea: dLineaRecta, color: targetColorInput(catAsignada.id), img: catAsignada.img, em: catAsignada.em });
+            });
+
+            {
+                
+                let mejoresPorToken = {};
+                validos.forEach(r => {
+                    // Si el nombre es genérico (no viene de OSM, ej. "Acceso de Metro" repetido en
+                    // varias estaciones distintas), se agrega la coordenada al identificador para
+                    // no fusionar por error puntos distintos que comparten la misma etiqueta.
+                    let token = r.esGenerico
+                        ? `${r.catId}_${r.nombre.toLowerCase().trim()}_${r.lat.toFixed(4)}_${r.lng.toFixed(4)}`
+                        : `${r.catId}_${r.nombre.toLowerCase().trim()}`;
+                    // Si ya existe una entrada con el mismo identificador (ej. la estación y una de
+                    // sus entradas resultaron con el mismo nombre real), se conserva la de distancia
+                    // caminando más corta, que es la que realmente le sirve al usuario.
+                    if(!mejoresPorToken[token] || r.distanciaLinea < mejoresPorToken[token].distanciaLinea) {
+                        mejoresPorToken[token] = r;
+                    }
+                });
+
+                let agrupacionTemporal = {};
+                CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => { agrupacionTemporal[s.id] = []; });
+
+                Object.values(mejoresPorToken).forEach(r => {
+                    if(agrupacionTemporal[r.catId]) agrupacionTemporal[r.catId].push(r);
+                });
+
+                let itemsFinalesPorCategoria = {};
+                CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                    let itemsDeCategoria = agrupacionTemporal[s.id] || [];
+                    let maxDefinido = parseInt(document.getElementById(`srv-max-${s.id}`).value) || 10;
+                    itemsDeCategoria.sort((a, b) => a.distanciaLinea - b.distanciaLinea);
+                    itemsFinalesPorCategoria[s.id] = itemsDeCategoria.slice(0, maxDefinido);
+                });
+
+                serviciosLayerGroup.clearLayers();
+                elementosMapeadosActivos = {};
+
+                CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                    let itemsLimitados = itemsFinalesPorCategoria[s.id] || [];
+
+                    itemsLimitados.forEach(r => {
+                        let uid = "s_" + Date.now() + "_" + Math.floor(Math.random()*10000);
+                        let markerOptions = { draggable: true };
+                        let halfSize = Math.floor(sizeDinamico / 2);
+
+                        if(r.img) {
+                            markerOptions.icon = L.divIcon({ 
+                                className: 'custom-hud-icon', 
+                                html: `<img src="${r.img}">`, 
+                                iconSize: [sizeDinamico, sizeDinamico], 
+                                iconAnchor: [halfSize, halfSize] 
+                            });
+                        } else {
+                            markerOptions.icon = L.divIcon({ 
+                                className: 'custom-hud-icon', 
+                                html: `<span style="font-size:${Math.floor(sizeDinamico * 0.48)}px;">${r.em}</span>`, 
+                                iconSize: [sizeDinamico, sizeDinamico], 
+                                iconAnchor: [halfSize, halfSize] 
+                            });
+                        }
+
+                        let m = L.marker([r.lat, r.lng], markerOptions).addTo(serviciosLayerGroup).bindPopup(
+                            `<b>${escaparHTML(r.nombre)}</b><br>📐 ~${r.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel, o haz clic aquí mientras el modo trazado esté activo</small>`
+                        );
+
+                        elementosMapeadosActivos[uid] = { 
+                            marker: m, 
+                            catId: r.catId, 
+                            grupo: r.titleGrupo, 
+                            name: r.nombre, 
+                            distanciaLinea: r.distanciaLinea,
+                            distance: null,
+                            tiempo: null,
+                            trazadoManual: false,
+                            verificadoManual: false,
+                            lat: r.lat, 
+                            lng: r.lng, 
+                            img: r.img, 
+                            em: r.em 
+                        };
+
+                        // Termina el trazado manual si estaba activo y se hace clic directo sobre
+                        // este ícono (alternativa a usar el botón "Finalizar" del panel/banner).
+                        m.on('click', function(ev) {
+                            if (modoTrazadoManualActivo && (!servicioObjetivoTrazado || servicioObjetivoTrazado === uid)) {
+                                L.DomEvent.stopPropagation(ev);
+                                finalizarTrazadoManualSobreServicio(uid);
+                            }
+                        });
+
+                        // Si la ubicación que trajo OpenStreetMap no es exacta (ej. el centro de una
+                        // estación grande), se puede arrastrar el ícono al punto real — esto no
+                        // recalcula ninguna ruta automática (ya no hay), solo corrige DÓNDE termina
+                        // el trazado manual que hagas después.
+                        m.on('dragend', function(ev) {
+                            let nuevaPos = ev.target.getLatLng();
+                            let item = elementosMapeadosActivos[uid];
+                            item.lat = nuevaPos.lat;
+                            item.lng = nuevaPos.lng;
+                            item.verificadoManual = true;
+                            item.distanciaLinea = Math.round(map.distance([coordenadasOrigen.lat, coordenadasOrigen.lng], nuevaPos));
+                            let etiqueta = item.trazadoManual
+                                ? `🛣️ ${item.distance} m · 🚶 ${formatoTiempoCaminando(item.tiempo)} <span style="color:#38bdf8;">📏 trazado manual</span>`
+                                : `📐 ~${item.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel</small>`;
+                            m.setPopupContent(`<b>${escaparHTML(item.name)}</b><br>${etiqueta}`);
+                            rebuildPanelResultadosAcumulado();
+                        });
+                    });
+                });
+
+                rebuildPanelResultadosAcumulado();
+                document.getElementById('loading').style.display = 'none';
+                liberarBotonAnalizar();
+            }
+        }
+
+        function formatoTiempoCaminando(segundos) {
+            if (!segundos && segundos !== 0) return "";
+            let min = Math.round(segundos / 60);
+            if (min < 1) return "menos de 1 min";
+            if (min < 60) return `${min} min`;
+            let h = Math.floor(min / 60), rem = min % 60;
+            return `${h} h ${rem} min`;
+        }
+
+        function liberarBotonAnalizar() {
+            if (window.intervaloContadorBusqueda) { clearInterval(window.intervaloContadorBusqueda); window.intervaloContadorBusqueda = null; }
+            analisisEnProgreso = false;
+            let btnAnalizar = document.getElementById('btn-analizar');
+            btnAnalizar.disabled = false;
+            btnAnalizar.style.opacity = '1';
+            btnAnalizar.style.cursor = 'pointer';
+        }
+
+        function targetColorInput(id) {
+            let obj = document.getElementById(`ico-col-${id}`);
+            return obj ? obj.value : "#ffffff";
+        }
+
+        function eliminarServicioValidadoManualmente(uid) {
+            let item = elementosMapeadosActivos[uid];
+            if (item) {
+                if (item.marker) {
+                    serviciosLayerGroup.removeLayer(item.marker);
+                }
+                if (item.lineaManual) {
+                    serviciosLayerGroup.removeLayer(item.lineaManual);
+                }
+                delete elementosMapeadosActivos[uid];
+                rebuildPanelResultadosAcumulado();
+            }
+        }
+
+        function rebuildPanelResultadosAcumulado() {
+            let logsAgrupados = {};
+            CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => { logsAgrupados[s.title] = []; });
+
+            for (let uid in elementosMapeadosActivos) {
+                let x = elementosMapeadosActivos[uid];
+                if (logsAgrupados[x.grupo]) logsAgrupados[x.grupo].push({ uid, name: x.name, distance: x.distance, tiempo: x.tiempo, distanciaLinea: x.distanciaLinea, verificadoManual: x.verificadoManual, trazadoManual: x.trazadoManual, lat: x.lat, lng: x.lng });
+            }
+
+            let c = document.getElementById('results-container'); c.innerHTML = ""; let total = 0;
+
+            // Distancia "efectiva" para ordenar: la real trazada si ya se dibujó, o la línea recta
+            // como referencia mientras no se ha trazado.
+            let distanciaEfectiva = item => (item.trazadoManual && item.distance !== null) ? item.distance : item.distanciaLinea;
+
+            // Se ordenan primero los ítems DENTRO de cada categoría (de más cercano a más lejano),
+            // y luego las categorías ENTRE SÍ según cuál tenga el servicio más cercano de todos.
+            // Así, todo el panel fluye de principio a fin desde la dirección base hacia afuera,
+            // sin importar el tipo de servicio.
+            let gruposConDatos = Object.entries(logsAgrupados)
+                .filter(([grupo, items]) => items.length > 0)
+                .map(([grupo, items]) => {
+                    let itemsOrdenados = items.sort((a, b) => distanciaEfectiva(a) - distanciaEfectiva(b));
+                    return { grupo, itemsOrdenados, distanciaMinima: distanciaEfectiva(itemsOrdenados[0]) };
+                })
+                .sort((a, b) => a.distanciaMinima - b.distanciaMinima);
+
+            cacheUltimoAnalisisExportable = gruposConDatos;
+
+            gruposConDatos.forEach(({ grupo, itemsOrdenados }) => {
+                let configRef = CONFIG_SERVICIOS_PREDEFINIDOS.find(s => s.title === grupo);
+                total += itemsOrdenados.length;
+                
+                let tDiv = document.createElement('div'); tDiv.className = 'service-category-title';
+                tDiv.style.borderLeftColor = targetColorInput(configRef ? configRef.id : '');
+                tDiv.innerText = `${grupo} (${itemsOrdenados.length})`; c.appendChild(tDiv);
+
+                itemsOrdenados.forEach((item, idx) => {
+                    let iDiv = document.createElement('div'); iDiv.className = 'service-item';
+                    let marcaVerificado = item.verificadoManual ? ' <span style="color:#22c55e;" title="Posición corregida manualmente">✔️</span>' : '';
+                    let bloqueDistancia, botonAccion;
+                    if (item.trazadoManual && item.distance !== null) {
+                        let tiempoTxt = item.tiempo !== undefined ? ` · 🚶 ${formatoTiempoCaminando(item.tiempo)}` : '';
+                        bloqueDistancia = `<span class="distance">📏 ${item.distance} m${tiempoTxt}</span>`;
+                        botonAccion = `<button class="btn-remove-item" style="background:#334155; color:#fff; font-size:10px; border-radius:4px; padding:4px 6px; border:none; cursor:pointer;" onclick="iniciarTrazadoParaServicio('${item.uid}')" title="Volver a trazar esta ruta">🔁</button>`;
+                    } else {
+                        bloqueDistancia = `<span class="distance" style="opacity:0.7;" title="Distancia en línea recta, aún no trazada a mano">📐 ~${item.distanciaLinea} m</span>`;
+                        botonAccion = `<button style="background:#0369a1; color:#fff; font-size:10px; font-weight:700; border-radius:4px; padding:4px 8px; border:none; cursor:pointer;" onclick="iniciarTrazadoParaServicio('${item.uid}')" title="Trazar la ruta real a este servicio">✏️ Trazar</button>`;
+                    }
+                    iDiv.innerHTML = `
+                        <div style="flex-grow:1; overflow:hidden; display:flex; align-items:center;" onclick="map.panTo([${item.lat}, ${item.lng}]);">
+                            <span class="item-name" style="cursor:pointer;">${idx + 1}. ${escaparHTML(item.name)}${marcaVerificado}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
+                            ${bloqueDistancia}
+                            ${botonAccion}
+                            <button class="btn-remove-item" onclick="eliminarServicioValidadoManualmente('${item.uid}');" title="Eliminar de los resultados">❌</button>
+                        </div>
+                    `;
+                    c.appendChild(iDiv);
+                });
+            });
+            document.getElementById('btn-copiar-reporte').style.display = total > 0 ? 'block' : 'none';
+            if(total === 0) c.innerHTML = `<p style="color: #94a3b8; font-size: 12px;">No se encontraron infraestructuras válidas dentro de los radios configurados o activos.</p>`;
+        }
+
+        function procesarArchivosKMZMasivos(input) {
+            const archivos = input.files; if (!archivos || archivos.length === 0) return;
+            Array.from(archivos).forEach(archivo => {
+                const lector = new FileReader();
+                if (archivo.name.endsWith('.kmz')) {
+                    lector.onload = function(e) {
+                        JSZip.loadAsync(e.target.result).then(zip => {
+                            const kmlFile = Object.keys(zip.files).find(f => f.endsWith('.kml'));
+                            return zip.files[kmlFile].async('string');
+                        }).then(kmlTexto => { inyectarKMZAlMapa(kmlTexto, archivo.name); });
+                    };
+                    lector.readAsArrayBuffer(archivo);
+                } else {
+                    lector.onload = function(e) { inyectarKMZAlMapa(e.target.result, archivo.name); };
+                    lector.readAsText(archivo);
+                }
+            });
+            input.value = "";
+        }
+
+        function inyectarKMZAlMapa(kmlTexto, nombre) {
+            try {
+                const parser = new DOMParser(); 
+                const kmlDom = parser.parseFromString(kmlTexto, 'text/xml');
+                let geojson = toGeoJSON.kml(kmlDom);
+                
+                let capaNueva = L.geoJSON(geojson, { style: { color: '#10b981', weight: 3 } }).addTo(map);
+                map.fitBounds(capaNueva.getBounds());
+                
+                let id = "kmz_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+                listaKMZMemoria.push({ id, nombre, capa: capaNueva, raw: geojson });
+                
+                let textoFiltro = document.getElementById('kmz-search-input').value;
+                filtrarListaKMZLocalmente(textoFiltro);
+            } catch(e) { alert("Error al procesar archivo geográfico."); }
+        }
+
+        function renderizarHistorialKMZBitacora(arregloFiltrado = null) {
+            let h = document.getElementById('kmz-history-list'); h.innerHTML = "";
+            let dataAUsar = arregloFiltrado || listaKMZMemoria;
+            
+            dataAUsar.forEach(k => {
+                let item = document.createElement('div');
+                item.className = "kmz-historial-item active-kmz-item";
+                item.innerHTML = `<span>🗺️ ${k.nombre}</span><button style="width:auto; margin:0; padding:2px 6px; font-size:9px;" onclick="eliminarCapaKMZ('${k.id}', event)">❌</button>`;
+                item.onclick = () => { map.fitBounds(k.capa.getBounds()); };
+                h.appendChild(item);
+            });
+            
+            if(dataAUsar.length === 0 && listaKMZMemoria.length > 0) {
+                h.innerHTML = `<p style="color: #64748b; font-size: 11px; text-align: center; padding: 5px;">Sin resultados de búsqueda</p>`;
+            }
+        }
+
+        function filtrarListaKMZLocalmente(texto) {
+            let q = texto.toLowerCase().trim();
+            if(!q) {
+                renderizarHistorialKMZBitacora(listaKMZMemoria);
+                return;
+            }
+            let filtrados = listaKMZMemoria.filter(k => k.nombre.toLowerCase().includes(q));
+            renderizarHistorialKMZBitacora(filtrados);
+        }
+
+        function eliminarAbsolutamenteTodosLosKMZ() {
+            if(listaKMZMemoria.length === 0) return;
+            if(!confirm("¿Está seguro de que desea eliminar todas las capas KMZ cargadas simultáneamente?")) return;
+            
+            listaKMZMemoria.forEach(k => {
+                map.removeLayer(k.capa);
+            });
+            listaKMZMemoria = [];
+            document.getElementById('kmz-search-input').value = "";
+            renderizarHistorialKMZBitacora();
+        }
+
+        function eliminarCapaKMZ(id, event) {
+            if(event) event.stopPropagation();
+            let index = listaKMZMemoria.findIndex(k => k.id === id);
+            if(index !== -1) {
+                map.removeLayer(listaKMZMemoria[index].capa);
+                listaKMZMemoria.splice(index, 1);
+                
+                let textoFiltro = document.getElementById('kmz-search-input').value;
+                filtrarListaKMZLocalmente(textoFiltro);
+            }
+        }
+
+        function guardarUbicacionActualEnBitacora() {
+            if(!coordenadasOrigen) return;
+            let n = prompt("Nombre del Proyecto:", nombreUbicacionActual); if(!n) return;
+            let kmzClonados = listaKMZMemoria.map(k => ({ nombre: k.nombre, raw: k.raw }));
+            
+            listaBitacoraMemoria.push({ id: Date.now(), nombre: n, lat: coordenadasOrigen.lat, lng: coordenadasOrigen.lng, kmzAsociados: kmzClonados });
+            localStorage.setItem('hud_bitacora', JSON.stringify(listaBitacoraMemoria));
+            renderizarBitacora();
+        }
+
+        function renderizarBitacora() {
+            let cont = document.getElementById('bitacora-lista-contenedor'); cont.innerHTML = "";
+            listaBitacoraMemoria.forEach(i => {
+                let d = document.createElement('div'); d.className = 'bitacora-item';
+                d.innerHTML = `<span style="font-size:12px;">📍 ${i.nombre}</span><button style="width:auto; margin:0; padding:2px 6px; font-size:9px;" onclick="eliminarElementoBitacora(${i.id}, event)">❌</button>`;
+                d.onclick = () => { 
+                    establecerPuntoOrigen(L.latLng(i.lat, i.lng), i.nombre); 
+                    if(i.kmzAsociados && i.kmzAsociados.length > 0) {
+                        listaKMZMemoria.forEach(k => map.removeLayer(k.capa));
+                        listaKMZMemoria = [];
+                        i.kmzAsociados.forEach(kmzOld => {
+                            let capaRestaurada = L.geoJSON(kmzOld.raw, { style: { color: '#10b981', weight: 3 } }).addTo(map);
+                            listaKMZMemoria.push({ id: "kmz_" + Date.now() + Math.random(), nombre: kmzOld.nombre, capa: capaRestaurada, raw: kmzOld.raw });
+                        });
+                        document.getElementById('kmz-search-input').value = "";
+                        renderizarHistorialKMZBitacora();
+                    }
+                };
+                cont.appendChild(d);
+            });
+        }
+
+        function eliminarElementoBitacora(id, event) {
+            if(event) event.stopPropagation();
+            let index = listaBitacoraMemoria.findIndex(b => b.id === id);
+            if(index !== -1) {
+                listaBitacoraMemoria.splice(index, 1);
+                localStorage.setItem('hud_bitacora', JSON.stringify(listaBitacoraMemoria));
+                renderizarBitacora();
+            }
+        }
+
+        function copiarReporteResultadosAlPortapapeles() {
+            let t = `${nombreUbicacionActual}\n\n`;
+
+            let todosLosItemsTrazados = [];
+            for (let { itemsOrdenados } of cacheUltimoAnalisisExportable) {
+                itemsOrdenados.forEach(item => {
+                    if (item.trazadoManual && item.distance !== null) {
+                        todosLosItemsTrazados.push(item);
+                    }
+                });
+            }
+
+            let totalCategoriasEncontradas = todosLosItemsTrazados.length;
+
+            todosLosItemsTrazados.forEach(item => {
+                t += `${item.name} – ${formatoTiempoCaminando(item.tiempo)} – ${item.distance} m\n`;
+            });
+            
+            if(totalCategoriasEncontradas === 0) {
+                t += `Aún no hay servicios trazados para incluir en el reporte.\n`;
+            }
+            
+            navigator.clipboard.writeText(t).then(() => alert("¡Reporte copiado al portapapeles con éxito!"));
+        }
+
+        window.onload = function() {
+            recuperarConfiguracionGlobalStorage();
+            renderizarEstructuraServiciosFijos();
+            toggleSection('sec-capas-kmz', 'arrow-kmz-capas');
+            toggleSection('sec-radio-captura', 'arrow-radio-captura');
+            toggleSection('sec-circulo', 'arrow-2');
+            toggleSection('sec-iconos', 'arrow-3');
+        };
+    </script>
+</body>
+</html>
