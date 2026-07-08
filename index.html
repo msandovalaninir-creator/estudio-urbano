@@ -1,4 +1,4 @@
-<index.html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1727,24 +1727,23 @@
         }
 
         function copiarReporteResultadosAlPortapapeles() {
+            // Se arma directo desde los datos actuales (siempre refleja el último estado, no una
+            // foto vieja) y se ordena TODO junto por distancia real, sin importar la categoría —
+            // antes se respetaba el orden por grupo y podía verse un salto raro (ej. 431 m antes
+            // que 321 m) porque cada categoría se ordenaba por separado.
+            let todosLosItemsTrazados = Object.values(elementosMapeadosActivos)
+                .filter(item => item.trazadoManual && item.distance !== null)
+                .sort((a, b) => a.distance - b.distance);
+
+            // Formato de tabla (separado por tabulaciones) para que, al pegarlo en Excel o Google
+            // Sheets, cada dato caiga solo en su propia columna: Nombre | Minutos | Metros.
             let t = `${nombreUbicacionActual}\n\n`;
-
-            let todosLosItemsTrazados = [];
-            for (let { itemsOrdenados } of cacheUltimoAnalisisExportable) {
-                itemsOrdenados.forEach(item => {
-                    if (item.trazadoManual && item.distance !== null) {
-                        todosLosItemsTrazados.push(item);
-                    }
-                });
-            }
-
-            let totalCategoriasEncontradas = todosLosItemsTrazados.length;
-
+            t += `Servicio\tTiempo\tDistancia\n`;
             todosLosItemsTrazados.forEach(item => {
-                t += `${item.name} – ${formatoTiempoCaminando(item.tiempo)} – ${item.distance} m\n`;
+                t += `${item.name}\t${formatoTiempoCaminando(item.tiempo)}\t${item.distance} m\n`;
             });
-            
-            if(totalCategoriasEncontradas === 0) {
+
+            if(todosLosItemsTrazados.length === 0) {
                 t += `Aún no hay servicios trazados para incluir en el reporte.\n`;
             }
             
