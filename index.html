@@ -1530,6 +1530,14 @@
             }
         }
 
+        let categoriasColapsadas = new Set();
+
+        function alternarColapsoCategoria(catId) {
+            if (categoriasColapsadas.has(catId)) categoriasColapsadas.delete(catId);
+            else categoriasColapsadas.add(catId);
+            rebuildPanelResultadosAcumulado();
+        }
+
         function rebuildPanelResultadosAcumulado() {
             let logsAgrupados = {};
             CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => { logsAgrupados[s.title] = []; });
@@ -1561,11 +1569,24 @@
 
             gruposConDatos.forEach(({ grupo, itemsOrdenados }) => {
                 let configRef = CONFIG_SERVICIOS_PREDEFINIDOS.find(s => s.title === grupo);
+                let catId = configRef ? configRef.id : grupo;
                 total += itemsOrdenados.length;
+                let estaColapsada = categoriasColapsadas.has(catId);
                 
-                let tDiv = document.createElement('div'); tDiv.className = 'service-category-title';
-                tDiv.style.borderLeftColor = targetColorInput(configRef ? configRef.id : '');
-                tDiv.innerText = `${grupo} (${itemsOrdenados.length})`; c.appendChild(tDiv);
+                let tDiv = document.createElement('div'); 
+                tDiv.className = 'service-category-title';
+                tDiv.style.borderLeftColor = targetColorInput(catId);
+                tDiv.style.cursor = 'pointer';
+                tDiv.style.display = 'flex';
+                tDiv.style.justifyContent = 'space-between';
+                tDiv.style.alignItems = 'center';
+                tDiv.onclick = () => alternarColapsoCategoria(catId);
+                tDiv.innerHTML = `<span>${escaparHTML(grupo)} (${itemsOrdenados.length})</span><span style="font-size:11px;">${estaColapsada ? '▶' : '▼'}</span>`;
+                c.appendChild(tDiv);
+
+                let grupoContenedor = document.createElement('div');
+                grupoContenedor.style.display = estaColapsada ? 'none' : 'block';
+                c.appendChild(grupoContenedor);
 
                 itemsOrdenados.forEach((item, idx) => {
                     let iDiv = document.createElement('div'); iDiv.className = 'service-item';
@@ -1589,7 +1610,7 @@
                             <button class="btn-remove-item" onclick="eliminarServicioValidadoManualmente('${item.uid}');" title="Eliminar de los resultados">❌</button>
                         </div>
                     `;
-                    c.appendChild(iDiv);
+                    grupoContenedor.appendChild(iDiv);
                 });
             });
             document.getElementById('btn-copiar-reporte').style.display = total > 0 ? 'block' : 'none';
