@@ -110,7 +110,7 @@
         .servicio-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .servicio-control-left { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #fff; flex-grow: 1; }
         .servicio-control-left input[type="checkbox"] { accent-color: #4facfe; cursor: pointer; }
-        .servicio-picker-right { display: flex; align-items: center; gap: 6px; }
+        .servicio-picker-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
         
         .preview-img-frame { width: 26px; height: 26px; border: 1px solid #2e3545; display: flex; align-items: center; justify-content: center; background: #0b0d11; border-radius: 4px; font-size: 14px; overflow: hidden; position: relative; }
         .preview-img-frame img { width: 100%; height: 100%; object-fit: cover; }
@@ -872,6 +872,7 @@
                             <input type="color" id="ico-col-${s.id}" class="picker-color" value="${s.col}" oninput="actualizarColorServicioMemoria('${s.id}', this.value)">
                         </div>
                     </div>
+                    <button onclick="eliminarCategoriaServicio('${s.id}')" style="width:100%; margin-top:6px; margin-bottom:0; padding:5px; font-size:10.5px; background:#7f1d1d;" title="Eliminar esta categoría de servicio por completo">❌ Eliminar esta categoría</button>
                     <div style="display: flex; gap: 8px; margin-top: 8px; align-items: center; justify-content: space-between;">
                         <div style="width: 48%;">
                             <label style="font-size:9px; margin-bottom:2px;">Cant. Máx</label>
@@ -886,6 +887,15 @@
                 `;
                 container.appendChild(block);
             });
+        }
+
+        function eliminarCategoriaServicio(id) {
+            let servicio = CONFIG_SERVICIOS_PREDEFINIDOS.find(s => s.id === id);
+            if (!servicio) return;
+            if (!confirm(`¿Eliminar la categoría "${servicio.title}" de la lista de búsqueda? Esto no borra servicios ya encontrados en el panel de resultados, solo la categoría para futuras búsquedas.`)) return;
+            CONFIG_SERVICIOS_PREDEFINIDOS = CONFIG_SERVICIOS_PREDEFINIDOS.filter(s => s.id !== id);
+            persistirConfiguracionGlobalEnStorage();
+            renderizarEstructuraServiciosFijos();
         }
 
         function actualizarColorServicioMemoria(id, value) {
