@@ -1643,15 +1643,67 @@
                 const kmlDom = parser.parseFromString(kmlTexto, 'text/xml');
                 let geojson = toGeoJSON.kml(kmlDom);
                 
-                let capaNueva = L.geoJSON(geojson, { style: { color: '#10b981', weight: 3 } }).addTo(map);
+                let id = "kmz_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+                let estilo = { colorLinea: '#10b981', colorRelleno: '#10b981', opacidadRelleno: 0.25, achurado: false, grosorLinea: 3 };
+
+                let capaNueva = L.geoJSON(geojson, { style: { color: estilo.colorLinea, weight: estilo.grosorLinea, fillColor: estilo.colorRelleno, fillOpacity: estilo.opacidadRelleno } }).addTo(map);
                 map.fitBounds(capaNueva.getBounds());
                 
-                let id = "kmz_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-                listaKMZMemoria.push({ id, nombre, capa: capaNueva, raw: geojson });
+                listaKMZMemoria.push({ id, nombre, capa: capaNueva, raw: geojson, estilo });
                 
                 let textoFiltro = document.getElementById('kmz-search-input').value;
                 filtrarListaKMZLocalmente(textoFiltro);
             } catch(e) { alert("Error al procesar archivo geográfico."); }
+        }
+
+        // Crea (o actualiza si ya existe) un patrón de rayado diagonal en el color elegido, dentro
+        // del SVG del mapa, para poder usarlo como relleno "achurado" en vez de un color sólido.
+        function asegurarPatronAchurado(kmzId, colorHex) {
+            let svgRaiz = map.getPanes().overlayPane.querySelector('svg');
+            if (!svgRaiz) return null;
+            let ns = 'http://www.w3.org/2000/svg';
+            let defs = svgRaiz.querySelector('defs');
+            if (!defs) {
+                defs = document.createElementNS(ns, 'defs');
+                svgRaiz.insertBefore(defs, svgRaiz.firstChild);
+            }
+            let patternId = 'hatch-' + kmzId;
+            let patron = defs.querySelector('#' + patternId);
+            if (!patron) {
+                patron = document.createElementNS(ns, 'pattern');
+                patron.setAttribute('id', patternId);
+                patron.setAttribute('width', '8');
+                patron.setAttribute('height', '8');
+                patron.setAttribute('patternTransform', 'rotate(45)');
+                patron.setAttribute('patternUnits', 'userSpaceOnUse');
+                let linea = document.createElementNS(ns, 'line');
+                linea.setAttribute('x1', '0'); linea.setAttribute('y1', '0');
+                linea.setAttribute('x2', '0'); linea.setAttribute('y2', '8');
+                linea.setAttribute('stroke-width', '4');
+                patron.appendChild(linea);
+                defs.appendChild(patron);
+            }
+            patron.querySelector('line').setAttribute('stroke', colorHex);
+            return patternId;
+        }
+
+        // Aplica los estilos actuales (leídos de los controles del panel) a la capa KMZ indicada.
+        function actualizarEstiloKMZ(id) {
+            let k = listaKMZMemoria.find(x => x.id === id);
+            if (!k) return;
+            let colorLinea = document.getElementById(`kmz-color-linea-${id}`).value;
+            let colorRelleno = document.getElementById(`kmz-color-relleno-${id}`).value;
+            let opacidadRelleno = parseFloat(document.getElementById(`kmz-opacidad-relleno-${id}`).value);
+            let achurado = document.getElementById(`kmz-achurado-${id}`).checked;
+
+            k.estilo = { colorLinea, colorRelleno, opacidadRelleno, achurado, grosorLinea: k.estilo.grosorLinea };
+
+            if (achurado) {
+                let patternId = asegurarPatronAchurado(id, colorRelleno);
+                k.capa.setStyle({ color: colorLinea, weight: k.estilo.grosorLinea, fillColor: patternId ? `url(#${patternId})` : colorRelleno, fillOpacity: 1 });
+            } else {
+                k.capa.setStyle({ color: colorLinea, weight: k.estilo.grosorLinea, fillColor: colorRelleno, fillOpacity: opacidadRelleno });
+            }
         }
 
         function renderizarHistorialKMZBitacora(arregloFiltrado = null) {
@@ -1661,8 +1713,40 @@
             dataAUsar.forEach(k => {
                 let item = document.createElement('div');
                 item.className = "kmz-historial-item active-kmz-item";
-                item.innerHTML = `<span>🗺️ ${k.nombre}</span><button style="width:auto; margin:0; padding:2px 6px; font-size:9px;" onclick="eliminarCapaKMZ('${k.id}', event)">❌</button>`;
-                item.onclick = () => { map.fitBounds(k.capa.getBounds()); };
+                item.style.flexDirection = 'column';
+                item.style.alignItems = 'stretch';
+                item.style.gap = '6px';
+
+                let filaSuperior = document.createElement('div');
+                filaSuperior.style.display = 'flex';
+                filaSuperior.style.justifyContent = 'space-between';
+                filaSuperior.style.alignItems = 'center';
+                filaSuperior.innerHTML = `<span style="cursor:pointer;">🗺️ ${escaparHTML(k.nombre)}</span><button style="width:auto; margin:0; padding:2px 6px; font-size:9px;" onclick="eliminarCapaKMZ('${k.id}', event)">❌</button>`;
+                filaSuperior.querySelector('span').onclick = () => { map.fitBounds(k.capa.getBounds()); };
+                item.appendChild(filaSuperior);
+
+                let filaControles = document.createElement('div');
+                filaControles.style.display = 'flex';
+                filaControles.style.alignItems = 'center';
+                filaControles.style.gap = '8px';
+                filaControles.style.fontSize = '10px';
+                filaControles.style.flexWrap = 'wrap';
+                filaControles.innerHTML = `
+                    <label style="display:flex; align-items:center; gap:3px;">Línea
+                        <input type="color" id="kmz-color-linea-${k.id}" value="${k.estilo.colorLinea}" style="width:22px; height:18px; padding:0; border:none;" onchange="actualizarEstiloKMZ('${k.id}')">
+                    </label>
+                    <label style="display:flex; align-items:center; gap:3px;">Relleno
+                        <input type="color" id="kmz-color-relleno-${k.id}" value="${k.estilo.colorRelleno}" style="width:22px; height:18px; padding:0; border:none;" onchange="actualizarEstiloKMZ('${k.id}')">
+                    </label>
+                    <label style="display:flex; align-items:center; gap:3px; flex-grow:1; min-width:70px;">Opacidad
+                        <input type="range" id="kmz-opacidad-relleno-${k.id}" min="0" max="1" step="0.05" value="${k.estilo.opacidadRelleno}" style="flex-grow:1;" oninput="actualizarEstiloKMZ('${k.id}')">
+                    </label>
+                    <label style="display:flex; align-items:center; gap:3px;" title="Rellenar con rayado diagonal en vez de color sólido">
+                        <input type="checkbox" id="kmz-achurado-${k.id}" ${k.estilo.achurado ? 'checked' : ''} onchange="actualizarEstiloKMZ('${k.id}')"> Achurado
+                    </label>
+                `;
+                item.appendChild(filaControles);
+
                 h.appendChild(item);
             });
             
@@ -1726,8 +1810,9 @@
                         listaKMZMemoria.forEach(k => map.removeLayer(k.capa));
                         listaKMZMemoria = [];
                         i.kmzAsociados.forEach(kmzOld => {
-                            let capaRestaurada = L.geoJSON(kmzOld.raw, { style: { color: '#10b981', weight: 3 } }).addTo(map);
-                            listaKMZMemoria.push({ id: "kmz_" + Date.now() + Math.random(), nombre: kmzOld.nombre, capa: capaRestaurada, raw: kmzOld.raw });
+                            let estiloRestaurado = { colorLinea: '#10b981', colorRelleno: '#10b981', opacidadRelleno: 0.25, achurado: false, grosorLinea: 3 };
+                            let capaRestaurada = L.geoJSON(kmzOld.raw, { style: { color: estiloRestaurado.colorLinea, weight: estiloRestaurado.grosorLinea, fillColor: estiloRestaurado.colorRelleno, fillOpacity: estiloRestaurado.opacidadRelleno } }).addTo(map);
+                            listaKMZMemoria.push({ id: "kmz_" + Date.now() + Math.random(), nombre: kmzOld.nombre, capa: capaRestaurada, raw: kmzOld.raw, estilo: estiloRestaurado });
                         });
                         document.getElementById('kmz-search-input').value = "";
                         renderizarHistorialKMZBitacora();
