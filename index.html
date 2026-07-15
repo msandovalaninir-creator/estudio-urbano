@@ -332,13 +332,17 @@
             <div style="border-top: 1px solid #2e3545; padding-top: 12px; margin-top: 12px;">
                 <label style="color: #4facfe; margin-bottom: 10px;">➕ AGREGAR SERVICIO PERSONALIZADO</label>
                 <div class="form-group">
-                    <input type="text" id="new-srv-name" placeholder="Ej: Compañías de Gas" style="margin-bottom:6px;">
-                    <input type="text" id="new-srv-query" placeholder='Ej: nwr["amenity"="fuel"]{{GEO}};' style="margin-bottom:6px;">
+                    <input type="text" id="new-srv-name" placeholder="Ej: Farmacia, Bencinera, Colegio..." style="margin-bottom:6px;">
+                    <details style="margin-bottom:6px;">
+                        <summary style="cursor:pointer; font-size:10.5px; color:#94a3b8;">Avanzado: escribir mi propia consulta (opcional)</summary>
+                        <input type="text" id="new-srv-query" placeholder='Ej: nwr["amenity"="fuel"]{{GEO}};' style="margin-top:6px;">
+                    </details>
                     <div style="display:flex; gap: 6px;">
-                        <input type="text" id="new-srv-emoji" placeholder="🎫 Emoji" style="width:30%;">
+                        <input type="text" id="new-srv-emoji" placeholder="🎫 Emoji (opcional)" style="width:30%;">
                         <input type="color" id="new-srv-color" value="#f59e0b" style="width:20%; height:36px; padding:0; border:1px solid #2a313d; border-radius:8px; background:none; cursor:pointer;">
                         <button onclick="registrarNuevoServicioHUD()" style="margin:0; flex-grow:1;">Agregar</button>
                     </div>
+                    <div style="font-size:10px; color:#64748b; margin-top:4px;">Escribe solo el nombre — la app reconoce automáticamente las categorías más comunes (farmacias, bencineras, colegios, bancos, etc.) y agrupa toda la cadena/categoría, no una marca puntual.</div>
                 </div>
             </div>
         </div>
@@ -909,13 +913,118 @@
             }
         }
 
+        // Diccionario de servicios comunes: traduce un nombre simple en español a la consulta
+        // técnica correcta de Overpass, para que la persona nunca tenga que escribir ni ver la
+        // sintaxis de la consulta. Cubre las categorías más pedidas; si no encuentra una coincidencia
+        // exacta, intenta una búsqueda parcial antes de recurrir a un resultado genérico por nombre.
+        const DICCIONARIO_SERVICIOS_COMUNES = {
+            "farmacia": { query: 'nwr["amenity"="pharmacy"]{{GEO}};', em: '💊', col: '#22c55e' },
+            "farmacias": { query: 'nwr["amenity"="pharmacy"]{{GEO}};', em: '💊', col: '#22c55e' },
+            "supermercado": { query: 'nwr["shop"="supermarket"]{{GEO}};', em: '🛒', col: '#f97316' },
+            "supermercados": { query: 'nwr["shop"="supermarket"]{{GEO}};', em: '🛒', col: '#f97316' },
+            "minimarket": { query: 'nwr["shop"="convenience"]{{GEO}};', em: '🏪', col: '#f97316' },
+            "almacen": { query: 'nwr["shop"="convenience"]{{GEO}};', em: '🏪', col: '#f97316' },
+            "banco": { query: 'nwr["amenity"="bank"]{{GEO}};', em: '🏦', col: '#0ea5e9' },
+            "bancos": { query: 'nwr["amenity"="bank"]{{GEO}};', em: '🏦', col: '#0ea5e9' },
+            "cajero automatico": { query: 'nwr["amenity"="atm"]{{GEO}};', em: '🏧', col: '#0ea5e9' },
+            "cajero": { query: 'nwr["amenity"="atm"]{{GEO}};', em: '🏧', col: '#0ea5e9' },
+            "colegio": { query: 'nwr["amenity"="school"]{{GEO}};', em: '🏫', col: '#6366f1' },
+            "colegios": { query: 'nwr["amenity"="school"]{{GEO}};', em: '🏫', col: '#6366f1' },
+            "escuela": { query: 'nwr["amenity"="school"]{{GEO}};', em: '🏫', col: '#6366f1' },
+            "liceo": { query: 'nwr["amenity"="school"]{{GEO}};', em: '🏫', col: '#6366f1' },
+            "universidad": { query: 'nwr["amenity"="university"]{{GEO}};', em: '🎓', col: '#6366f1' },
+            "jardin infantil": { query: 'nwr["amenity"="kindergarten"]{{GEO}};', em: '🧸', col: '#a855f7' },
+            "sala cuna": { query: 'nwr["amenity"="kindergarten"]{{GEO}};', em: '🧸', col: '#a855f7' },
+            "comisaria": { query: 'nwr["amenity"="police"]{{GEO}};', em: '👮', col: '#1d4ed8' },
+            "carabineros": { query: 'nwr["amenity"="police"]{{GEO}};', em: '👮', col: '#1d4ed8' },
+            "policia": { query: 'nwr["amenity"="police"]{{GEO}};', em: '👮', col: '#1d4ed8' },
+            "bomberos": { query: 'nwr["amenity"="fire_station"]{{GEO}};', em: '🚒', col: '#f43f5e' },
+            "bencinera": { query: 'nwr["amenity"="fuel"]{{GEO}};', em: '⛽', col: '#eab308' },
+            "bencineras": { query: 'nwr["amenity"="fuel"]{{GEO}};', em: '⛽', col: '#eab308' },
+            "gasolinera": { query: 'nwr["amenity"="fuel"]{{GEO}};', em: '⛽', col: '#eab308' },
+            "servicentro": { query: 'nwr["amenity"="fuel"]{{GEO}};', em: '⛽', col: '#eab308' },
+            "companias de gas": { query: 'nwr["shop"="gas"]{{GEO}};', em: '🔥', col: '#f59e0b' },
+            "compania de gas": { query: 'nwr["shop"="gas"]{{GEO}};', em: '🔥', col: '#f59e0b' },
+            "gas": { query: 'nwr["shop"="gas"]{{GEO}};', em: '🔥', col: '#f59e0b' },
+            "restaurante": { query: 'nwr["amenity"="restaurant"]{{GEO}};', em: '🍽️', col: '#fb923c' },
+            "restaurantes": { query: 'nwr["amenity"="restaurant"]{{GEO}};', em: '🍽️', col: '#fb923c' },
+            "cafe": { query: 'nwr["amenity"="cafe"]{{GEO}};', em: '☕', col: '#a16207' },
+            "panaderia": { query: 'nwr["shop"="bakery"]{{GEO}};', em: '🥖', col: '#ca8a04' },
+            "ferreteria": { query: 'nwr["shop"="hardware"]{{GEO}};', em: '🔧', col: '#78716c' },
+            "iglesia": { query: 'nwr["amenity"="place_of_worship"]{{GEO}};', em: '⛪', col: '#7c3aed' },
+            "hospital": { query: 'nwr["amenity"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "hospitales": { query: 'nwr["amenity"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "clinica": { query: 'nwr["amenity"="clinic"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "consultorio": { query: 'nwr["amenity"="clinic"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "cesfam": { query: 'nwr["amenity"="clinic"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "veterinaria": { query: 'nwr["amenity"="veterinary"]{{GEO}};', em: '🐾', col: '#059669' },
+            "gimnasio": { query: 'nwr["leisure"="fitness_centre"]{{GEO}};', em: '🏋️', col: '#0891b2' },
+            "lavanderia": { query: 'nwr["shop"="laundry"]{{GEO}};', em: '🧺', col: '#0ea5e9' },
+            "peluqueria": { query: 'nwr["shop"="hairdresser"]{{GEO}};', em: '💇', col: '#ec4899' },
+            "notaria": { query: 'nwr["office"="notary"]{{GEO}};', em: '📝', col: '#475569' },
+            "correo": { query: 'nwr["amenity"="post_office"]{{GEO}};', em: '📮', col: '#eab308' },
+            "mall": { query: 'nwr["shop"="mall"]{{GEO}};', em: '🏬', col: '#f97316' },
+            "centro comercial": { query: 'nwr["shop"="mall"]{{GEO}};', em: '🏬', col: '#f97316' },
+            "estacionamiento": { query: 'nwr["amenity"="parking"]{{GEO}};', em: '🅿️', col: '#64748b' },
+            "terminal de buses": { query: 'nwr["amenity"="bus_station"]{{GEO}};', em: '🚌', col: '#0d9488' },
+            "biblioteca": { query: 'nwr["amenity"="library"]{{GEO}};', em: '📚', col: '#7c3aed' },
+            "museo": { query: 'nwr["tourism"="museum"]{{GEO}};', em: '🖼️', col: '#7c3aed' },
+            "parque": { query: 'nwr["leisure"="park"]{{GEO}};', em: '🌳', col: '#16a34a' },
+            "plaza": { query: 'nwr["leisure"="park"]{{GEO}};nwr["place"="square"]{{GEO}};', em: '🌳', col: '#16a34a' },
+            "piscina": { query: 'nwr["leisure"="swimming_pool"]{{GEO}};', em: '🏊', col: '#0ea5e9' },
+            "cementerio": { query: 'nwr["landuse"="cemetery"]{{GEO}};', em: '⚰️', col: '#57534e' },
+            "taller mecanico": { query: 'nwr["shop"="car_repair"]{{GEO}};', em: '🔧', col: '#78716c' },
+            "licoreria": { query: 'nwr["shop"="alcohol"]{{GEO}};', em: '🍷', col: '#b91c1c' },
+            "feria": { query: 'nwr["amenity"="marketplace"]{{GEO}};', em: '🛍️', col: '#d97706' },
+        };
+
+        function normalizarTextoServicio(txt) {
+            return txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        }
+
+        // Busca en el diccionario: primero coincidencia exacta, luego parcial (por si escriben
+        // "Farmacias cercanas" o "Bencineras Copec", por ejemplo).
+        function resolverServicioPorNombre(nombreIngresado) {
+            let n = normalizarTextoServicio(nombreIngresado);
+            if (DICCIONARIO_SERVICIOS_COMUNES[n]) return DICCIONARIO_SERVICIOS_COMUNES[n];
+
+            for (let clave in DICCIONARIO_SERVICIOS_COMUNES) {
+                if (n.includes(clave) || clave.includes(n)) return DICCIONARIO_SERVICIOS_COMUNES[clave];
+            }
+            return null;
+        }
+
         function registrarNuevoServicioHUD() {
             let name = document.getElementById('new-srv-name').value.trim();
-            let query = document.getElementById('new-srv-query').value.trim();
-            let emoji = document.getElementById('new-srv-emoji').value.trim() || "📍";
-            let color = document.getElementById('new-srv-color').value;
+            let queryManual = document.getElementById('new-srv-query').value.trim();
+            let emojiManual = document.getElementById('new-srv-emoji').value.trim();
+            let colorManual = document.getElementById('new-srv-color').value;
 
-            if(!name || !query) return alert("Ingrese el nombre y la query estructurada de Overpass.");
+            if(!name) return alert("Escribe el nombre del servicio que quieres buscar (ej: Farmacia, Bencinera, Colegio).");
+
+            let query, emoji, color;
+
+            if (queryManual) {
+                // Si alguien sí quiere escribir su propia consulta técnica, se respeta (modo avanzado).
+                query = queryManual;
+                emoji = emojiManual || "📍";
+                color = colorManual;
+            } else {
+                let resuelto = resolverServicioPorNombre(name);
+                if (resuelto) {
+                    query = resuelto.query;
+                    emoji = emojiManual || resuelto.em;
+                    color = (colorManual && colorManual !== '#f59e0b') ? colorManual : resuelto.col;
+                } else {
+                    // No se encontró en el diccionario: se arma una búsqueda genérica por nombre,
+                    // avisando que puede no agrupar toda una cadena/categoría como los casos conocidos.
+                    query = `nwr["name"~"${name}",i]{{GEO}};`;
+                    emoji = emojiManual || "📍";
+                    color = colorManual || "#f59e0b";
+                    alert(`No tengo "${name}" en mi diccionario de categorías conocidas, así que lo agregué como una búsqueda genérica por nombre (puede no agrupar toda la cadena/categoría como Farmacia o Bencinera sí lo hacen). Si me dices qué tipo de lugar es, lo puedo afinar.`);
+                }
+            }
+
             let id = "custom_" + Date.now();
             CONFIG_SERVICIOS_PREDEFINIDOS.push({ id, title: name, em: emoji, col: color, query: query, max: 10, img: null });
             
