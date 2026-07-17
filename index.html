@@ -400,6 +400,10 @@
         let esVisibleLineasRutaGlobal = true;
         let controlesRuteoActivos = [];
 
+        // Ícono de persona caminando (subido por el usuario), con fondo blanco removido para que
+        // combine con el tema oscuro de la interfaz.
+        const ICONO_CAMINANTE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAArCAYAAADlqKH9AAACMUlEQVR4nO2XsWsTURzHv+eSLdsNDscLNOhwpeAVBUOEa7sEBZ1EzNDFwYJg0T8gQ9DFdHEQKg5qJkEQIgRvKBioXofigdIrESMEzimZLpMHws8hiWk0LWl+v0PB+8DBvcvjx4d3v++9F42I8K9z4m8LTEMiKUUiKUUiKUUiKUUsklHbpdqrGrntSGY7IyLZq1mhvFKklCKl8lRpEnFriq9k0HAQjEZwGsERs6dDXNKwCzBGIxRs44jZ06HFcQqK2i45Xhe6VUAuk9LYBaV68XvnPT2/c5FOKUVqboXuuSG7F4cXeyWDxhPaeLCB2n40/kPqCjZ3H6KQBnslGZIulU4XUY0On5G++hSfKktsSUZwIoQRAGSx+qiO3cfX/pjRe7mOtddddtMLpNvE0iUT4dcPY0/1BRNp9ODcPosLt6rkfuvNLCv0CYrge62xJ8t363j3bBUGgKBeQjG/gExmnd4Cx5YVkmzhy8eD4xwsE0jbZW3b38LmjRyyemr28iKfic4Luv5rK1Sk5m7Sm5C/Hcpui74H9+D4h4O1yyW4veO/2kmISLb2B6E5X8bWoA/RrqK4ch/eDD34OzKSzX5o9DOLyNplbXunDAsAuh2EAvUFJH3a2+nfLZ8z+zcnDfCPFSP4kt09eF1gmOg44EsOQ6NbmNfZ1SbClgw+D0JjL8IE/zAxCbak7/dDk7Pm2TKHwZQchkaHZcb0rhHTyVya//d/tzSJpBSJpBSJpBSJpBQ/ASzn+jZv04S+AAAAAElFTkSuQmCC';
+
         const ENDPOINTS_OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://lz4.overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 
         // SEGURIDAD: los nombres de lugares vienen de OpenStreetMap, una base de datos editable
@@ -844,6 +848,18 @@
             let srvs = localStorage.getItem('hud_servicios');
             if(srvs) { 
                 CONFIG_SERVICIOS_PREDEFINIDOS = JSON.parse(srvs);
+                // Repara automáticamente categorías que hayan quedado con el mismo identificador
+                // interno por el bug anterior (causaba que se mezclaran íconos/colores entre ellas).
+                let idsVistos = new Set();
+                let huboReparacion = false;
+                CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                    if (idsVistos.has(s.id)) {
+                        s.id = s.id + "_" + Math.floor(Math.random() * 1000000);
+                        huboReparacion = true;
+                    }
+                    idsVistos.add(s.id);
+                });
+                if (huboReparacion) persistirConfiguracionGlobalEnStorage();
             }
             
             let bit = localStorage.getItem('hud_bitacora');
@@ -1035,7 +1051,7 @@
                 }
             }
 
-            let id = "custom_" + Date.now();
+            let id = "custom_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
             CONFIG_SERVICIOS_PREDEFINIDOS.push({ id, title: name, em: emoji, col: color, query: query, max: 10, img: null });
             
             document.getElementById('new-srv-name').value = "";
@@ -1598,7 +1614,7 @@
                             item.verificadoManual = true;
                             item.distanciaLinea = Math.round(map.distance([coordenadasOrigen.lat, coordenadasOrigen.lng], nuevaPos));
                             let etiqueta = item.trazadoManual
-                                ? `🛣️ ${item.distance} m · 🚶 ${formatoTiempoCaminando(item.tiempo)} <span style="color:#38bdf8;">📏 trazado manual</span>`
+                                ? `🛣️ ${item.distance} m · <img src="${ICONO_CAMINANTE}" style="width:14px;height:14px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)} <span style="color:#38bdf8;">📏 trazado manual</span>`
                                 : `📐 ~${item.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel</small>`;
                             m.setPopupContent(`<b>${escaparHTML(item.name)}</b><br>${etiqueta}`);
                             rebuildPanelResultadosAcumulado();
@@ -1712,7 +1728,7 @@
                     let marcaVerificado = item.verificadoManual ? ' <span style="color:#22c55e;" title="Posición corregida manualmente">✔️</span>' : '';
                     let bloqueDistancia, botonAccion;
                     if (item.trazadoManual && item.distance !== null) {
-                        let tiempoTxt = item.tiempo !== undefined ? ` · 🚶 ${formatoTiempoCaminando(item.tiempo)}` : '';
+                        let tiempoTxt = item.tiempo !== undefined ? ` · <img src="${ICONO_CAMINANTE}" style="width:14px;height:14px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)}` : '';
                         bloqueDistancia = `<span class="distance">📏 ${item.distance} m${tiempoTxt}</span>`;
                         botonAccion = `<button class="btn-remove-item" style="background:#334155; color:#fff; font-size:10px; border-radius:4px; padding:4px 6px; border:none; cursor:pointer;" onclick="iniciarTrazadoParaServicio('${item.uid}')" title="Volver a trazar esta ruta">🔁</button>`;
                     } else {
