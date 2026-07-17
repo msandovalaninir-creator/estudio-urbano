@@ -1463,17 +1463,14 @@
                     else return;
                 }
 
-                let catAsignada = null;
-                CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
-                    if(s.id.startsWith("custom_")) {
-                        let indicator = s.query.match(/"([^"]+)"/g);
-                        if(indicator) {
-                            indicator.forEach(ind => {
-                                let val = ind.replace(/"/g, "");
-                                for(let key in el.tags) { if(el.tags[key] === val || key === val) catAsignada = s; }
-                            });
-                        }
-                    }
+                // Se compara la etiqueta COMPLETA (clave Y valor juntos, ej. amenity=police), no
+                // palabras sueltas — antes, como casi todas las categorías comparten claves como
+                // "amenity", cualquier coincidencia parcial hacía que la categoría equivocada (la
+                // última que compartiera esa palabra) se quedara con el elemento por error.
+                let catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(s => {
+                    if (!s.id.startsWith("custom_")) return false;
+                    let pares = [...s.query.matchAll(/\["([^"]+)"\s*=\s*"([^"]+)"\]/g)];
+                    return pares.some(([, clave, valor]) => el.tags[clave] === valor);
                 });
 
                 if(!catAsignada) {
