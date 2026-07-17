@@ -1020,6 +1020,26 @@
             return null;
         }
 
+        // Extrae las parejas clave=valor (ej. amenity=pharmacy) de una consulta, para poder
+        // comparar si dos categorías en realidad apuntan al mismo tipo de lugar en OpenStreetMap.
+        function extraerParesEtiqueta(query) {
+            return [...query.matchAll(/\["([^"]+)"\s*=\s*"([^"]+)"\]/g)].map(p => `${p[1]}=${p[2]}`);
+        }
+
+        // Revisa si la consulta que se va a crear ya está cubierta por una categoría existente
+        // (misma etiqueta de OpenStreetMap), para evitar que dos categorías compitan en silencio
+        // por los mismos resultados — eso era lo que causaba que un ícono personalizado terminara
+        // apareciendo en otra categoría distinta.
+        function buscarCategoriaConflictiva(query, idAExcluir) {
+            let paresNuevos = extraerParesEtiqueta(query);
+            if (paresNuevos.length === 0) return null;
+            return CONFIG_SERVICIOS_PREDEFINIDOS.find(s => {
+                if (s.id === idAExcluir) return false;
+                let paresExistentes = extraerParesEtiqueta(s.query);
+                return paresExistentes.some(p => paresNuevos.includes(p));
+            });
+        }
+
         function registrarNuevoServicioHUD() {
             let name = document.getElementById('new-srv-name').value.trim();
             let queryManual = document.getElementById('new-srv-query').value.trim();
@@ -1049,6 +1069,12 @@
                     color = colorManual || "#f59e0b";
                     alert(`No tengo "${name}" en mi diccionario de categorías conocidas, así que lo agregué como una búsqueda genérica por nombre (puede no agrupar toda la cadena/categoría como Farmacia o Bencinera sí lo hacen). Si me dices qué tipo de lugar es, lo puedo afinar.`);
                 }
+            }
+
+            let conflicto = buscarCategoriaConflictiva(query, null);
+            if (conflicto) {
+                let seguirIgual = confirm(`⚠️ "${conflicto.title}" ya busca exactamente el mismo tipo de lugar en OpenStreetMap que "${name}".\n\nSi agregas "${name}" de todas formas, las dos categorías van a competir por los mismos resultados, y el ícono que le pongas a una puede terminar sin usarse (ganando siempre la que esté primero en la lista).\n\nRecomendado: cancela esto y en vez de crear una nueva, sube el ícono directamente en "${conflicto.title}".\n\n¿Quieres agregarla de todas formas?`);
+                if (!seguirIgual) return;
             }
 
             let id = "custom_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
@@ -1988,9 +2014,29 @@
             navigator.clipboard.writeText(t).then(() => alert("¡Reporte copiado al portapapeles con éxito!"));
         }
 
+        // Revisa las categorías que ya tienes guardadas y avisa si hay dos que apuntan al mismo
+        // tipo de lugar (esto es lo que causaba la mezcla de íconos entre servicios).
+        function revisarConflictosExistentesAlCargar() {
+            let avisos = [];
+            let yaRevisados = new Set();
+            CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                if (yaRevisados.has(s.id)) return;
+                let conflicto = buscarCategoriaConflictiva(s.query, s.id);
+                if (conflicto) {
+                    avisos.push(`"${s.title}" y "${conflicto.title}"`);
+                    yaRevisados.add(s.id);
+                    yaRevisados.add(conflicto.id);
+                }
+            });
+            if (avisos.length > 0) {
+                alert(`⚠️ Se detectaron categorías que están compitiendo por los mismos resultados (esto es lo que causaba íconos mezclados):\n\n${avisos.join('\n')}\n\nRevisa esas categorías: probablemente quieras eliminar una de cada par y dejar el ícono en la que quieras conservar.`);
+            }
+        }
+
         window.onload = function() {
             recuperarConfiguracionGlobalStorage();
             renderizarEstructuraServiciosFijos();
+            revisarConflictosExistentesAlCargar();
             toggleSection('sec-capas-kmz', 'arrow-kmz-capas');
             toggleSection('sec-radio-captura', 'arrow-radio-captura');
             toggleSection('sec-circulo', 'arrow-2');
