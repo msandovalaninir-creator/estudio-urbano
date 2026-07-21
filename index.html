@@ -1905,6 +1905,16 @@
                 `;
                 item.appendChild(filaControles);
 
+                let filaOrden = document.createElement('div');
+                filaOrden.style.display = 'flex';
+                filaOrden.style.gap = '6px';
+                filaOrden.style.marginTop = '4px';
+                filaOrden.innerHTML = `
+                    <button style="flex:1; margin:0; padding:5px; font-size:10px; background:#334155;" onclick="ordenarCapaKMZ('${k.id}', 'frente')" title="Mostrar esta capa por encima del área visual de influencia">⬆️ Al frente</button>
+                    <button style="flex:1; margin:0; padding:5px; font-size:10px; background:#334155;" onclick="ordenarCapaKMZ('${k.id}', 'atras')" title="Mostrar esta capa por debajo del área visual de influencia">⬇️ Atrás</button>
+                `;
+                item.appendChild(filaOrden);
+
                 h.appendChild(item);
             });
             
@@ -1933,6 +1943,21 @@
             listaKMZMemoria = [];
             document.getElementById('kmz-search-input').value = "";
             renderizarHistorialKMZBitacora();
+        }
+
+        // Mueve una capa KMZ por encima o por debajo del círculo de área visual de influencia,
+        // para que se pueda decidir cuál tapa a cuál cuando se superponen.
+        function ordenarCapaKMZ(id, posicion) {
+            let k = listaKMZMemoria.find(x => x.id === id);
+            if (!k) return;
+
+            if (posicion === 'frente') {
+                if (areaInfluenciaCirculo) areaInfluenciaCirculo.bringToBack();
+                k.capa.bringToFront();
+            } else {
+                k.capa.bringToBack();
+                if (areaInfluenciaCirculo) areaInfluenciaCirculo.bringToFront();
+            }
         }
 
         function eliminarCapaKMZ(id, event) {
