@@ -1718,17 +1718,17 @@
             // como referencia mientras no se ha trazado.
             let distanciaEfectiva = item => (item.trazadoManual && item.distance !== null) ? item.distance : item.distanciaLinea;
 
-            // Se ordenan primero los ítems DENTRO de cada categoría (de más cercano a más lejano),
-            // y luego las categorías ENTRE SÍ según cuál tenga el servicio más cercano de todos.
-            // Así, todo el panel fluye de principio a fin desde la dirección base hacia afuera,
-            // sin importar el tipo de servicio.
+            // Se ordenan los ítems DENTRO de cada categoría de más cercano a más lejano, pero las
+            // categorías ENTRE SÍ ahora respetan el orden que armaste con las flechitas ▲▼ en
+            // "Filtros Estratégicos Inteligentes" — no se reordenan solas según cercanía.
+            let ordenCategorias = CONFIG_SERVICIOS_PREDEFINIDOS.map(s => s.title);
             let gruposConDatos = Object.entries(logsAgrupados)
                 .filter(([grupo, items]) => items.length > 0)
                 .map(([grupo, items]) => {
                     let itemsOrdenados = items.sort((a, b) => distanciaEfectiva(a) - distanciaEfectiva(b));
-                    return { grupo, itemsOrdenados, distanciaMinima: distanciaEfectiva(itemsOrdenados[0]) };
+                    return { grupo, itemsOrdenados };
                 })
-                .sort((a, b) => a.distanciaMinima - b.distanciaMinima);
+                .sort((a, b) => ordenCategorias.indexOf(a.grupo) - ordenCategorias.indexOf(b.grupo));
 
             cacheUltimoAnalisisExportable = gruposConDatos;
 
@@ -2024,19 +2024,23 @@
 
         function copiarReporteResultadosAlPortapapeles() {
             // Se arma directo desde los datos actuales (siempre refleja el último estado, no una
-            // foto vieja) y se ordena TODO junto por distancia real, sin importar la categoría —
-            // antes se respetaba el orden por grupo y podía verse un salto raro (ej. 431 m antes
-            // que 321 m) porque cada categoría se ordenaba por separado.
+            // foto vieja) y respeta el orden de categorías que armaste con las flechitas ▲▼ en
+            // "Filtros Estratégicos Inteligentes" — dentro de cada categoría, de más cerca a más lejos.
+            let ordenCategorias = CONFIG_SERVICIOS_PREDEFINIDOS.map(s => s.id);
             let todosLosItemsTrazados = Object.values(elementosMapeadosActivos)
                 .filter(item => item.trazadoManual && item.distance !== null)
-                .sort((a, b) => a.distance - b.distance);
+                .sort((a, b) => {
+                    let diffCategoria = ordenCategorias.indexOf(a.catId) - ordenCategorias.indexOf(b.catId);
+                    if (diffCategoria !== 0) return diffCategoria;
+                    return a.distance - b.distance;
+                });
 
             // Formato de tabla (separado por tabulaciones) para que, al pegarlo en Excel o Google
             // Sheets, cada dato caiga solo en su propia columna: Nombre | Minutos | Metros.
             let t = `${nombreUbicacionActual}\n\n`;
             t += `Servicio\tTiempo\tDistancia\n`;
             todosLosItemsTrazados.forEach(item => {
-                t += `${item.name}\t${formatoTiempoCaminando(item.tiempo)}\t${item.distance} m\n`;
+                t += `${item.name}\t🚶 ${formatoTiempoCaminando(item.tiempo)}\t${item.distance} m\n`;
             });
 
             if(todosLosItemsTrazados.length === 0) {
