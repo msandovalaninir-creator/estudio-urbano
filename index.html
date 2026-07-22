@@ -380,7 +380,7 @@
             { id: 'colegios', title: 'Colegios y Liceos', em: '🎓', col: '#a855f7', query: 'nwr["amenity"="school"]{{GEO}};', max: 10, img: null },
             { id: 'universidades', title: 'Universidades e Institutos', em: '🏛️', col: '#6366f1', query: 'nwr["amenity"="university"]{{GEO}};', max: 5, img: null },
             { id: 'jardin_infantil', title: 'Jardines Infantiles / Sala Cuna', em: '🧸', col: '#ec4899', query: 'nwr["amenity"="kindergarten"]{{GEO}};', max: 8, img: null },
-            { id: 'salud', title: 'Salud y Clínicas', em: '🏥', col: '#06b6d4', query: 'nwr["amenity"="hospital"]{{GEO}};nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="pharmacy"]{{GEO}};', max: 15, img: null },
+            { id: 'salud', title: 'Salud y Clínicas', em: '🏥', col: '#06b6d4', query: 'nwr["amenity"="hospital"]{{GEO}};nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="pharmacy"]{{GEO}};nwr["healthcare"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["name"~"CECOSF|SAPU|SAR|CCR|COSAM|CESFAM",i]{{GEO}};', max: 15, img: null },
             { id: 'seguridad', title: 'Seguridad y Policía', em: '🚓', col: '#ef4444', query: 'nwr["amenity"="police"]{{GEO}};', max: 5, img: null },
             { id: 'bomberos', title: 'Bomberos', em: '🚒', col: '#f43f5e', query: 'nwr["amenity"="fire_station"]{{GEO}};', max: 4, img: null },
             { id: 'cultura', title: 'Cine, Teatro y Museos', em: '🎭', col: '#eab308', query: 'nwr["amenity"="cinema"]{{GEO}};nwr["amenity"="theatre"]{{GEO}};nwr["tourism"="museum"]{{GEO}};', max: 8, img: null },
@@ -985,11 +985,14 @@
             "panaderia": { query: 'nwr["shop"="bakery"]{{GEO}};', em: '🥖', col: '#ca8a04' },
             "ferreteria": { query: 'nwr["shop"="hardware"]{{GEO}};', em: '🔧', col: '#78716c' },
             "iglesia": { query: 'nwr["amenity"="place_of_worship"]{{GEO}};', em: '⛪', col: '#7c3aed' },
-            "hospital": { query: 'nwr["amenity"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
-            "hospitales": { query: 'nwr["amenity"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
-            "clinica": { query: 'nwr["amenity"="clinic"]{{GEO}};', em: '🏥', col: '#dc2626' },
-            "consultorio": { query: 'nwr["amenity"="clinic"]{{GEO}};', em: '🏥', col: '#dc2626' },
-            "cesfam": { query: 'nwr["amenity"="clinic"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "hospital": { query: 'nwr["amenity"="hospital"]{{GEO}};nwr["healthcare"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "hospitales": { query: 'nwr["amenity"="hospital"]{{GEO}};nwr["healthcare"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "clinica": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["healthcare"]{{GEO}};nwr["name"~"CECOSF|SAPU|SAR|CCR|COSAM|CESFAM",i]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "consultorio": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["healthcare"]{{GEO}};nwr["name"~"CECOSF|SAPU|SAR|CCR|COSAM|CESFAM",i]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "cesfam": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["healthcare"]{{GEO}};nwr["name"~"CECOSF|SAPU|SAR|CCR|COSAM|CESFAM",i]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "cecosf": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["healthcare"]{{GEO}};nwr["name"~"CECOSF|SAPU|SAR|CCR|COSAM|CESFAM",i]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "sapu": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["healthcare"]{{GEO}};nwr["name"~"CECOSF|SAPU|SAR|CCR|COSAM|CESFAM",i]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "cosam": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["healthcare"]{{GEO}};nwr["name"~"CECOSF|SAPU|SAR|CCR|COSAM|CESFAM",i]{{GEO}};', em: '🏥', col: '#dc2626' },
             "veterinaria": { query: 'nwr["amenity"="veterinary"]{{GEO}};', em: '🐾', col: '#059669' },
             "gimnasio": { query: 'nwr["leisure"="fitness_centre"]{{GEO}};', em: '🏋️', col: '#0891b2' },
             "lavanderia": { query: 'nwr["shop"="laundry"]{{GEO}};', em: '🧺', col: '#0ea5e9' },
@@ -2082,17 +2085,17 @@
 
             let overlay = document.createElement('div');
             overlay.id = 'overlay-vista-previa-reporte';
-            overlay.style.cssText = 'position:fixed; top:80px; right:30px; z-index:9999; max-width:520px; width:90%;';
+            overlay.style.cssText = 'position:fixed; top:80px; right:30px; z-index:9999; width:520px; height:520px; min-width:280px; min-height:200px;';
             overlay.innerHTML = `
-                <div style="background:#0f1420; border:1px solid #2a313d; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,0.6); overflow:hidden;">
-                    <div id="cabecera-vista-previa-reporte" style="background:#1e293b; padding:10px 14px; cursor:move; display:flex; justify-content:space-between; align-items:center; user-select:none;">
+                <div style="background:#0f1420; border:1px solid #2a313d; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,0.6); overflow:hidden; width:100%; height:100%; display:flex; flex-direction:column;">
+                    <div id="cabecera-vista-previa-reporte" style="background:#1e293b; padding:10px 14px; cursor:move; display:flex; justify-content:space-between; align-items:center; user-select:none; flex-shrink:0;">
                         <div>
                             <h3 style="color:#fff; margin:0; font-size:14px;">📋 Vista previa del reporte</h3>
                             <p style="color:#94a3b8; font-size:11px; margin:2px 0 0;">${escaparHTML(nombreUbicacionActual)} · arrastra aquí para mover</p>
                         </div>
                         <button style="background:none; border:none; color:#94a3b8; font-size:16px; cursor:pointer; padding:0 4px;" onclick="document.getElementById('overlay-vista-previa-reporte').remove()">✕</button>
                     </div>
-                    <div style="padding:16px; max-height:70vh; overflow-y:auto;">
+                    <div style="padding:16px; overflow-y:auto; flex-grow:1;">
                         ${contenidoTabla}
                         <div style="display:flex; gap:8px; margin-top:16px;">
                             <button style="flex:1; background:#334155; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer;" onclick="document.getElementById('overlay-vista-previa-reporte').remove()">Cerrar</button>
@@ -2100,9 +2103,59 @@
                         </div>
                     </div>
                 </div>
+                <div class="asa-redim" data-esquina="nw" style="position:absolute; top:-4px; left:-4px; width:14px; height:14px; cursor:nwse-resize;"></div>
+                <div class="asa-redim" data-esquina="ne" style="position:absolute; top:-4px; right:-4px; width:14px; height:14px; cursor:nesw-resize;"></div>
+                <div class="asa-redim" data-esquina="sw" style="position:absolute; bottom:-4px; left:-4px; width:14px; height:14px; cursor:nesw-resize;"></div>
+                <div class="asa-redim" data-esquina="se" style="position:absolute; bottom:-4px; right:-4px; width:14px; height:14px; cursor:nwse-resize;"></div>
             `;
             document.body.appendChild(overlay);
             habilitarArrastreVentanaFlotante(overlay, document.getElementById('cabecera-vista-previa-reporte'));
+            habilitarRedimensionEsquinas(overlay);
+        }
+
+        // Permite agrandar o achicar la ventana flotante desde cualquiera de sus 4 esquinas.
+        function habilitarRedimensionEsquinas(ventana) {
+            ventana.querySelectorAll('.asa-redim').forEach(asa => {
+                asa.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    let esquina = asa.dataset.esquina;
+                    let rect = ventana.getBoundingClientRect();
+                    let inicioX = e.clientX, inicioY = e.clientY;
+                    let anchoInicial = rect.width, altoInicial = rect.height;
+                    let leftInicial = rect.left, topInicial = rect.top;
+
+                    function alMover(ev) {
+                        let dx = ev.clientX - inicioX;
+                        let dy = ev.clientY - inicioY;
+                        ventana.style.right = 'auto';
+
+                        if (esquina === 'se') {
+                            ventana.style.width = (anchoInicial + dx) + 'px';
+                            ventana.style.height = (altoInicial + dy) + 'px';
+                        } else if (esquina === 'sw') {
+                            ventana.style.width = (anchoInicial - dx) + 'px';
+                            ventana.style.height = (altoInicial + dy) + 'px';
+                            ventana.style.left = (leftInicial + dx) + 'px';
+                        } else if (esquina === 'ne') {
+                            ventana.style.width = (anchoInicial + dx) + 'px';
+                            ventana.style.height = (altoInicial - dy) + 'px';
+                            ventana.style.top = (topInicial + dy) + 'px';
+                        } else if (esquina === 'nw') {
+                            ventana.style.width = (anchoInicial - dx) + 'px';
+                            ventana.style.height = (altoInicial - dy) + 'px';
+                            ventana.style.left = (leftInicial + dx) + 'px';
+                            ventana.style.top = (topInicial + dy) + 'px';
+                        }
+                    }
+                    function alSoltar() {
+                        document.removeEventListener('mousemove', alMover);
+                        document.removeEventListener('mouseup', alSoltar);
+                    }
+                    document.addEventListener('mousemove', alMover);
+                    document.addEventListener('mouseup', alSoltar);
+                });
+            });
         }
 
         // Deja arrastrar una ventana flotante tomándola desde su cabecera, para poder acomodarla
