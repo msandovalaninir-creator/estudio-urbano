@@ -130,7 +130,7 @@
         .service-category-title { background: #1a1f29; padding: 8px 10px; font-weight: 700; margin-top: 15px; border-radius: 6px; font-size: 11px; color: #ffffff; border-left: 4px solid #4facfe; text-transform: uppercase; }
         .service-item { padding: 10px 8px; border-bottom: 1px solid #1a1f29; font-size: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
         .service-item:hover { background: #161a24; }
-        .item-name { font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: #e2e8f0; }
+        .item-name { font-weight: 500; color: #e2e8f0; white-space: normal; word-break: break-word; }
         .distance { font-weight: 600; color: #38bdf8; font-size: 11px; margin-right: 8px; }
         
         /* Botón de eliminación manual en el panel derecho */
@@ -360,7 +360,7 @@
 
     <div id="results-panel">
         <h2>Servicios Validados</h2>
-        <button id="btn-copiar-reporte" onclick="copiarReporteResultadosAlPortapapeles()">📋 COPIAR REPORTE HUD</button>
+        <button id="btn-copiar-reporte" onclick="mostrarVistaPreviaReporte()">📋 COPIAR REPORTE HUD</button>
         <div id="results-container">
             <p style="color: #94a3b8; font-size: 12px; line-height: 1.5;">Haz Clic Derecho en el mapa para fijar un origen exacto o busca una dirección, luego presiona "Generar Estudio Urbano". <br><br>💡<b>Tip Interactividad:</b> Haz clic y arrastra cualquier point intermedio de los trazos para recalcular rutas alternativas utilizando pasarelas y puentes peatonales.</p>
         </div>
@@ -1765,14 +1765,19 @@
                         bloqueDistancia = `<span class="distance" style="opacity:0.7;" title="Distancia en línea recta, aún no trazada a mano">📐 ~${item.distanciaLinea} m</span>`;
                         botonAccion = `<button style="background:#0369a1; color:#fff; font-size:10px; font-weight:700; border-radius:4px; padding:4px 8px; border:none; cursor:pointer;" onclick="iniciarTrazadoParaServicio('${item.uid}')" title="Trazar la ruta real a este servicio">✏️ Trazar</button>`;
                     }
+                    iDiv.style.flexDirection = 'column';
+                    iDiv.style.alignItems = 'stretch';
+                    iDiv.style.gap = '6px';
                     iDiv.innerHTML = `
-                        <div style="flex-grow:1; overflow:hidden; display:flex; align-items:center;" onclick="map.panTo([${item.lat}, ${item.lng}]);">
-                            <span class="item-name" style="cursor:pointer;">${idx + 1}. ${escaparHTML(item.name)}${marcaVerificado}</span>
+                        <div style="cursor:pointer;" onclick="map.panTo([${item.lat}, ${item.lng}]);">
+                            <span class="item-name">${idx + 1}. ${escaparHTML(item.name)}${marcaVerificado}</span>
                         </div>
-                        <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:5px;">
                             ${bloqueDistancia}
-                            ${botonAccion}
-                            <button class="btn-remove-item" onclick="eliminarServicioValidadoManualmente('${item.uid}');" title="Eliminar de los resultados">❌</button>
+                            <div style="display:flex; align-items:center; gap:5px;">
+                                ${botonAccion}
+                                <button class="btn-remove-item" onclick="eliminarServicioValidadoManualmente('${item.uid}');" title="Eliminar de los resultados">❌</button>
+                            </div>
                         </div>
                     `;
                     grupoContenedor.appendChild(iDiv);
@@ -2022,32 +2027,78 @@
             }
         }
 
-        function copiarReporteResultadosAlPortapapeles() {
-            // Se arma directo desde los datos actuales (siempre refleja el último estado, no una
-            // foto vieja) y respeta el orden de categorías que armaste con las flechitas ▲▼ en
-            // "Filtros Estratégicos Inteligentes" — dentro de cada categoría, de más cerca a más lejos.
+        // Arma la lista de servicios a incluir en el reporte, respetando el orden de categorías
+        // configurado con las flechitas ▲▼, y dentro de cada categoría de más cerca a más lejos.
+        function obtenerItemsReporte() {
             let ordenCategorias = CONFIG_SERVICIOS_PREDEFINIDOS.map(s => s.id);
-            let todosLosItemsTrazados = Object.values(elementosMapeadosActivos)
+            return Object.values(elementosMapeadosActivos)
                 .filter(item => item.trazadoManual && item.distance !== null)
                 .sort((a, b) => {
                     let diffCategoria = ordenCategorias.indexOf(a.catId) - ordenCategorias.indexOf(b.catId);
                     if (diffCategoria !== 0) return diffCategoria;
                     return a.distance - b.distance;
                 });
+        }
 
-            // Formato de tabla (separado por tabulaciones) para que, al pegarlo en Excel o Google
-            // Sheets, cada dato caiga solo en su propia columna: Nombre | Minutos | Metros.
+        function generarTextoReporte() {
+            let items = obtenerItemsReporte();
             let t = `${nombreUbicacionActual}\n\n`;
             t += `Servicio\tTiempo\tDistancia\n`;
-            todosLosItemsTrazados.forEach(item => {
+            items.forEach(item => {
                 t += `${item.name}\t🚶 ${formatoTiempoCaminando(item.tiempo)}\t${item.distance} m\n`;
             });
+            if(items.length === 0) t += `Aún no hay servicios trazados para incluir en el reporte.\n`;
+            return t;
+        }
 
-            if(todosLosItemsTrazados.length === 0) {
-                t += `Aún no hay servicios trazados para incluir en el reporte.\n`;
-            }
-            
-            navigator.clipboard.writeText(t).then(() => alert("¡Reporte copiado al portapapeles con éxito!"));
+        // Muestra una vista previa en forma de tabla (igual a como se ve al pegarlo en Excel)
+        // antes de copiar, para que puedas revisar cómo va a quedar sin sorpresas.
+        function mostrarVistaPreviaReporte() {
+            let items = obtenerItemsReporte();
+            let filasHtml = items.map(item => `
+                <tr>
+                    <td style="border:1px solid #333; padding:6px 10px; text-align:left;">${escaparHTML(item.name)}</td>
+                    <td style="border:1px solid #333; padding:6px 10px; text-align:center; white-space:nowrap;">
+                        <img src="${ICONO_CAMINANTE}" style="width:14px;height:14px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)}
+                    </td>
+                    <td style="border:1px solid #333; padding:6px 10px; text-align:center;">${item.distance} m</td>
+                </tr>
+            `).join('');
+
+            let contenidoTabla = items.length === 0
+                ? `<p style="color:#333;">Aún no hay servicios trazados para incluir en el reporte.</p>`
+                : `
+                <table style="border-collapse:collapse; width:100%; background:#fff; color:#111; font-family: Arial, sans-serif; font-size:13px;">
+                    <thead>
+                        <tr style="background:#f1f5f9;">
+                            <th style="border:1px solid #333; padding:6px 10px; text-align:left;">Servicio</th>
+                            <th style="border:1px solid #333; padding:6px 10px;">Tiempo</th>
+                            <th style="border:1px solid #333; padding:6px 10px;">Distancia</th>
+                        </tr>
+                    </thead>
+                    <tbody>${filasHtml}</tbody>
+                </table>
+            `;
+
+            let overlay = document.createElement('div');
+            overlay.id = 'overlay-vista-previa-reporte';
+            overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;';
+            overlay.innerHTML = `
+                <div style="background:#0f1420; border:1px solid #2a313d; border-radius:10px; padding:20px; max-width:600px; width:100%; max-height:85vh; overflow-y:auto;">
+                    <h3 style="color:#fff; margin-top:0; font-size:15px;">Vista previa del reporte</h3>
+                    <p style="color:#94a3b8; font-size:12px; margin-top:-8px;">${escaparHTML(nombreUbicacionActual)}</p>
+                    ${contenidoTabla}
+                    <div style="display:flex; gap:8px; margin-top:16px;">
+                        <button style="flex:1; background:#334155; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer;" onclick="document.getElementById('overlay-vista-previa-reporte').remove()">Cerrar</button>
+                        <button style="flex:1; background:#2563eb; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer; font-weight:700;" onclick="copiarReporteResultadosAlPortapapeles(); document.getElementById('overlay-vista-previa-reporte').remove();">📋 Copiar al portapapeles</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        function copiarReporteResultadosAlPortapapeles() {
+            navigator.clipboard.writeText(generarTextoReporte()).then(() => alert("¡Reporte copiado al portapapeles con éxito!"));
         }
 
         // Revisa las categorías que ya tienes guardadas y avisa si hay dos que apuntan al mismo
