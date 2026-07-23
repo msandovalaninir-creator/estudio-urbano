@@ -1259,24 +1259,58 @@
                 return alert("Selecciona al menos una categoría de servicio para analizar.");
             }
 
-            // Se usa "out center" (liviano) en vez de "out geom" (geometría completa): ya no hace
-            // falta la geometría detallada porque la distancia real ahora la mides tú trazando a
-            // mano. Esto reduce bastante el peso de la respuesta que hay que descargar y procesar,
-            // que era la única razón real para pedir la geometría completa.
-            let queryCombinada = `[out:json][timeout:25];\n(\n${categoriasSeleccionadas.map(s => s.query.replace(/{{GEO}}/g, geoFiltro)).join('\n')}\n);\nout center;`;
+            // Se reparte en LOTES CHICOS (4 categorías por consulta) en vez de una sola consulta
+            // gigante con todo junto. Cada lote es mucho más liviano de procesar para el servidor
+            // gratuito, y si un lote falla, los demás igual se cargan — no es todo o nada, y no se
+            // satura al servidor con una sola consulta demasiado pesada.
+            const TAMANO_LOTE = 4;
+            let lotes = [];
+            for (let i = 0; i < categoriasSeleccionadas.length; i += TAMANO_LOTE) {
+                lotes.push(categoriasSeleccionadas.slice(i, i + TAMANO_LOTE));
+            }
 
-            consultarCategoriaConReintentos(queryCombinada, "Estudio Urbano").then(res => {
-                if(!res || !res.ok) {
+            let lotesCompletados = 0;
+            document.getElementById('loading-segundos').parentElement.innerHTML =
+                `⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s (lote <span id="loading-lote">0</span>/${lotes.length})`;
+
+            let tareasLotes = lotes.map(lote => () => {
+                let queryLote = `[out:json][timeout:25];\n(\n${lote.map(s => s.query.replace(/{{GEO}}/g, geoFiltro)).join('\n')}\n);\nout center;`;
+                return consultarCategoriaConReintentos(queryLote, lote.map(s => s.title).join(', ')).then(res => {
+                    lotesCompletados++;
+                    let elLote = document.getElementById('loading-lote');
+                    if (elLote) elLote.innerText = lotesCompletados;
+                    return res;
+                });
+            });
+
+            ejecutarConPoolConcurrencia(tareasLotes, 2).then(resultadosLotes => {
+                let todosLosElementos = [];
+                let lotesFallidos = [];
+                resultadosLotes.forEach((res, idx) => {
+                    if (res && res.ok) {
+                        todosLosElementos.push(...res.elements);
+                    } else {
+                        lotesFallidos.push(lotes[idx].map(s => s.title).join(', '));
+                    }
+                });
+
+                if (todosLosElementos.length === 0 && lotesFallidos.length === lotes.length) {
                     document.getElementById('loading').style.display = 'none';
                     liberarBotonAnalizar();
-                    alert("Los servidores públicos de Overpass no respondieron (están saturados o caídos en este momento, incluso tras reintentar automáticamente).\n\nEsto es una limitación del servicio gratuito, no un error de la app. Prueba:\n• Esperar 1-2 minutos y volver a intentar\n• Reducir el radio de búsqueda\n• Desmarcar categorías de servicios que no necesites");
+                    alert("Los servidores públicos de Overpass no respondieron para ninguna categoría (están saturados o caídos en este momento, incluso tras reintentar automáticamente).\n\nEsto es una limitación del servicio gratuito, no un error de la app. Prueba:\n• Esperar 1-2 minutos y volver a intentar\n• Reducir el radio de búsqueda\n• Desmarcar categorías de servicios que no necesites");
                     return;
                 }
+
+                if (lotesFallidos.length > 0) {
+                    console.warn("Lotes sin respuesta tras reintentar:", lotesFallidos);
+                    alert(`Se cargaron los resultados, pero estas categorías no respondieron tras varios intentos y quedaron fuera de este análisis:\n\n• ${lotesFallidos.join('\n• ')}\n\nPuedes volver a presionar "Generar Estudio Urbano" para reintentar solo esas (o desmarcar el resto primero para que sea más rápido).`);
+                }
+
                 // PROTECCIÓN: si algo falla procesando los resultados (incluso un error que no se
                 // haya detectado antes), esto asegura que la app NUNCA se quede "cargando" para
                 // siempre en silencio — se muestra el error real y se libera el botón.
                 try {
-                    procesarElementosFiltrosVariables(res.elements, rMaxLineal, linealFiltroActivo, rMaxWalk, walkFiltroActivo);
+                    procesarElementosFiltrosVariables(todosLosElementos, rMaxLineal, linealFiltroActivo, rMaxWalk, walkFiltroActivo);
                 } catch (errProcesamiento) {
                     console.error("Error procesando resultados de búsqueda:", errProcesamiento);
                     document.getElementById('loading').style.display = 'none';
