@@ -886,7 +886,7 @@
                             <button onclick="moverCategoriaServicio('${s.id}', 1)" ${idx === CONFIG_SERVICIOS_PREDEFINIDOS.length - 1 ? 'disabled' : ''} style="width:16px; height:14px; margin:0; padding:0; font-size:8px; line-height:1; background:#334155;" title="Bajar">▼</button>
                         </div>
                         <input type="checkbox" id="srv-${s.id}" checked style="flex-shrink:0;">
-                        <strong style="font-size:11px; flex-grow:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escaparHTML(s.title)}">${escaparHTML(s.title)}</strong>
+                        <strong style="font-size:11px; flex-grow:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" title="Clic para renombrar: ${escaparHTML(s.title)}" onclick="renombrarCategoriaServicio('${s.id}')">${escaparHTML(s.title)}</strong>
                         <div id="prev-${s.id}" class="preview-img-frame" style="width:22px; height:22px; font-size:13px; flex-shrink:0;">${s.img ? `<img src="${s.img}">` : s.em}</div>
                         <input type="color" id="ico-col-${s.id}" value="${s.col}" oninput="actualizarColorServicioMemoria('${s.id}', this.value)" style="width:20px; height:20px; padding:0; border:none; flex-shrink:0; cursor:pointer;" title="Color">
                         <input type="number" id="srv-max-${s.id}" value="${s.max}" min="1" max="100" oninput="actualizarCantidadMaxServicioMemoria('${s.id}', this.value)" style="width:36px; padding:3px 4px; font-size:10px; flex-shrink:0;" title="Cantidad máxima de resultados">
@@ -908,6 +908,16 @@
             let temp = CONFIG_SERVICIOS_PREDEFINIDOS[idx];
             CONFIG_SERVICIOS_PREDEFINIDOS[idx] = CONFIG_SERVICIOS_PREDEFINIDOS[nuevoIdx];
             CONFIG_SERVICIOS_PREDEFINIDOS[nuevoIdx] = temp;
+            persistirConfiguracionGlobalEnStorage();
+            renderizarEstructuraServiciosFijos();
+        }
+
+        function renombrarCategoriaServicio(id) {
+            let servicio = CONFIG_SERVICIOS_PREDEFINIDOS.find(s => s.id === id);
+            if (!servicio) return;
+            let nuevoNombre = prompt(`Nuevo nombre para esta categoría (sigue buscando exactamente lo mismo, solo cambia cómo se ve):`, servicio.title);
+            if (nuevoNombre === null || nuevoNombre.trim() === "") return;
+            servicio.title = nuevoNombre.trim();
             persistirConfiguracionGlobalEnStorage();
             renderizarEstructuraServiciosFijos();
         }
@@ -987,12 +997,12 @@
             "iglesia": { query: 'nwr["amenity"="place_of_worship"]{{GEO}};', em: '⛪', col: '#7c3aed' },
             "hospital": { query: 'nwr["amenity"="hospital"]{{GEO}};nwr["healthcare"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
             "hospitales": { query: 'nwr["amenity"="hospital"]{{GEO}};nwr["healthcare"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
-            "clinica": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};', em: '🏥', col: '#dc2626' },
-            "consultorio": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};', em: '🏥', col: '#dc2626' },
-            "cesfam": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};', em: '🏥', col: '#dc2626' },
-            "cecosf": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};', em: '🏥', col: '#dc2626' },
-            "sapu": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};', em: '🏥', col: '#dc2626' },
-            "cosam": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "clinica": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};nwr["amenity"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "consultorio": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};nwr["amenity"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "cesfam": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};nwr["amenity"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "cecosf": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};nwr["amenity"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "sapu": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};nwr["amenity"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
+            "cosam": { query: 'nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};nwr["amenity"="hospital"]{{GEO}};', em: '🏥', col: '#dc2626' },
             "veterinaria": { query: 'nwr["amenity"="veterinary"]{{GEO}};', em: '🐾', col: '#059669' },
             "gimnasio": { query: 'nwr["leisure"="fitness_centre"]{{GEO}};', em: '🏋️', col: '#0891b2' },
             "lavanderia": { query: 'nwr["shop"="laundry"]{{GEO}};', em: '🧺', col: '#0ea5e9' },
