@@ -322,6 +322,13 @@
                 </div>
             </div>
 
+            <div style="background: rgba(79,172,254,0.06); border:1px solid rgba(79,172,254,0.25); border-radius:8px; padding:8px; margin-bottom:12px;">
+                <label style="color: #4facfe; margin-bottom: 8px; display:block;">📁 GRUPOS DE BÚSQUEDA (por rubro/negocio)</label>
+                <div id="lista-grupos-servicios"></div>
+                <button type="button" onclick="mostrarFormularioCrearGrupo()" style="margin-top:6px; margin-bottom:0; background:#1e293b; border:1px solid #4facfe; font-size:11px; padding:8px;">➕ Crear grupo nuevo</button>
+                <div id="form-crear-grupo" style="display:none; margin-top:8px;"></div>
+            </div>
+
             <div class="mass-toggle-container">
                 <button type="button" class="btn-secondary" onclick="conmutarTodosLosServiciosCheckbox(false)">⬜ Desmarcar Todos</button>
                 <button type="button" class="btn-success" onclick="conmutarTodosLosServiciosCheckbox(true)">☑️ Marcar Todos</button>
@@ -793,6 +800,7 @@
             try {
                 localStorage.setItem('hud_config_mapas', JSON.stringify(configMapas));
                 localStorage.setItem('hud_servicios', JSON.stringify(CONFIG_SERVICIOS_PREDEFINIDOS));
+                localStorage.setItem('hud_grupos_servicios', JSON.stringify(GRUPOS_SERVICIOS));
             } catch (e) {
                 // Suele ocurrir cuando se suben varios íconos personalizados como imagen y
                 // se supera el límite de almacenamiento local del navegador (~5-10MB).
@@ -861,7 +869,11 @@
                 });
                 if (huboReparacion) persistirConfiguracionGlobalEnStorage();
             }
-            
+            let grupos = localStorage.getItem('hud_grupos_servicios');
+            if (grupos) {
+                try { GRUPOS_SERVICIOS = JSON.parse(grupos); } catch(e) { GRUPOS_SERVICIOS = []; }
+            }
+
             let bit = localStorage.getItem('hud_bitacora');
             if(bit) { listaBitacoraMemoria = JSON.parse(bit); renderizarBitacora(); }
           } catch (e) {
@@ -869,6 +881,82 @@
             // por defecto, en vez de quedar rota sin cargar.
             console.error('Configuración guardada corrupta, se ignoró:', e);
           }
+        }
+
+        // --- GRUPOS DE BÚSQUEDA POR RUBRO/NEGOCIO ---
+        // Permite guardar combinaciones de categorías (ej. "Viviendas Sociales" = Clínica +
+        // Paraderos + Colegios + Sala Cuna + Supermercados + Áreas Verdes) y activarlas con un
+        // clic, en vez de tener que marcar/desmarcar categoría por categoría cada vez.
+        let GRUPOS_SERVICIOS = [];
+
+        function renderizarListaGruposServicios() {
+            let cont = document.getElementById('lista-grupos-servicios');
+            if (GRUPOS_SERVICIOS.length === 0) {
+                cont.innerHTML = `<div style="font-size:10.5px; color:#64748b;">Aún no tienes grupos guardados.</div>`;
+                return;
+            }
+            cont.innerHTML = GRUPOS_SERVICIOS.map(g => `
+                <div style="display:flex; align-items:center; gap:6px; background:#161a24; border-radius:6px; padding:6px 8px; margin-bottom:5px;">
+                    <span style="flex-grow:1; font-size:11px; color:#e2e8f0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escaparHTML(g.nombre)}: ${g.categoriaIds.length} categorías">${escaparHTML(g.nombre)}</span>
+                    <button onclick="activarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 8px; font-size:10px; background:#0369a1;" title="Activar solo las categorías de este grupo">▶ Activar</button>
+                    <button onclick="eliminarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 6px; font-size:10px; background:#7f1d1d;" title="Eliminar grupo">❌</button>
+                </div>
+            `).join('');
+        }
+
+        function mostrarFormularioCrearGrupo() {
+            let form = document.getElementById('form-crear-grupo');
+            let yaVisible = form.style.display === 'block';
+            if (yaVisible) { form.style.display = 'none'; return; }
+
+            let checklistHtml = CONFIG_SERVICIOS_PREDEFINIDOS.map(s => `
+                <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; padding:3px 0;">
+                    <input type="checkbox" class="chk-grupo-nuevo" value="${s.id}"> ${escaparHTML(s.title)}
+                </label>
+            `).join('');
+
+            form.innerHTML = `
+                <input type="text" id="nombre-grupo-nuevo" placeholder="Nombre del grupo (ej: Viviendas Sociales)" style="margin-bottom:8px;">
+                <div style="max-height:180px; overflow-y:auto; background:#0d1117; border-radius:6px; padding:6px 8px; margin-bottom:8px;">
+                    ${checklistHtml}
+                </div>
+                <button onclick="guardarGrupoServiciosNuevo()" style="margin:0; background:#16a34a; font-size:11px; padding:8px;">💾 Guardar grupo</button>
+            `;
+            form.style.display = 'block';
+        }
+
+        function guardarGrupoServiciosNuevo() {
+            let nombre = document.getElementById('nombre-grupo-nuevo').value.trim();
+            if (!nombre) return alert("Ponle un nombre al grupo (ej: Viviendas Sociales).");
+
+            let seleccionados = [...document.querySelectorAll('.chk-grupo-nuevo:checked')].map(el => el.value);
+            if (seleccionados.length === 0) return alert("Marca al menos una categoría para este grupo.");
+
+            let id = "grupo_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
+            GRUPOS_SERVICIOS.push({ id, nombre, categoriaIds: seleccionados });
+            persistirConfiguracionGlobalEnStorage();
+            renderizarListaGruposServicios();
+            document.getElementById('form-crear-grupo').style.display = 'none';
+        }
+
+        // Marca SOLO las categorías del grupo, desmarcando todas las demás — así queda listo para
+        // buscar exactamente ese rubro sin tener que tocar cada casilla a mano.
+        function activarGrupoServicios(id) {
+            let grupo = GRUPOS_SERVICIOS.find(g => g.id === id);
+            if (!grupo) return;
+            CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                let chk = document.getElementById(`srv-${s.id}`);
+                if (chk) chk.checked = grupo.categoriaIds.includes(s.id);
+            });
+        }
+
+        function eliminarGrupoServicios(id) {
+            let grupo = GRUPOS_SERVICIOS.find(g => g.id === id);
+            if (!grupo) return;
+            if (!confirm(`¿Eliminar el grupo "${grupo.nombre}"? (esto no borra las categorías, solo el grupo guardado)`)) return;
+            GRUPOS_SERVICIOS = GRUPOS_SERVICIOS.filter(g => g.id !== id);
+            persistirConfiguracionGlobalEnStorage();
+            renderizarListaGruposServicios();
         }
 
         function renderizarEstructuraServiciosFijos() {
@@ -2248,6 +2336,7 @@
         window.onload = function() {
             recuperarConfiguracionGlobalStorage();
             renderizarEstructuraServiciosFijos();
+            renderizarListaGruposServicios();
             revisarConflictosExistentesAlCargar();
             toggleSection('sec-capas-kmz', 'arrow-kmz-capas');
             toggleSection('sec-radio-captura', 'arrow-radio-captura');
