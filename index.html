@@ -1313,7 +1313,7 @@
                 // El cliente debe esperar MÁS que el timeout que le pedimos al servidor (25s),
                 // nunca menos — si se corta antes, se aborta una consulta que quizás sí iba a
                 // responder bien, solo un poco lenta, y eso obliga a reintentar sin necesidad.
-                return fetchConTiempoMaximo(ENDPOINTS_OVERPASS[endpointIdx] + '?data=' + encodeURIComponent(query), { method: 'GET' }, 30000)
+                return fetchConTiempoMaximo(ENDPOINTS_OVERPASS[endpointIdx], { method: 'POST', body: 'data=' + encodeURIComponent(query), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 30000)
                     .then(res => {
                         if(!res.ok) {
                             return res.text().then(txt => {
@@ -1434,7 +1434,7 @@
 
             let tareasRefinamiento = sospechosos.map(r => () => {
                 let query = `[out:json][timeout:15];(node(around:250,${r.lat},${r.lng})["entrance"];node(around:250,${r.lat},${r.lng})["railway"="subway_entrance"];node(around:250,${r.lat},${r.lng})["public_transport"];);out body;`;
-                return fetch(ENDPOINTS_OVERPASS[0] + '?data=' + encodeURIComponent(query), { method: 'GET' })
+                return fetch(ENDPOINTS_OVERPASS[0], { method: 'POST', body: 'data=' + encodeURIComponent(query), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
                     .then(res => res.ok ? res.json() : { elements: [] })
                     .catch(() => ({ elements: [] }))
                     .then(data => {
