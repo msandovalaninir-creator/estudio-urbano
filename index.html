@@ -334,7 +334,11 @@
                 <button type="button" class="btn-success" onclick="conmutarTodosLosServiciosCheckbox(true)">☑️ Marcar Todos</button>
             </div>
 
-            <div id="dynamic-services-container"></div>
+            <div class="collapsible-header" style="margin-top:8px; background:#161a24;" onclick="toggleSection('dynamic-services-container', 'arrow-lista-servicios')">
+                <span>📋 Ver todas las categorías (<span id="contador-categorias">0</span>)</span>
+                <span id="arrow-lista-servicios">▼</span>
+            </div>
+            <div id="dynamic-services-container" class="collapsible-content"></div>
             
             <div style="border-top: 1px solid #2e3545; padding-top: 12px; margin-top: 12px;">
                 <label style="color: #4facfe; margin-bottom: 10px;">➕ AGREGAR SERVICIO PERSONALIZADO</label>
@@ -962,6 +966,8 @@
         function renderizarEstructuraServiciosFijos() {
             const container = document.getElementById('dynamic-services-container');
             container.innerHTML = "";
+            let contadorEl = document.getElementById('contador-categorias');
+            if (contadorEl) contadorEl.innerText = CONFIG_SERVICIOS_PREDEFINIDOS.length;
             CONFIG_SERVICIOS_PREDEFINIDOS.forEach((s, idx) => {
                 let block = document.createElement('div');
                 block.className = 'servicio-container-block';
@@ -2342,6 +2348,7 @@
             toggleSection('sec-radio-captura', 'arrow-radio-captura');
             toggleSection('sec-circulo', 'arrow-2');
             toggleSection('sec-iconos', 'arrow-3');
+            toggleSection('dynamic-services-container', 'arrow-lista-servicios');
         };
     </script>
 </body>
