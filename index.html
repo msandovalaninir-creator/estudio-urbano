@@ -839,8 +839,26 @@
                 let area = L.GeometryUtil.geodesicArea(latlngs);
                 let txt = area >= 10000 ? `${(area / 10000).toFixed(2)} ha` : `${Math.round(area).toLocaleString()} m²`;
                 layer.bindTooltip(txt, { permanent: true, direction: 'center', className: 'hud-area-tooltip' }).addTo(map);
+
+                // Ofrece usar este terreno (su centro) como punto de origen para buscar servicios,
+                // igual que si hubieras escrito una dirección — así el polígono que dibujaste
+                // funciona como el "terreno base" del estudio, con su superficie ya calculada.
+                if (confirm(`Polígono dibujado: ${txt}.\n\n¿Quieres usar este terreno como punto de origen para buscar servicios cercanos?`)) {
+                    usarPoligonoComoOrigen(layer, txt);
+                }
             }
         });
+
+        // Calcula el centro geométrico del polígono dibujado y lo fija como origen de búsqueda,
+        // igual que si se hubiera buscado una dirección o hecho clic derecho en el mapa.
+        function usarPoligonoComoOrigen(layer, textoArea) {
+            let latlngs = layer.getLatLngs()[0];
+            let sumaLat = 0, sumaLng = 0;
+            latlngs.forEach(p => { sumaLat += p.lat; sumaLng += p.lng; });
+            let centro = L.latLng(sumaLat / latlngs.length, sumaLng / latlngs.length);
+
+            establecerPuntoOrigen(centro, `Terreno dibujado (${textoArea})`);
+        }
 
         function reescalarIconosSimultaneamente(sizePx) {
             let sizeDinamico = parseInt(sizePx) || 30;
