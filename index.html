@@ -685,14 +685,54 @@
             let botonFinalizarDirecto = item
                 ? `<button style="width:100%; margin-top:6px; background:#16a34a; color:#fff; border:none; padding:8px; border-radius:4px; font-size:11px; font-weight:700; cursor:pointer;" onclick="finalizarTrazadoManualSobreServicio('${servicioObjetivoTrazado}')">✅ Finalizar en "${escaparHTML(item.name)}"</button>`
                 : '';
+            let botonSugerencia = item
+                ? `<button id="btn-sugerir-trazado" style="width:100%; margin-top:6px; background:#7c3aed; color:#fff; border:none; padding:8px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="sugerirTrazadoAutomatico()">🤖 Sugerir trazado automático (revisa antes de aceptar)</button>`
+                : '';
             banner.innerHTML = `
                 <b>Modo trazado activo${item ? ' → ' + escaparHTML(item.name) : ''}:</b> haz clic en el mapa siguiendo la calle real${item ? '' : '. Termina haciendo clic directo sobre el ícono del servicio correcto'}.
+                ${botonSugerencia}
                 ${botonFinalizarDirecto}
                 <div style="margin-top:8px; display:flex; gap:6px;">
                     <button style="flex:1; background:#dc2626; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="cancelarTrazadoManual()">Salir</button>
                     <button style="flex:1; background:#334155; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="deshacerUltimoPuntoTrazado()">Deshacer último punto</button>
                 </div>
             `;
+        }
+
+        // Le pide al motor de rutas automático (OSRM) una SUGERENCIA de camino desde el último
+        // punto dibujado hasta el servicio, y la carga en el trazado para que la revises — no se
+        // finaliza sola. Si la calle real no está bien mapeada, vas a ver un trazo raro y puedes
+        // seguir corrigiendo a mano como siempre, sin perder nada.
+        function sugerirTrazadoAutomatico() {
+            if (!servicioObjetivoTrazado) return;
+            let item = elementosMapeadosActivos[servicioObjetivoTrazado];
+            if (!item || puntosTrazadoActual.length === 0) return;
+
+            let btn = document.getElementById('btn-sugerir-trazado');
+            if (btn) { btn.disabled = true; btn.innerText = '⌛ Consultando sugerencia...'; }
+
+            let ultimoPunto = puntosTrazadoActual[puntosTrazadoActual.length - 1];
+            let url = `https://router.project-osrm.org/route/v1/foot/${ultimoPunto.lng},${ultimoPunto.lat};${item.lng},${item.lat}?overview=full&geometries=geojson`;
+
+            fetchConTiempoMaximo(url, {}, 10000)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.routes || data.routes.length === 0) throw new Error("Sin ruta disponible");
+                    let coords = data.routes[0].geometry.coordinates; // [ [lng,lat], ... ]
+                    let nuevosPuntos = coords.slice(1).map(c => L.latLng(c[1], c[0])); // se salta el primero (ya está puesto)
+
+                    puntosTrazadoActual = puntosTrazadoActual.concat(nuevosPuntos);
+                    marcadoresPuntosTrazado.forEach(m => map.removeLayer(m));
+                    marcadoresPuntosTrazado = puntosTrazadoActual.slice(1).map(p =>
+                        L.circleMarker(p, { radius: 4, color: '#38bdf8', fillColor: '#fff', fillOpacity: 1, weight: 2 }).addTo(map)
+                    );
+                    redibujarLineaTrazadoTemporal();
+                    mostrarBannerTrazadoActivo();
+                })
+                .catch(() => {
+                    alert("No se pudo traer una sugerencia automática para este tramo (el servicio de rutas no respondió o no encontró camino). Puedes seguir dibujando a mano con normalidad.");
+                    mostrarBannerTrazadoActivo();
+                });
         }
 
         function limpiarVisualesTrazadoTemporal() {
