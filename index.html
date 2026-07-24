@@ -1000,6 +1000,7 @@
         // Paraderos + Colegios + Sala Cuna + Supermercados + Áreas Verdes) y activarlas con un
         // clic, en vez de tener que marcar/desmarcar categoría por categoría cada vez.
         let GRUPOS_SERVICIOS = [];
+        let grupoActivoId = null; // cuál grupo está aplicado actualmente, para mostrarlo resaltado
 
         function renderizarListaGruposServicios() {
             let cont = document.getElementById('lista-grupos-servicios');
@@ -1007,13 +1008,16 @@
                 cont.innerHTML = `<div style="font-size:10.5px; color:#64748b;">Aún no tienes grupos guardados.</div>`;
                 return;
             }
-            cont.innerHTML = GRUPOS_SERVICIOS.map(g => `
-                <div style="display:flex; align-items:center; gap:6px; background:#161a24; border-radius:6px; padding:6px 8px; margin-bottom:5px;">
-                    <span style="flex-grow:1; font-size:11px; color:#e2e8f0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escaparHTML(g.nombre)}: ${g.categoriaIds.length} categorías">${escaparHTML(g.nombre)}</span>
-                    <button onclick="activarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 8px; font-size:10px; background:#0369a1;" title="Activar solo las categorías de este grupo">▶ Activar</button>
+            cont.innerHTML = GRUPOS_SERVICIOS.map(g => {
+                let estaActivo = g.id === grupoActivoId;
+                return `
+                <div style="display:flex; align-items:center; gap:6px; background:${estaActivo ? '#0c3d24' : '#161a24'}; border:1px solid ${estaActivo ? '#22c55e' : 'transparent'}; border-radius:6px; padding:6px 8px; margin-bottom:5px;">
+                    <span style="flex-grow:1; font-size:11px; color:#e2e8f0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escaparHTML(g.nombre)}: ${g.categoriaIds.length} categorías">${estaActivo ? '✓ ' : ''}${escaparHTML(g.nombre)}</span>
+                    <button onclick="activarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 8px; font-size:10px; background:${estaActivo ? '#16a34a' : '#0369a1'}; font-weight:${estaActivo ? '700' : '400'};" title="${estaActivo ? 'Este grupo está activo — clic para desactivarlo' : 'Activar solo las categorías de este grupo'}">${estaActivo ? '✓ Activo' : '▶ Activar'}</button>
                     <button onclick="eliminarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 6px; font-size:10px; background:#7f1d1d;" title="Eliminar grupo">❌</button>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function mostrarFormularioCrearGrupo() {
@@ -1052,20 +1056,34 @@
         }
 
         // Marca SOLO las categorías del grupo, desmarcando todas las demás — así queda listo para
-        // buscar exactamente ese rubro sin tener que tocar cada casilla a mano.
+        // buscar exactamente ese rubro sin tener que tocar cada casilla a mano. Un clic sobre el
+        // grupo ya activo lo desactiva (desmarca sus categorías).
         function activarGrupoServicios(id) {
             let grupo = GRUPOS_SERVICIOS.find(g => g.id === id);
             if (!grupo) return;
-            CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
-                let chk = document.getElementById(`srv-${s.id}`);
-                if (chk) chk.checked = grupo.categoriaIds.includes(s.id);
-            });
+
+            if (grupoActivoId === id) {
+                // Ya estaba activo: se desactiva, desmarcando sus categorías.
+                grupoActivoId = null;
+                grupo.categoriaIds.forEach(catId => {
+                    let chk = document.getElementById(`srv-${catId}`);
+                    if (chk) chk.checked = false;
+                });
+            } else {
+                grupoActivoId = id;
+                CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                    let chk = document.getElementById(`srv-${s.id}`);
+                    if (chk) chk.checked = grupo.categoriaIds.includes(s.id);
+                });
+            }
+            renderizarListaGruposServicios();
         }
 
         function eliminarGrupoServicios(id) {
             let grupo = GRUPOS_SERVICIOS.find(g => g.id === id);
             if (!grupo) return;
             if (!confirm(`¿Eliminar el grupo "${grupo.nombre}"? (esto no borra las categorías, solo el grupo guardado)`)) return;
+            if (grupoActivoId === id) grupoActivoId = null;
             GRUPOS_SERVICIOS = GRUPOS_SERVICIOS.filter(g => g.id !== id);
             persistirConfiguracionGlobalEnStorage();
             renderizarListaGruposServicios();
