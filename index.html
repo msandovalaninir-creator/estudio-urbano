@@ -2158,7 +2158,7 @@
                 filaSuperior.style.display = 'flex';
                 filaSuperior.style.justifyContent = 'space-between';
                 filaSuperior.style.alignItems = 'center';
-                filaSuperior.innerHTML = `<span style="cursor:pointer;">🗺️ ${escaparHTML(k.nombre)}</span><button style="width:auto; margin:0; padding:2px 6px; font-size:9px;" onclick="eliminarCapaKMZ('${k.id}', event)">❌</button>`;
+                filaSuperior.innerHTML = `<span style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="kmz-visible-${k.id}" ${k.visible !== false ? 'checked' : ''} onclick="event.stopPropagation();" onchange="conmutarVisibilidadCapaKMZ('${k.id}', this.checked)" title="Mostrar/ocultar esta capa">🗺️ ${escaparHTML(k.nombre)}</span><button style="width:auto; margin:0; padding:2px 6px; font-size:9px;" onclick="eliminarCapaKMZ('${k.id}', event)">❌</button>`;
                 filaSuperior.querySelector('span').onclick = () => { map.fitBounds(k.capa.getBounds()); };
                 item.appendChild(filaSuperior);
 
@@ -2236,6 +2236,20 @@
             } else {
                 k.capa.bringToBack();
                 if (areaInfluenciaCirculo) areaInfluenciaCirculo.bringToFront();
+            }
+        }
+
+        // Muestra u oculta una capa KMZ sin borrarla y sin mover el mapa — útil para esconder la
+        // capa que usaste como referencia y dejar espacio libre para dibujar un polígono nuevo
+        // exactamente en la misma posición.
+        function conmutarVisibilidadCapaKMZ(id, visible) {
+            let k = listaKMZMemoria.find(x => x.id === id);
+            if (!k) return;
+            k.visible = visible;
+            if (visible) {
+                k.capa.addTo(map);
+            } else {
+                map.removeLayer(k.capa);
             }
         }
 
