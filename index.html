@@ -547,6 +547,51 @@
             return Object.values(elementosMapeadosActivos).some(it => it.trazadoManual && it.trazadoPuntos && it.trazadoPuntos.length > 1);
         }
 
+        // --- VÉRTICES CLICKEABLES DE TRAZADOS YA HECHOS ---
+        // Mientras el modo trazado está activo, se muestra un puntito pequeño en CADA vértice de
+        // cada recorrido ya trazado (no solo el punto final), para poder arrancar el siguiente
+        // servicio desde cualquier parte de un camino ya dibujado, no solo desde su extremo.
+        let marcadoresVerticesExistentes = [];
+
+        function ocultarVerticesTrazadosExistentes() {
+            marcadoresVerticesExistentes.forEach(m => map.removeLayer(m));
+            marcadoresVerticesExistentes = [];
+        }
+
+        function mostrarVerticesTrazadosExistentes() {
+            ocultarVerticesTrazadosExistentes();
+            Object.entries(elementosMapeadosActivos).forEach(([uid, item]) => {
+                if (!item.trazadoManual || !item.trazadoPuntos) return;
+                // Se excluye el último punto (es el propio ícono del servicio, ya clickeable por su cuenta).
+                item.trazadoPuntos.slice(0, -1).forEach((p, idx) => {
+                    let punto = L.circleMarker(p, {
+                        radius: 5, color: '#a855f7', fillColor: '#fff', fillOpacity: 1, weight: 2,
+                        pane: 'markerPane'
+                    }).addTo(map);
+                    punto.bindTooltip('Continuar desde aquí', { direction: 'top', offset: [0, -6] });
+                    punto.on('click', (e) => {
+                        L.DomEvent.stopPropagation(e);
+                        comenzarTrazadoDesdeVertice(uid, idx);
+                    });
+                    marcadoresVerticesExistentes.push(punto);
+                });
+            });
+        }
+
+        // Arranca un nuevo recorrido usando solo el tramo del trazado existente HASTA el vértice
+        // que se clickeó (no el trazado completo), para poder ramificar desde cualquier punto.
+        function comenzarTrazadoDesdeVertice(uid, indexPunto) {
+            let base = elementosMapeadosActivos[uid];
+            if (!base || !base.trazadoPuntos) return;
+            limpiarVisualesTrazadoTemporal();
+            puntosTrazadoActual = base.trazadoPuntos.slice(0, indexPunto + 1).map(p => L.latLng(p.lat, p.lng));
+            marcadoresPuntosTrazado = puntosTrazadoActual.slice(1).map(p =>
+                L.circleMarker(p, { radius: 4, color: '#38bdf8', fillColor: '#fff', fillOpacity: 1, weight: 2 }).addTo(map)
+            );
+            redibujarLineaTrazadoTemporal();
+            mostrarBannerTrazadoActivo();
+        }
+
         // Disparador desde el botón "✏️ Trazar" de cada ítem en el panel "Servicios Validados".
         function iniciarTrazadoParaServicio(uid) {
             if (!coordenadasOrigen) { alert("Primero fija un origen (dirección) antes de trazar una ruta."); return; }
@@ -554,6 +599,7 @@
             modoTrazadoManualActivo = true;
             document.getElementById('btn-trazado-manual').innerText = '🔴 DESACTIVAR TRAZADO MANUAL';
             map.getContainer().style.cursor = 'crosshair';
+            mostrarVerticesTrazadosExistentes();
 
             if (hayAlgunTrazadoDisponible()) {
                 mostrarBannerEleccionInicio();
@@ -567,6 +613,7 @@
                 // Ya está activo: en vez de apagarlo (lo que confundía al intentar pasar al
                 // siguiente servicio), se muestra de nuevo el punto de partida para encadenar
                 // otro recorrido. Para salir del modo de verdad, se usa el botón "Salir" del panel.
+                mostrarVerticesTrazadosExistentes();
                 if (hayAlgunTrazadoDisponible()) {
                     mostrarBannerEleccionInicio();
                 } else {
@@ -579,6 +626,7 @@
             modoTrazadoManualActivo = true;
             document.getElementById('btn-trazado-manual').innerText = '🔴 DESACTIVAR TRAZADO MANUAL';
             map.getContainer().style.cursor = 'crosshair';
+            mostrarVerticesTrazadosExistentes();
 
             if (hayAlgunTrazadoDisponible()) {
                 mostrarBannerEleccionInicio();
@@ -658,6 +706,7 @@
             modoTrazadoManualActivo = false;
             servicioObjetivoTrazado = null;
             limpiarVisualesTrazadoTemporal();
+            ocultarVerticesTrazadosExistentes();
             document.getElementById('banner-trazado-manual').style.display = 'none';
             map.getContainer().style.cursor = '';
             document.getElementById('btn-trazado-manual').innerText = '✏️ TRAZAR RUTA MANUAL A UN SERVICIO';
@@ -723,6 +772,7 @@
             servicioObjetivoTrazado = null;
             limpiarVisualesTrazadoTemporal();
             rebuildPanelResultadosAcumulado();
+            mostrarVerticesTrazadosExistentes();
             mostrarBannerEleccionInicio();
         }
 
