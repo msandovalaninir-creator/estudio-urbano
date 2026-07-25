@@ -2291,12 +2291,12 @@
             let filasHtml = items.map(item => {
                 let colorFondo = targetColorInput(item.catId) || '#1e40af';
                 let contenidoIcono = item.img
-                    ? `<img src="${item.img}" style="width:20px;height:20px;object-fit:contain;">`
-                    : `<span style="font-size:16px;">${item.em || '📍'}</span>`;
+                    ? `<img src="${item.img}" style="width:30px;height:30px;object-fit:contain;">`
+                    : `<span style="font-size:24px;">${item.em || '📍'}</span>`;
                 return `
                 <tr>
                     <td style="border:none; padding:6px; text-align:center; vertical-align:middle;">
-                        <div style="width:34px; height:34px; border-radius:50%; background:${colorFondo}; border:2px solid #fff; box-shadow:0 0 0 1px #333; display:flex; align-items:center; justify-content:center; margin:auto;">
+                        <div style="width:46px; height:46px; border-radius:50%; background:${colorFondo}; border:2px solid #fff; box-shadow:0 0 0 1px #333; display:flex; align-items:center; justify-content:center; margin:auto;">
                             ${contenidoIcono}
                         </div>
                     </td>
