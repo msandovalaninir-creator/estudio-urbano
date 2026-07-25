@@ -207,54 +207,34 @@
             <span>📏 Radios de Corte y Análisis</span>
             <span id="arrow-radio-captura">▼</span>
         </div>
-        <div id="sec-radio-captura" class="collapsible-content">
-            <div class="form-group" style="margin-bottom: 14px; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                <div class="switch-container" style="margin-bottom: 6px;">
-                    <label style="color: #ffffff; font-weight: bold;">Habilitar Radio Línea Recta</label>
-                    <label class="switch">
-                        <input type="checkbox" id="toggle-lineal-filter" checked onchange="conmutarFiltroLinealCirculo(this.checked); persistirConfiguracionGlobalEnStorage();">
-                        <span class="slider-switch"></span>
-                    </label>
-                </div>
-                <div class="slider-container">
-                    <input type="range" id="search-radius" min="100" max="3000" step="50" value="1500" oninput="document.getElementById('radius-val-display').innerText = this.value + ' m'; cambiarRadioCapturaDesdeSlider(this.value); persistirConfiguracionGlobalEnStorage();">
-                    <span id="radius-val-display" class="slider-value">1500 m</span>
-                </div>
+        <div id="sec-radio-captura" class="collapsible-content" style="padding:8px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <label class="switch" style="flex-shrink:0;" title="Habilitar Radio Línea Recta">
+                    <input type="checkbox" id="toggle-lineal-filter" checked onchange="conmutarFiltroLinealCirculo(this.checked); persistirConfiguracionGlobalEnStorage();">
+                    <span class="slider-switch"></span>
+                </label>
+                <span style="font-size:14px; flex-shrink:0;" title="Radio en línea recta">📐</span>
+                <input type="range" id="search-radius" min="100" max="3000" step="50" value="1500" style="flex-grow:1;" oninput="document.getElementById('radius-val-display').innerText = this.value + ' m'; cambiarRadioCapturaDesdeSlider(this.value); persistirConfiguracionGlobalEnStorage();">
+                <span id="radius-val-display" class="slider-value" style="flex-shrink:0; font-size:10px;">1500 m</span>
             </div>
 
-            <div class="form-group" style="margin-bottom: 16px; background: rgba(56, 189, 248, 0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.1);">
-                <div class="switch-container" style="margin-bottom: 6px;">
-                    <label style="color: #38bdf8; font-weight: bold;">Habilitar Corte Real Walk</label>
-                    <label class="switch">
-                        <input type="checkbox" id="toggle-walk-filter" checked onchange="persistirConfiguracionGlobalEnStorage();">
-                        <span class="slider-switch"></span>
-                    </label>
-                </div>
-                <div class="slider-container">
-                    <input type="range" id="walk-filter-radius" min="100" max="3000" step="50" value="1200" oninput="document.getElementById('walk-radius-val-display').innerText = this.value + ' m'; persistirConfiguracionGlobalEnStorage();">
-                    <span id="walk-radius-val-display" class="slider-value" style="color: #38bdf8;">1200 m</span>
-                </div>
-                <small style="font-size: 9.5px; color: #94a3b8; display: block; margin-top: 4px;">Filtra y remueve dinámicamente elementos cuya ruta real caminando por calles supere el umbral.</small>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                <label class="switch" style="flex-shrink:0;" title="Habilitar Corte Real Walk">
+                    <input type="checkbox" id="toggle-walk-filter" checked onchange="persistirConfiguracionGlobalEnStorage();">
+                    <span class="slider-switch"></span>
+                </label>
+                <span style="font-size:14px; flex-shrink:0;" title="Corte real caminando por calles">🚶</span>
+                <input type="range" id="walk-filter-radius" min="100" max="3000" step="50" value="1200" style="flex-grow:1;" oninput="document.getElementById('walk-radius-val-display').innerText = this.value + ' m'; persistirConfiguracionGlobalEnStorage();">
+                <span id="walk-radius-val-display" class="slider-value" style="flex-shrink:0; font-size:10px; color:#38bdf8;">1200 m</span>
             </div>
 
-            <div class="circle-design-row" style="background: #1e2430; margin-bottom: 12px; padding: 8px;">
-                <label><b>Tamaño de Iconos General:</b></label>
-                <div class="slider-container" style="width: 60%; margin-top: 0;">
-                    <input type="range" id="global-icon-size-slider" min="16" max="64" step="2" value="30" oninput="document.getElementById('global-icon-size-display').innerText = this.value + 'px'; reescalarIconosSimultaneamente(this.value); persistirConfiguracionGlobalEnStorage();">
-                    <span id="global-icon-size-display" class="slider-value">30px</span>
-                </div>
-            </div>
-            <div class="circle-design-row">
-                <label>Color de Contorno:</label>
-                <input type="color" id="capture-border-color" value="#4facfe" class="picker-color" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
-            </div>
-            <div class="circle-design-row">
-                <label>Grosor Línea:</label>
-                <input type="range" id="capture-border-weight" min="1" max="10" step="1" value="2" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
-            </div>
-            <div class="circle-design-row">
-                <label>Opacidad Línea:</label>
-                <input type="range" id="capture-border-opacity" min="0.1" max="1" step="0.1" value="1" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
+            <div style="display:flex; align-items:center; gap:6px; background:#1e2430; border-radius:6px; padding:6px 8px;">
+                <span style="font-size:12px; flex-shrink:0;" title="Tamaño de íconos">🔎</span>
+                <input type="range" id="global-icon-size-slider" min="16" max="64" step="2" value="30" style="flex-grow:1; min-width:30px;" title="Tamaño de íconos" oninput="document.getElementById('global-icon-size-display').innerText = this.value + 'px'; reescalarIconosSimultaneamente(this.value); persistirConfiguracionGlobalEnStorage();">
+                <span id="global-icon-size-display" style="font-size:9.5px; flex-shrink:0; width:26px;">30px</span>
+                <input type="color" id="capture-border-color" value="#4facfe" style="width:20px; height:20px; padding:0; border:none; flex-shrink:0; cursor:pointer;" title="Color de contorno" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
+                <input type="range" id="capture-border-weight" min="1" max="10" step="1" value="2" style="width:36px; flex-shrink:0;" title="Grosor de línea" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
+                <input type="range" id="capture-border-opacity" min="0.1" max="1" step="0.1" value="1" style="width:36px; flex-shrink:0;" title="Opacidad de línea" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
             </div>
         </div>
 
@@ -262,30 +242,19 @@
             <span>2. Área Visual de Influencia</span>
             <span id="arrow-2">▼</span>
         </div>
-        <div id="sec-circulo" class="collapsible-content">
-            <div class="circle-design-row switch-container">
-                <label>Mostrar Área Visual:</label>
-                <label class="switch">
+        <div id="sec-circulo" class="collapsible-content" style="padding:8px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <label class="switch" style="flex-shrink:0;" title="Mostrar Área Visual">
                     <input type="checkbox" id="circle-toggle-visibility" checked onchange="conmutarVisibilidadAreaVisual(this.checked); persistirConfiguracionGlobalEnStorage();">
                     <span class="slider-switch"></span>
                 </label>
+                <input type="range" id="circle-size-slider" min="50" max="2000" step="25" value="250" style="flex-grow:1;" title="Tamaño (radio en metros)" oninput="document.getElementById('circle-size-display').innerText = this.value + ' m'; refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
+                <span id="circle-size-display" class="slider-value" style="flex-shrink:0; font-size:10px;">250 m</span>
             </div>
-            <div class="circle-design-row">
-                <label>Tamaño (Radio Metros):</label>
-                <input type="range" id="circle-size-slider" min="50" max="2000" step="25" value="250" oninput="document.getElementById('circle-size-display').innerText = this.value + ' m'; refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
-                <span id="circle-size-display" class="slider-value">250 m</span>
-            </div>
-            <div class="circle-design-row">
-                <label>Color Fondo/Borde:</label>
-                <input type="color" id="circle-color-picker" value="#2563eb" class="picker-color" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
-            </div>
-            <div class="circle-design-row">
-                <label>Grosor Borde:</label>
-                <input type="range" id="circle-weight-slider" min="0" max="8" step="1" value="1" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
-            </div>
-            <div class="circle-design-row">
-                <label>Opacidad Fondo:</label>
-                <input type="range" id="circle-opacity-slider" min="0" max="1" step="0.05" value="0.15" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
+            <div style="display:flex; align-items:center; gap:6px; background:#1e2430; border-radius:6px; padding:6px 8px;">
+                <input type="color" id="circle-color-picker" value="#2563eb" style="width:20px; height:20px; padding:0; border:none; flex-shrink:0; cursor:pointer;" title="Color de fondo/borde" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
+                <input type="range" id="circle-weight-slider" min="0" max="8" step="1" value="1" style="flex-grow:1;" title="Grosor de borde" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
+                <input type="range" id="circle-opacity-slider" min="0" max="1" step="0.05" value="0.15" style="flex-grow:1;" title="Opacidad de fondo" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
             </div>
         </div>
 
@@ -294,66 +263,54 @@
             <span id="arrow-3">▼</span>
         </div>
         <div id="sec-iconos" class="collapsible-content" style="padding: 8px;">
-            <div class="circle-design-row switch-container" style="margin-bottom: 8px; background: #1e2430;">
-                <label><b>Mostrar Líneas de Tránsito Peatonal:</b></label>
-                <label class="switch">
+            <div style="display:flex; align-items:center; gap:6px; background:#1e2430; border-radius:6px; padding:6px 8px; margin-bottom:8px;">
+                <label class="switch" style="flex-shrink:0;" title="Mostrar líneas de tránsito peatonal">
                     <input type="checkbox" id="toggle-rutas-visibles" checked onchange="conmutarVisibilidadLineasRuta(this.checked); persistirConfiguracionGlobalEnStorage();">
                     <span class="slider-switch"></span>
                 </label>
+                <select id="route-line-style-select" title="Tipo de línea peatonal" style="flex-grow:1; font-size:10.5px; padding:4px;" onchange="redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();">
+                    <option value="continua">⎯⎯⎯ Sólida</option>
+                    <option value="segmentada">╌╌╌ Segmentada</option>
+                    <option value="punteada">┈┈┈┈ Punteada</option>
+                    <option value="guiones-largos">▬ ▬ ▬ Guiones</option>
+                    <option value="mixta">─ ∙ ─ Mixta</option>
+                </select>
+                <input type="range" id="route-line-weight-slider" min="1" max="10" step="1" value="4" style="width:50px; flex-shrink:0;" title="Grosor de línea" oninput="document.getElementById('route-weight-display').innerText = this.value + 'px'; redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();">
+                <span id="route-weight-display" style="font-size:9.5px; flex-shrink:0; width:22px;">4px</span>
             </div>
 
-            <div class="form-group" style="background: rgba(255, 255, 255, 0.02); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 12px;">
-                <div style="margin-bottom: 6px;">
-                    <label style="color:#cbd5e1;">Tipo de Línea Peatonal</label>
-                    <select id="route-line-style-select" onchange="redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();">
-                        <option value="continua">Sólida / Continua ⎯⎯⎯</option>
-                        <option value="segmentada">Segmentada / Discontinua ╌╌╌</option>
-                        <option value="punteada">Punteada / Densa ┈┈┈┈</option>
-                        <option value="guiones-largos">Guiones Largos ▬ ▬ ▬</option>
-                        <option value="mixta">Mixta (Guión - Punto) ─ ∙ ─</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="color:#cbd5e1;">Grosor de Línea Peatonal</label>
-                    <div class="slider-container" style="margin-top:0;">
-                        <input type="range" id="route-line-weight-slider" min="1" max="10" step="1" value="4" oninput="document.getElementById('route-weight-display').innerText = this.value + 'px'; redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();">
-                        <span id="route-weight-display" class="slider-value">4px</span>
-                    </div>
-                </div>
-            </div>
-
-            <div style="background: rgba(79,172,254,0.06); border:1px solid rgba(79,172,254,0.25); border-radius:8px; padding:8px; margin-bottom:12px;">
-                <label style="color: #4facfe; margin-bottom: 8px; display:block;">📁 GRUPOS DE BÚSQUEDA (por rubro/negocio)</label>
+            <div style="background: rgba(79,172,254,0.06); border:1px solid rgba(79,172,254,0.25); border-radius:8px; padding:8px; margin-bottom:10px;">
+                <label style="color: #4facfe; margin-bottom: 8px; display:block; font-size:11px;">📁 GRUPOS DE BÚSQUEDA (por rubro/negocio)</label>
                 <div id="lista-grupos-servicios"></div>
-                <button type="button" onclick="mostrarFormularioCrearGrupo()" style="margin-top:6px; margin-bottom:0; background:#1e293b; border:1px solid #4facfe; font-size:11px; padding:8px;">➕ Crear grupo nuevo</button>
+                <button type="button" onclick="mostrarFormularioCrearGrupo()" style="margin-top:6px; margin-bottom:0; background:#1e293b; border:1px solid #4facfe; font-size:11px; padding:6px;">➕ Crear grupo nuevo</button>
                 <div id="form-crear-grupo" style="display:none; margin-top:8px;"></div>
             </div>
 
-            <div class="mass-toggle-container">
+            <div class="mass-toggle-container" style="margin-bottom:8px;">
                 <button type="button" class="btn-secondary" onclick="conmutarTodosLosServiciosCheckbox(false)">⬜ Desmarcar Todos</button>
                 <button type="button" class="btn-success" onclick="conmutarTodosLosServiciosCheckbox(true)">☑️ Marcar Todos</button>
             </div>
 
-            <div class="collapsible-header" style="margin-top:8px; background:#161a24;" onclick="toggleSection('dynamic-services-container', 'arrow-lista-servicios')">
+            <div class="collapsible-header" style="margin-top:0; background:#161a24;" onclick="toggleSection('dynamic-services-container', 'arrow-lista-servicios')">
                 <span>📋 Ver todas las categorías (<span id="contador-categorias">0</span>)</span>
                 <span id="arrow-lista-servicios">▼</span>
             </div>
             <div id="dynamic-services-container" class="collapsible-content"></div>
             
-            <div style="border-top: 1px solid #2e3545; padding-top: 12px; margin-top: 12px;">
-                <label style="color: #4facfe; margin-bottom: 10px;">➕ AGREGAR SERVICIO PERSONALIZADO</label>
+            <div style="border-top: 1px solid #2e3545; padding-top: 10px; margin-top: 10px;">
+                <label style="color: #4facfe; margin-bottom: 6px; display:block; font-size:11px;">➕ AGREGAR SERVICIO PERSONALIZADO</label>
                 <div class="form-group">
                     <input type="text" id="new-srv-name" placeholder="Ej: Farmacia, Bencinera, Colegio..." style="margin-bottom:6px;">
                     <details style="margin-bottom:6px;">
-                        <summary style="cursor:pointer; font-size:10.5px; color:#94a3b8;">Avanzado: escribir mi propia consulta (opcional)</summary>
+                        <summary style="cursor:pointer; font-size:10px; color:#94a3b8;">Avanzado: consulta propia (opcional)</summary>
                         <input type="text" id="new-srv-query" placeholder='Ej: nwr["amenity"="fuel"]{{GEO}};' style="margin-top:6px;">
                     </details>
                     <div style="display:flex; gap: 6px;">
-                        <input type="text" id="new-srv-emoji" placeholder="🎫 Emoji (opcional)" style="width:30%;">
-                        <input type="color" id="new-srv-color" value="#f59e0b" style="width:20%; height:36px; padding:0; border:1px solid #2a313d; border-radius:8px; background:none; cursor:pointer;">
+                        <input type="text" id="new-srv-emoji" placeholder="🎫" style="width:22%;">
+                        <input type="color" id="new-srv-color" value="#f59e0b" style="width:18%; height:36px; padding:0; border:1px solid #2a313d; border-radius:8px; background:none; cursor:pointer;">
                         <button onclick="registrarNuevoServicioHUD()" style="margin:0; flex-grow:1;">Agregar</button>
                     </div>
-                    <div style="font-size:10px; color:#64748b; margin-top:4px;">Escribe solo el nombre — la app reconoce automáticamente las categorías más comunes (farmacias, bencineras, colegios, bancos, etc.) y agrupa toda la cadena/categoría, no una marca puntual.</div>
+                    <div style="font-size:9.5px; color:#64748b; margin-top:4px;">Solo el nombre — reconoce automáticamente farmacias, bencineras, colegios, bancos, etc.</div>
                 </div>
             </div>
         </div>
@@ -481,6 +438,17 @@
                     } else {
                         item.lineaManual.setStyle({ opacity: 0, weight: 0 });
                     }
+                }
+            }
+
+            // Los puntitos clickeables de los vértices (para continuar un trazado desde ahí)
+            // también deben ocultarse junto con las líneas — antes se quedaban visibles sueltos
+            // en el mapa aunque las líneas ya estuvieran apagadas.
+            if (modoTrazadoManualActivo) {
+                if (esVisibleLineasRutaGlobal) {
+                    mostrarVerticesTrazadosExistentes();
+                } else {
+                    ocultarVerticesTrazadosExistentes();
                 }
             }
         }
