@@ -329,6 +329,12 @@
     <div id="results-panel">
         <h2>Servicios Validados</h2>
         <button id="btn-copiar-reporte" onclick="mostrarVistaPreviaReporte()">📋 COPIAR REPORTE HUD</button>
+        <button id="btn-exportar-lamina" onclick="generarLaminaProximidades()" style="width:100%; background:#1e293b; color:#fff; font-size:11px; font-weight:700; padding:10px; border:1px solid #7c3aed; border-radius:6px; margin-bottom:6px; display:none;">📸 EXPORTAR LÁMINA PARA PPT</button>
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:14px;">
+            <label for="logo-empresa-input" style="flex-grow:1; text-align:center; background:#161a24; color:#94a3b8; font-size:10px; padding:6px; border-radius:6px; cursor:pointer; border:1px dashed #334155;">🏢 Subir logo de empresa</label>
+            <input type="file" id="logo-empresa-input" accept="image/*" style="display:none;" onchange="procesarLogoEmpresa(this)">
+            <div id="preview-logo-empresa" style="width:26px; height:26px; flex-shrink:0; display:none; background:#fff; border-radius:4px; overflow:hidden;"></div>
+        </div>
         <div id="results-container">
             <p style="color: #94a3b8; font-size: 12px; line-height: 1.5;">Haz Clic Derecho en el mapa para fijar un origen exacto o busca una dirección, luego presiona "Generar Estudio Urbano". <br><br>💡<b>Tip Interactividad:</b> Haz clic y arrastra cualquier point intermedio de los trazos para recalcular rutas alternativas utilizando pasarelas y puentes peatonales.</p>
         </div>
@@ -339,6 +345,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <script>
         let CONFIG_SERVICIOS_PREDEFINIDOS = [
@@ -2019,6 +2026,7 @@
                 });
             });
             document.getElementById('btn-copiar-reporte').style.display = total > 0 ? 'block' : 'none';
+            document.getElementById('btn-exportar-lamina').style.display = total > 0 ? 'block' : 'none';
             if(total === 0) c.innerHTML = `<p style="color: #94a3b8; font-size: 12px;">No se encontraron infraestructuras válidas dentro de los radios configurados o activos.</p>`;
         }
 
@@ -2286,6 +2294,153 @@
 
         // Muestra una vista previa en forma de tabla (igual a como se ve al pegarlo en Excel)
         // antes de copiar, para que puedas revisar cómo va a quedar sin sorpresas.
+        // --- LÁMINA "MAPA DE PROXIMIDADES" PARA PPT ---
+        let logoEmpresaBase64 = null;
+
+        function procesarLogoEmpresa(input) {
+            let file = input.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                logoEmpresaBase64 = e.target.result;
+                let prev = document.getElementById('preview-logo-empresa');
+                prev.style.display = 'block';
+                prev.innerHTML = `<img src="${logoEmpresaBase64}" style="width:100%;height:100%;object-fit:contain;">`;
+                try { localStorage.setItem('hud_logo_empresa', logoEmpresaBase64); } catch(err) { console.error('No se pudo guardar el logo:', err); }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function recuperarLogoEmpresaGuardado() {
+            try {
+                let logo = localStorage.getItem('hud_logo_empresa');
+                if (logo) {
+                    logoEmpresaBase64 = logo;
+                    let prev = document.getElementById('preview-logo-empresa');
+                    prev.style.display = 'block';
+                    prev.innerHTML = `<img src="${logo}" style="width:100%;height:100%;object-fit:contain;">`;
+                }
+            } catch(e) { /* sin logo guardado, no pasa nada */ }
+        }
+
+        // Arma la lámina completa: captura del mapa a la izquierda, título + logo + tabla de
+        // servicios (con sus íconos) a la derecha — igual a la plantilla de referencia — y la
+        // entrega como una imagen PNG lista para pegar en PowerPoint.
+        function generarLaminaProximidades() {
+            let btn = document.getElementById('btn-exportar-lamina');
+            let textoOriginal = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = '⌛ Generando lámina...';
+
+            let mapaDiv = document.getElementById('map');
+
+            html2canvas(mapaDiv, { useCORS: true, allowTaint: true, logging: false }).then(canvasMapa => {
+                let items = obtenerItemsReporte();
+                let anchoTotal = 1600, altoTotal = 900;
+                let anchoMapa = anchoTotal * 0.52;
+                let anchoPanel = anchoTotal - anchoMapa;
+
+                let canvasFinal = document.createElement('canvas');
+                canvasFinal.width = anchoTotal;
+                canvasFinal.height = altoTotal;
+                let ctx = canvasFinal.getContext('2d');
+
+                // Fondo blanco general y mapa a la izquierda
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, anchoTotal, altoTotal);
+                ctx.drawImage(canvasMapa, 0, 0, anchoMapa, altoTotal);
+
+                // Panel derecho
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(anchoMapa, 0, anchoPanel, altoTotal);
+
+                // Logo (arriba a la derecha)
+                let dibujarTitulo = () => {
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = 'bold 54px Arial';
+                    ctx.textBaseline = 'top';
+                    let xTexto = anchoMapa + 40;
+                    ctx.fillText('Mapa de', xTexto, 60);
+                    ctx.fillText('Proximidades', xTexto, 125);
+                };
+
+                let dibujarTablaYFinalizar = (yInicioTabla) => {
+                    // Se arma la tabla como HTML real (reutilizando el mismo estilo de la vista
+                    // previa) y se "fotografía" con html2canvas, para no tener que dibujar cada
+                    // celda a mano — así los íconos de cada servicio salen exactamente igual.
+                    let filasHtml = items.map(item => {
+                        let contenidoIcono = item.img
+                            ? `<img src="${item.img}" style="width:34px;height:34px;object-fit:contain;">`
+                            : `<span style="font-size:28px;">${item.em || '📍'}</span>`;
+                        return `
+                        <tr>
+                            <td style="border:none; padding:8px; text-align:center; vertical-align:middle;">${contenidoIcono}</td>
+                            <td style="border:1px solid #333; padding:12px 16px; text-align:left; color:#1a56db; font-weight:600; font-size:17px;">${escaparHTML(item.name)}</td>
+                            <td style="border:1px solid #333; padding:12px 16px; text-align:left; white-space:nowrap; color:#1a56db; font-weight:600; font-size:17px;">
+                                <img src="${ICONO_CAMINANTE}" style="width:24px;height:24px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)}
+                            </td>
+                            <td style="border:1px solid #333; padding:12px 16px; text-align:center; color:#1a56db; font-weight:600; font-size:17px;">${item.distance} m</td>
+                        </tr>`;
+                    }).join('');
+
+                    let tablaTemp = document.createElement('div');
+                    tablaTemp.style.position = 'fixed';
+                    tablaTemp.style.left = '-9999px';
+                    tablaTemp.style.width = (anchoPanel - 60) + 'px';
+                    tablaTemp.innerHTML = `
+                        <table style="border-collapse:collapse; width:100%; background:#fff; font-family: Arial, sans-serif; border:4px solid #000;">
+                            <thead>
+                                <tr>
+                                    <th style="border:none; padding:12px 6px;"></th>
+                                    <th style="border:1px solid #333; padding:12px 16px; text-align:center; color:#000; font-size:19px;">Servicio</th>
+                                    <th style="border:1px solid #333; padding:12px 16px; text-align:center; color:#000; font-size:19px;">Tiempo</th>
+                                    <th style="border:1px solid #333; padding:12px 16px; text-align:center; color:#000; font-size:19px;">Distancia</th>
+                                </tr>
+                            </thead>
+                            <tbody>${filasHtml}</tbody>
+                        </table>`;
+                    document.body.appendChild(tablaTemp);
+
+                    html2canvas(tablaTemp, { useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' }).then(canvasTabla => {
+                        document.body.removeChild(tablaTemp);
+                        let escala = (anchoPanel - 60) / canvasTabla.width;
+                        let altoTablaFinal = canvasTabla.height * escala;
+                        ctx.drawImage(canvasTabla, anchoMapa + 30, yInicioTabla, anchoPanel - 60, altoTablaFinal);
+
+                        // Descarga la imagen final
+                        canvasFinal.toBlob(blob => {
+                            let a = document.createElement('a');
+                            a.href = URL.createObjectURL(blob);
+                            a.download = `Mapa_de_Proximidades_${nombreUbicacionActual.replace(/[^a-z0-9]/gi, '_').slice(0,40)}.png`;
+                            a.click();
+                            btn.disabled = false;
+                            btn.innerText = textoOriginal;
+                        }, 'image/png');
+                    });
+                };
+
+                if (logoEmpresaBase64) {
+                    let imgLogo = new Image();
+                    imgLogo.onload = () => {
+                        let altoLogo = 90;
+                        let anchoLogo = imgLogo.width * (altoLogo / imgLogo.height);
+                        ctx.drawImage(imgLogo, anchoTotal - anchoLogo - 40, 30, anchoLogo, altoLogo);
+                        dibujarTitulo();
+                        dibujarTablaYFinalizar(260);
+                    };
+                    imgLogo.src = logoEmpresaBase64;
+                } else {
+                    dibujarTitulo();
+                    dibujarTablaYFinalizar(180);
+                }
+            }).catch(err => {
+                console.error('Error generando la lámina:', err);
+                alert('No se pudo generar la lámina. Detalle técnico (revisa también la consola F12):\n\n' + err.message);
+                btn.disabled = false;
+                btn.innerText = textoOriginal;
+            });
+        }
+
         function mostrarVistaPreviaReporte() {
             let items = obtenerItemsReporte();
             let filasHtml = items.map(item => {
@@ -2445,6 +2600,7 @@
             renderizarEstructuraServiciosFijos();
             renderizarListaGruposServicios();
             revisarConflictosExistentesAlCargar();
+            recuperarLogoEmpresaGuardado();
             toggleSection('sec-capas-kmz', 'arrow-kmz-capas');
             toggleSection('sec-radio-captura', 'arrow-radio-captura');
             toggleSection('sec-circulo', 'arrow-2');
