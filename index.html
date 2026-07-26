@@ -329,6 +329,7 @@
     <div id="results-panel">
         <h2>Servicios Validados</h2>
         <button id="btn-copiar-reporte" onclick="mostrarVistaPreviaReporte()">📋 COPIAR REPORTE HUD</button>
+        <button id="btn-elegir-recorte" onclick="elegirRecorteMapaLamina()" style="width:100%; background:#161a24; color:#a855f7; font-size:10.5px; font-weight:700; padding:8px; border:1px dashed #7c3aed; border-radius:6px; margin-bottom:6px; display:none;">🔲 Elegir recorte del mapa para la lámina</button>
         <button id="btn-exportar-lamina" onclick="generarLaminaProximidades()" style="width:100%; background:#1e293b; color:#fff; font-size:11px; font-weight:700; padding:10px; border:1px solid #7c3aed; border-radius:6px; margin-bottom:6px; display:none;">📸 EXPORTAR LÁMINA PARA PPT</button>
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:14px;">
             <label for="logo-empresa-input" style="flex-grow:1; text-align:center; background:#161a24; color:#94a3b8; font-size:10px; padding:6px; border-radius:6px; cursor:pointer; border:1px dashed #334155;">🏢 Subir logo de empresa</label>
@@ -806,8 +807,30 @@
         });
         map.addControl(drawControl);
 
+        // --- RECORTE DEL MAPA PARA LA LÁMINA "MAPA DE PROXIMIDADES" ---
+        // Rectángulo aparte (no se mezcla con los polígonos de terreno) que define exactamente
+        // qué parte del mapa se recorta para el lado izquierdo de la lámina exportada.
+        let rectanguloRecorteLamina = null;
+        let seleccionandoRecorteLamina = false;
+
+        function elegirRecorteMapaLamina() {
+            if (rectanguloRecorteLamina) { map.removeLayer(rectanguloRecorteLamina); rectanguloRecorteLamina = null; }
+            seleccionandoRecorteLamina = true;
+            alert("Dibuja un rectángulo sobre el mapa marcando exactamente la zona que quieres que aparezca en la lámina. Puedes moverlo o cambiarlo después volviendo a presionar este botón.");
+            new L.Draw.Rectangle(map, drawControl.options.draw.rectangle).enable();
+        }
+
         map.on(L.Draw.Event.CREATED, function (e) {
-            let layer = e.layer; 
+            let layer = e.layer;
+
+            if (seleccionandoRecorteLamina) {
+                seleccionandoRecorteLamina = false;
+                rectanguloRecorteLamina = layer;
+                layer.setStyle({ color: '#7c3aed', weight: 3, dashArray: '8,6', fillOpacity: 0.05 });
+                layer.addTo(map);
+                return;
+            }
+
             capaGeometriasDibujadas.addLayer(layer);
             if (layer instanceof L.Polygon) {
                 let latlngs = layer.getLatLngs()[0];
@@ -2026,6 +2049,7 @@
                 });
             });
             document.getElementById('btn-copiar-reporte').style.display = total > 0 ? 'block' : 'none';
+            document.getElementById('btn-elegir-recorte').style.display = total > 0 ? 'block' : 'none';
             document.getElementById('btn-exportar-lamina').style.display = total > 0 ? 'block' : 'none';
             if(total === 0) c.innerHTML = `<p style="color: #94a3b8; font-size: 12px;">No se encontraron infraestructuras válidas dentro de los radios configurados o activos.</p>`;
         }
@@ -2333,8 +2357,35 @@
             btn.innerText = '⌛ Generando lámina...';
 
             let mapaDiv = document.getElementById('map');
+            // Mientras se captura, se oculta el rectángulo de recorte y sus manijas de edición
+            // para que no salgan dibujados encima del mapa en la lámina final.
+            let recorteEstabaVisible = rectanguloRecorteLamina && map.hasLayer(rectanguloRecorteLamina);
+            if (recorteEstabaVisible) map.removeLayer(rectanguloRecorteLamina);
 
-            html2canvas(mapaDiv, { useCORS: true, allowTaint: true, logging: false }).then(canvasMapa => {
+            html2canvas(mapaDiv, { useCORS: true, allowTaint: true, logging: false }).then(canvasMapaCompleto => {
+                if (recorteEstabaVisible) rectanguloRecorteLamina.addTo(map);
+
+                let canvasMapa = canvasMapaCompleto;
+                // Si se definió un recorte manual, se extrae SOLO esa parte de la captura completa
+                // del mapa, en vez de usar la vista completa del div.
+                if (rectanguloRecorteLamina) {
+                    let bounds = rectanguloRecorteLamina.getBounds();
+                    let esquinaNO = map.latLngToContainerPoint(bounds.getNorthWest());
+                    let esquinaSE = map.latLngToContainerPoint(bounds.getSouthEast());
+                    let anchoRecorte = Math.max(1, esquinaSE.x - esquinaNO.x);
+                    let altoRecorte = Math.max(1, esquinaSE.y - esquinaNO.y);
+
+                    let canvasRecortado = document.createElement('canvas');
+                    canvasRecortado.width = anchoRecorte;
+                    canvasRecortado.height = altoRecorte;
+                    canvasRecortado.getContext('2d').drawImage(
+                        canvasMapaCompleto,
+                        esquinaNO.x, esquinaNO.y, anchoRecorte, altoRecorte,
+                        0, 0, anchoRecorte, altoRecorte
+                    );
+                    canvasMapa = canvasRecortado;
+                }
+
                 let items = obtenerItemsReporte();
                 let anchoTotal = 1600, altoTotal = 900;
                 let anchoMapa = anchoTotal * 0.52;
@@ -2345,23 +2396,34 @@
                 canvasFinal.height = altoTotal;
                 let ctx = canvasFinal.getContext('2d');
 
-                // Fondo blanco general y mapa a la izquierda
+                // Fondo blanco general y mapa a la izquierda (recortado a la proporción del
+                // panel, sin deformarlo, centrado si sobra espacio).
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, anchoTotal, altoTotal);
-                ctx.drawImage(canvasMapa, 0, 0, anchoMapa, altoTotal);
+                let escalaMapa = Math.max(anchoMapa / canvasMapa.width, altoTotal / canvasMapa.height);
+                let anchoDibujado = canvasMapa.width * escalaMapa;
+                let altoDibujado = canvasMapa.height * escalaMapa;
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 0, anchoMapa, altoTotal);
+                ctx.clip();
+                ctx.drawImage(canvasMapa, (anchoMapa - anchoDibujado) / 2, (altoTotal - altoDibujado) / 2, anchoDibujado, altoDibujado);
+                ctx.restore();
 
                 // Panel derecho
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(anchoMapa, 0, anchoPanel, altoTotal);
 
-                // Logo (arriba a la derecha)
+                // Logo (arriba a la derecha) — se le reserva su propia franja de 0 a 130px
                 let dibujarTitulo = () => {
                     ctx.fillStyle = '#0f172a';
-                    ctx.font = 'bold 54px Arial';
+                    ctx.font = 'bold 50px Arial';
                     ctx.textBaseline = 'top';
                     let xTexto = anchoMapa + 40;
-                    ctx.fillText('Mapa de', xTexto, 60);
-                    ctx.fillText('Proximidades', xTexto, 125);
+                    // El título arranca DESPUÉS de la franja del logo (0-130px), para que nunca
+                    // se toquen sin importar el ancho de ninguno de los dos.
+                    ctx.fillText('Mapa de', xTexto, 160);
+                    ctx.fillText('Proximidades', xTexto, 222);
                 };
 
                 let dibujarTablaYFinalizar = (yInicioTabla) => {
@@ -2426,12 +2488,12 @@
                         let anchoLogo = imgLogo.width * (altoLogo / imgLogo.height);
                         ctx.drawImage(imgLogo, anchoTotal - anchoLogo - 40, 30, anchoLogo, altoLogo);
                         dibujarTitulo();
-                        dibujarTablaYFinalizar(260);
+                        dibujarTablaYFinalizar(320);
                     };
                     imgLogo.src = logoEmpresaBase64;
                 } else {
                     dibujarTitulo();
-                    dibujarTablaYFinalizar(180);
+                    dibujarTablaYFinalizar(320);
                 }
             }).catch(err => {
                 console.error('Error generando la lámina:', err);
