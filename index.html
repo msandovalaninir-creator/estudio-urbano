@@ -329,7 +329,9 @@
     <div id="results-panel">
         <h2>Servicios Validados</h2>
         <button id="btn-copiar-reporte" onclick="mostrarVistaPreviaReporte()">📋 COPIAR REPORTE HUD</button>
-        <button id="btn-elegir-recorte" onclick="elegirRecorteMapaLamina()" style="width:100%; background:#161a24; color:#a855f7; font-size:10.5px; font-weight:700; padding:8px; border:1px dashed #7c3aed; border-radius:6px; margin-bottom:6px; display:none;">🔲 Elegir recorte del mapa para la lámina</button>
+        <label for="captura-mapa-manual-input" style="display:block; width:100%; box-sizing:border-box; text-align:center; background:#161a24; color:#a855f7; font-size:10.5px; font-weight:700; padding:8px; border:1px dashed #7c3aed; border-radius:6px; margin-bottom:6px; cursor:pointer;">📷 Subir captura del mapa (recomendado)</label>
+        <input type="file" id="captura-mapa-manual-input" accept="image/*" style="display:none;" onchange="procesarCapturaMapaManual(this)">
+        <div id="preview-captura-mapa" style="display:none; font-size:9.5px; color:#22c55e; text-align:center; margin-bottom:6px;">✔ Captura cargada</div>
         <button id="btn-exportar-lamina" onclick="generarLaminaProximidades()" style="width:100%; background:#1e293b; color:#fff; font-size:11px; font-weight:700; padding:10px; border:1px solid #7c3aed; border-radius:6px; margin-bottom:6px; display:none;">📸 EXPORTAR LÁMINA PARA PPT</button>
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:14px;">
             <label for="logo-empresa-input" style="flex-grow:1; text-align:center; background:#161a24; color:#94a3b8; font-size:10px; padding:6px; border-radius:6px; cursor:pointer; border:1px dashed #334155;">🏢 Subir logo de empresa</label>
@@ -807,29 +809,25 @@
         });
         map.addControl(drawControl);
 
-        // --- RECORTE DEL MAPA PARA LA LÁMINA "MAPA DE PROXIMIDADES" ---
-        // Rectángulo aparte (no se mezcla con los polígonos de terreno) que define exactamente
-        // qué parte del mapa se recorta para el lado izquierdo de la lámina exportada.
-        let rectanguloRecorteLamina = null;
-        let seleccionandoRecorteLamina = false;
+        // --- CAPTURA MANUAL DEL MAPA PARA LA LÁMINA "MAPA DE PROXIMIDADES" ---
+        // En vez de que la app intente "fotografiar" el mapa sola (poco confiable con los íconos
+        // y círculos de Leaflet), la persona toma su propia captura de pantalla (recortada como
+        // quiera, con todo garantizado tal como se ve) y la sube aquí.
+        let capturaMapaManualBase64 = null;
 
-        function elegirRecorteMapaLamina() {
-            if (rectanguloRecorteLamina) { map.removeLayer(rectanguloRecorteLamina); rectanguloRecorteLamina = null; }
-            seleccionandoRecorteLamina = true;
-            alert("Dibuja un rectángulo sobre el mapa marcando exactamente la zona que quieres que aparezca en la lámina. Puedes moverlo o cambiarlo después volviendo a presionar este botón.");
-            new L.Draw.Rectangle(map, drawControl.options.draw.rectangle).enable();
+        function procesarCapturaMapaManual(input) {
+            let file = input.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                capturaMapaManualBase64 = e.target.result;
+                document.getElementById('preview-captura-mapa').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
         }
 
         map.on(L.Draw.Event.CREATED, function (e) {
             let layer = e.layer;
-
-            if (seleccionandoRecorteLamina) {
-                seleccionandoRecorteLamina = false;
-                rectanguloRecorteLamina = layer;
-                layer.setStyle({ color: '#7c3aed', weight: 3, dashArray: '8,6', fillOpacity: 0.05 });
-                layer.addTo(map);
-                return;
-            }
 
             capaGeometriasDibujadas.addLayer(layer);
             if (layer instanceof L.Polygon) {
@@ -2049,7 +2047,6 @@
                 });
             });
             document.getElementById('btn-copiar-reporte').style.display = total > 0 ? 'block' : 'none';
-            document.getElementById('btn-elegir-recorte').style.display = total > 0 ? 'block' : 'none';
             document.getElementById('btn-exportar-lamina').style.display = total > 0 ? 'block' : 'none';
             if(total === 0) c.innerHTML = `<p style="color: #94a3b8; font-size: 12px;">No se encontraron infraestructuras válidas dentro de los radios configurados o activos.</p>`;
         }
@@ -2351,40 +2348,22 @@
         // servicios (con sus íconos) a la derecha — igual a la plantilla de referencia — y la
         // entrega como una imagen PNG lista para pegar en PowerPoint.
         function generarLaminaProximidades() {
+            if (!capturaMapaManualBase64) {
+                alert("Primero sube tu captura de pantalla del mapa con el botón \"📷 Subir captura del mapa\" — así se garantiza que salgan todos los íconos, colores y el área visual exactamente como los ves en pantalla.");
+                return;
+            }
+
             let btn = document.getElementById('btn-exportar-lamina');
             let textoOriginal = btn.innerText;
             btn.disabled = true;
             btn.innerText = '⌛ Generando lámina...';
 
-            let mapaDiv = document.getElementById('map');
-            // Mientras se captura, se oculta el rectángulo de recorte y sus manijas de edición
-            // para que no salgan dibujados encima del mapa en la lámina final.
-            let recorteEstabaVisible = rectanguloRecorteLamina && map.hasLayer(rectanguloRecorteLamina);
-            if (recorteEstabaVisible) map.removeLayer(rectanguloRecorteLamina);
-
-            html2canvas(mapaDiv, { useCORS: true, allowTaint: true, logging: false }).then(canvasMapaCompleto => {
-                if (recorteEstabaVisible) rectanguloRecorteLamina.addTo(map);
-
-                let canvasMapa = canvasMapaCompleto;
-                // Si se definió un recorte manual, se extrae SOLO esa parte de la captura completa
-                // del mapa, en vez de usar la vista completa del div.
-                if (rectanguloRecorteLamina) {
-                    let bounds = rectanguloRecorteLamina.getBounds();
-                    let esquinaNO = map.latLngToContainerPoint(bounds.getNorthWest());
-                    let esquinaSE = map.latLngToContainerPoint(bounds.getSouthEast());
-                    let anchoRecorte = Math.max(1, esquinaSE.x - esquinaNO.x);
-                    let altoRecorte = Math.max(1, esquinaSE.y - esquinaNO.y);
-
-                    let canvasRecortado = document.createElement('canvas');
-                    canvasRecortado.width = anchoRecorte;
-                    canvasRecortado.height = altoRecorte;
-                    canvasRecortado.getContext('2d').drawImage(
-                        canvasMapaCompleto,
-                        esquinaNO.x, esquinaNO.y, anchoRecorte, altoRecorte,
-                        0, 0, anchoRecorte, altoRecorte
-                    );
-                    canvasMapa = canvasRecortado;
-                }
+            let imgMapa = new Image();
+            imgMapa.onload = () => {
+                let canvasMapa = document.createElement('canvas');
+                canvasMapa.width = imgMapa.width;
+                canvasMapa.height = imgMapa.height;
+                canvasMapa.getContext('2d').drawImage(imgMapa, 0, 0);
 
                 let items = obtenerItemsReporte();
                 let anchoTotal = 1600, altoTotal = 900;
@@ -2495,12 +2474,14 @@
                     dibujarTitulo();
                     dibujarTablaYFinalizar(320);
                 }
-            }).catch(err => {
-                console.error('Error generando la lámina:', err);
-                alert('No se pudo generar la lámina. Detalle técnico (revisa también la consola F12):\n\n' + err.message);
+            };
+            imgMapa.onerror = () => {
+                console.error('No se pudo cargar la captura del mapa subida.');
+                alert('No se pudo procesar la imagen del mapa que subiste. Prueba subir otra captura.');
                 btn.disabled = false;
                 btn.innerText = textoOriginal;
-            });
+            };
+            imgMapa.src = capturaMapaManualBase64;
         }
 
         function mostrarVistaPreviaReporte() {
