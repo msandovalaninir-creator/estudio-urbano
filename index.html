@@ -2485,6 +2485,11 @@
         }
 
         function mostrarVistaPreviaReporte() {
+            // Si ya había una vista previa abierta de antes, se saca primero — evita que se
+            // acumulen ventanas y listeners de arrastre duplicados de sesiones anteriores.
+            let existente = document.getElementById('overlay-vista-previa-reporte');
+            if (existente) existente.remove();
+
             let items = obtenerItemsReporte();
             let filasHtml = items.map(item => {
                 let contenidoIcono = item.img
@@ -2597,22 +2602,38 @@
 
         // Deja arrastrar una ventana flotante tomándola desde su cabecera, para poder acomodarla
         // al lado del mapa (por ejemplo, para sacar una captura con el trazado de un lado y el
-        // reporte del otro).
+        // reporte del otro). Los listeners de movimiento solo existen MIENTRAS se arrastra (se
+        // agregan al empezar y se sacan al soltar), para no ir acumulando listeners viejos cada
+        // vez que se abre la vista previa de nuevo.
         function habilitarArrastreVentanaFlotante(ventana, cabecera) {
-            let arrastrando = false, offsetX = 0, offsetY = 0;
+            let offsetX = 0, offsetY = 0;
+
+            function alMover(e) {
+                let nuevoLeft = e.clientX - offsetX;
+                let nuevoTop = e.clientY - offsetY;
+                // Nunca se deja salir completamente de la pantalla, para que no "desaparezca".
+                nuevoLeft = Math.max(-ventana.offsetWidth + 80, Math.min(nuevoLeft, window.innerWidth - 80));
+                nuevoTop = Math.max(0, Math.min(nuevoTop, window.innerHeight - 40));
+                ventana.style.left = nuevoLeft + 'px';
+                ventana.style.top = nuevoTop + 'px';
+            }
+            function alSoltar() {
+                document.removeEventListener('mousemove', alMover);
+                document.removeEventListener('mouseup', alSoltar);
+            }
+
             cabecera.addEventListener('mousedown', (e) => {
-                arrastrando = true;
+                // Si el clic fue sobre el botón de cerrar (u otro botón de la cabecera), no se
+                // inicia el arrastre — evita que un clic rápido sobre la ✕ se confunda con drag.
+                if (e.target.closest('button')) return;
+                e.preventDefault();
                 let rect = ventana.getBoundingClientRect();
                 offsetX = e.clientX - rect.left;
                 offsetY = e.clientY - rect.top;
                 ventana.style.right = 'auto';
+                document.addEventListener('mousemove', alMover);
+                document.addEventListener('mouseup', alSoltar);
             });
-            document.addEventListener('mousemove', (e) => {
-                if (!arrastrando) return;
-                ventana.style.left = (e.clientX - offsetX) + 'px';
-                ventana.style.top = (e.clientY - offsetY) + 'px';
-            });
-            document.addEventListener('mouseup', () => { arrastrando = false; });
         }
 
         function copiarReporteResultadosAlPortapapeles() {
