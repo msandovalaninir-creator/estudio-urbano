@@ -179,6 +179,9 @@
         <button id="btn-analizar">🎯 GENERAR STUDY URBANO</button>
         <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
 
+        <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" style="width:100%; background:#1e293b; color:#fbbf24; border:1px solid #f59e0b; font-size:11px; font-weight:700; padding:9px; border-radius:6px; margin-top:8px; margin-bottom:10px; cursor:pointer;">💡 Sugerir servicios cercanos que me falten</button>
+        <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
+
         <button id="btn-trazado-manual" style="background:#1e293b; color:#7dd3fc; border:1px solid #38bdf8; font-size:11px; padding:10px; font-weight:700; width:100%; margin-bottom:10px; border-radius:6px; cursor:pointer;" onclick="activarModoTrazadoManual()">✏️ TRAZAR RUTA MANUAL A UN SERVICIO</button>
         <div id="banner-trazado-manual" style="display:none; background:#0c4a6e; border:1px solid #38bdf8; color:#e0f2fe; font-size:11.5px; padding:10px; border-radius:6px; margin-bottom:12px; line-height:1.5;">
             <b>Modo trazado activo:</b> haz clic en el mapa siguiendo la calle real, punto por punto, desde tu dirección. Termina haciendo clic directo sobre el ícono del servicio correcto.
@@ -1276,6 +1279,84 @@
             });
         }
 
+        // --- SUGERENCIA DE SERVICIOS CERCANOS QUE FALTAN ---
+        // Revisa, en el sector donde estás buscando, cuáles categorías conocidas del diccionario
+        // (que todavía no tienes agregadas) sí tienen algo real cerca — y te las ofrece con un
+        // botón para sumarlas al toque, en vez de tener que adivinar qué te falta.
+        function sugerirServiciosCercanos() {
+            if (!coordenadasOrigen) { alert("Primero fija un origen (dirección) antes de pedir sugerencias."); return; }
+
+            // Se arma una lista de categorías del diccionario ÚNICAS por etiqueta real (para no
+            // sugerir "Colegio" y "Escuela" por separado si apuntan a lo mismo), descartando las
+            // que ya están cubiertas por alguna categoría que ya tienes agregada.
+            let vistosPorQuery = new Set();
+            let candidatas = [];
+            for (let nombre in DICCIONARIO_SERVICIOS_COMUNES) {
+                let entrada = DICCIONARIO_SERVICIOS_COMUNES[nombre];
+                if (vistosPorQuery.has(entrada.query)) continue;
+                vistosPorQuery.add(entrada.query);
+                if (buscarCategoriaConflictiva(entrada.query, null)) continue; // ya cubierta
+                candidatas.push({ nombre, ...entrada });
+            }
+
+            if (candidatas.length === 0) {
+                alert("Ya tienes prácticamente todas las categorías conocidas agregadas — no encontré ninguna sugerencia nueva que ofrecerte.");
+                return;
+            }
+
+            let panel = document.getElementById('panel-sugerencias-servicios');
+            panel.style.display = 'block';
+            panel.innerHTML = `⌛ Revisando qué hay cerca... <span id="sug-progreso">0</span>/${candidatas.length}`;
+
+            let radioRevision = 800; // metros — un radio razonable "de barrio" para sugerir
+            let geoFiltro = `(around:${radioRevision},${coordenadasOrigen.lat},${coordenadasOrigen.lng})`;
+            let completadas = 0;
+
+            let tareas = candidatas.map(cand => () => {
+                let query = `[out:json][timeout:15];(${cand.query.replace(/{{GEO}}/g, geoFiltro)});out count;`;
+                return consultarCategoriaConReintentos(query, cand.nombre).then(res => {
+                    completadas++;
+                    let elProg = document.getElementById('sug-progreso');
+                    if (elProg) elProg.innerText = completadas;
+                    let hayResultados = res && res.ok && res.elements && res.elements.length > 0
+                        && !(res.elements.length === 1 && res.elements[0].tags && res.elements[0].tags.total === "0");
+                    return { cand, hayResultados };
+                });
+            });
+
+            ejecutarConPoolConcurrencia(tareas, 4).then(resultados => {
+                let encontradas = resultados.filter(r => r && r.hayResultados).map(r => r.cand);
+
+                if (encontradas.length === 0) {
+                    panel.innerHTML = `<span style="color:#94a3b8;">No encontré categorías nuevas con algo cerca en este sector (radio ~${radioRevision}m).</span>`;
+                    return;
+                }
+
+                panel.innerHTML = `<b style="color:#fbbf24;">💡 Encontré esto cerca que no tienes agregado:</b><div style="margin-top:6px;"></div>`;
+                let cont = panel.querySelector('div');
+                encontradas.forEach(cand => {
+                    let fila = document.createElement('div');
+                    fila.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:5px;';
+                    fila.innerHTML = `
+                        <span style="flex-grow:1;">${cand.em} ${escaparHTML(cand.nombre.charAt(0).toUpperCase() + cand.nombre.slice(1))}</span>
+                        <button style="width:auto; margin:0; padding:4px 8px; font-size:10px; background:#16a34a;">➕ Agregar</button>
+                    `;
+                    fila.querySelector('button').onclick = () => agregarSugerenciaDirecta(cand);
+                    cont.appendChild(fila);
+                });
+            });
+        }
+
+        // Agrega directamente una categoría sugerida (sin pasar por el formulario), usando el
+        // nombre y estilo ya definidos en el diccionario.
+        function agregarSugerenciaDirecta(cand) {
+            let id = "custom_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
+            let nombreCapitalizado = cand.nombre.charAt(0).toUpperCase() + cand.nombre.slice(1);
+            CONFIG_SERVICIOS_PREDEFINIDOS.push({ id, title: nombreCapitalizado, em: cand.em, col: cand.col, query: cand.query, max: 10, img: null });
+            persistirConfiguracionGlobalEnStorage();
+            renderizarEstructuraServiciosFijos();
+            sugerirServiciosCercanos(); // refresca la lista de sugerencias, sacando la que ya se agregó
+        }
         function registrarNuevoServicioHUD() {
             let name = document.getElementById('new-srv-name').value.trim();
             let queryManual = document.getElementById('new-srv-query').value.trim();
