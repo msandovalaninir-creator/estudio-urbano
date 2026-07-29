@@ -1284,7 +1284,30 @@
         // (que todavía no tienes agregadas) sí tienen algo real cerca — y te las ofrece con un
         // botón para sumarlas al toque, en vez de tener que adivinar qué te falta.
         function sugerirServiciosCercanos() {
+            let panel = document.getElementById('panel-sugerencias-servicios');
+            let btn = document.getElementById('btn-sugerir-servicios');
+
+            // Si el panel ya está visible, este clic lo desactiva (lo esconde) en vez de
+            // volver a buscar — así funciona como un interruptor: activar / desactivar.
+            if (panel.style.display === 'block') {
+                panel.style.display = 'none';
+                panel.innerHTML = '';
+                btn.innerText = '💡 Sugerir servicios cercanos que me falten';
+                btn.style.background = '#1e293b';
+                return;
+            }
+
             if (!coordenadasOrigen) { alert("Primero fija un origen (dirección) antes de pedir sugerencias."); return; }
+            btn.innerText = '🔴 Ocultar sugerencias';
+            btn.style.background = '#7c2d12';
+            ejecutarBusquedaSugerencias();
+        }
+
+        // Hace la búsqueda real y llena el panel — separado del interruptor de arriba para poder
+        // llamarla de nuevo (refrescar) al agregar una sugerencia, sin que eso apague el panel.
+        function ejecutarBusquedaSugerencias() {
+            let panel = document.getElementById('panel-sugerencias-servicios');
+            let btn = document.getElementById('btn-sugerir-servicios');
 
             // Se arma una lista de categorías del diccionario ÚNICAS por etiqueta real (para no
             // sugerir "Colegio" y "Escuela" por separado si apuntan a lo mismo), descartando las
@@ -1300,11 +1323,11 @@
             }
 
             if (candidatas.length === 0) {
-                alert("Ya tienes prácticamente todas las categorías conocidas agregadas — no encontré ninguna sugerencia nueva que ofrecerte.");
+                panel.style.display = 'block';
+                panel.innerHTML = `<span style="color:#94a3b8;">Ya tienes prácticamente todas las categorías conocidas agregadas.</span>`;
                 return;
             }
 
-            let panel = document.getElementById('panel-sugerencias-servicios');
             panel.style.display = 'block';
             panel.innerHTML = `⌛ Revisando qué hay cerca... <span id="sug-progreso">0</span>/${candidatas.length}`;
 
@@ -1355,7 +1378,7 @@
             CONFIG_SERVICIOS_PREDEFINIDOS.push({ id, title: nombreCapitalizado, em: cand.em, col: cand.col, query: cand.query, max: 10, img: null });
             persistirConfiguracionGlobalEnStorage();
             renderizarEstructuraServiciosFijos();
-            sugerirServiciosCercanos(); // refresca la lista de sugerencias, sacando la que ya se agregó
+            ejecutarBusquedaSugerencias(); // refresca la lista de sugerencias, sacando la que ya se agregó
         }
         function registrarNuevoServicioHUD() {
             let name = document.getElementById('new-srv-name').value.trim();
