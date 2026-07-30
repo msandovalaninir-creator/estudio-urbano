@@ -141,6 +141,9 @@
         #loading { display: none; text-align: center; color: #cbd5e1; font-weight: 600; padding: 12px; background: #161a24; border: 1px solid #2e3748; border-radius: 6px; margin-bottom: 15px; font-size: 11px; letter-spacing: 0.5px; }
         
         .hud-area-tooltip { background: rgba(15, 23, 42, 0.95) !important; border: 2px solid #10b981 !important; color: #ffffff !important; font-weight: 800; font-size: 13px; padding: 5px 10px !important; border-radius: 6px; }
+        .etiqueta-nombre-servicio { background: rgba(15, 23, 42, 0.88) !important; border: 1px solid rgba(255,255,255,0.25) !important; color: #ffffff !important; font-size: 10.5px; font-weight: 600; padding: 2px 6px !important; border-radius: 4px; box-shadow: none !important; }
+        .etiqueta-nombre-servicio::before { border-top-color: rgba(15, 23, 42, 0.88) !important; }
+        .ocultar-nombres-servicios .etiqueta-nombre-servicio { display: none !important; }
 
         /* Switches Estilo Moderno */
         .switch-container { display: flex; align-items: center; justify-content: space-between; }
@@ -238,6 +241,14 @@
                 <input type="color" id="capture-border-color" value="#4facfe" style="width:20px; height:20px; padding:0; border:none; flex-shrink:0; cursor:pointer;" title="Color de contorno" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
                 <input type="range" id="capture-border-weight" min="1" max="10" step="1" value="2" style="width:36px; flex-shrink:0;" title="Grosor de línea" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
                 <input type="range" id="capture-border-opacity" min="0.1" max="1" step="0.1" value="1" style="width:36px; flex-shrink:0;" title="Opacidad de línea" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
+            </div>
+
+            <div style="display:flex; align-items:center; gap:8px; background:#1e2430; border-radius:6px; padding:6px 8px; margin-top:6px;">
+                <label class="switch" style="flex-shrink:0;" title="Mostrar nombre de cada servicio en el mapa">
+                    <input type="checkbox" id="toggle-nombres-servicios" checked onchange="conmutarNombresIconosMapa(this.checked); persistirConfiguracionGlobalEnStorage();">
+                    <span class="slider-switch"></span>
+                </label>
+                <span style="font-size:10.5px; color:#94a3b8;">🏷️ Mostrar nombres de servicios en el mapa</span>
             </div>
         </div>
 
@@ -420,6 +431,14 @@
             const arrow = document.getElementById(aId);
             if(content) content.classList.toggle('collapsed');
             if(arrow && content) arrow.innerText = content.classList.contains('collapsed') ? '▲' : '▼';
+        }
+
+        // Muestra u oculta el nombre de cada servicio en el mapa (debajo de su ícono), aplicando
+        // una clase CSS al contenedor del mapa en vez de tocar cada marcador uno por uno.
+        function conmutarNombresIconosMapa(visible) {
+            let contenedorMapa = map.getContainer();
+            if (visible) contenedorMapa.classList.remove('ocultar-nombres-servicios');
+            else contenedorMapa.classList.add('ocultar-nombres-servicios');
         }
 
         function conmutarVisibilidadAreaVisual(visible) {
@@ -896,6 +915,7 @@
                 walkRadius: document.getElementById('walk-filter-radius').value,
                 walkFilterActive: document.getElementById('toggle-walk-filter').checked,
                 iconSizeGlobal: document.getElementById('global-icon-size-slider').value,
+                mostrarNombresServicios: document.getElementById('toggle-nombres-servicios').checked,
                 cBorder: document.getElementById('capture-border-color').value,
                 cWeight: document.getElementById('capture-border-weight').value,
                 cOpacity: document.getElementById('capture-border-opacity').value,
@@ -940,6 +960,10 @@
                     document.getElementById('global-icon-size-slider').value = o.iconSizeGlobal;
                     document.getElementById('global-icon-size-display').innerText = o.iconSizeGlobal + "px";
                 }
+
+                let mostrarNombres = (typeof o.mostrarNombresServicios === 'boolean') ? o.mostrarNombresServicios : true;
+                document.getElementById('toggle-nombres-servicios').checked = mostrarNombres;
+                conmutarNombresIconosMapa(mostrarNombres);
                 
                 document.getElementById('capture-border-color').value = o.cBorder;
                 document.getElementById('capture-border-weight').value = o.cWeight;
@@ -1973,6 +1997,7 @@
                         let m = L.marker([r.lat, r.lng], markerOptions).addTo(serviciosLayerGroup).bindPopup(
                             `<b>${escaparHTML(r.nombre)}</b><br>📐 ~${r.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel, o haz clic aquí mientras el modo trazado esté activo</small>`
                         );
+                        m.bindTooltip(escaparHTML(r.nombre), { permanent: true, direction: 'bottom', offset: [0, 4], className: 'etiqueta-nombre-servicio' });
 
                         elementosMapeadosActivos[uid] = { 
                             marker: m, 
