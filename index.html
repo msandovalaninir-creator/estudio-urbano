@@ -183,6 +183,8 @@
         <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
 
         <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" style="width:100%; background:#1e293b; color:#fbbf24; border:1px solid #f59e0b; font-size:11px; font-weight:700; padding:9px; border-radius:6px; margin-top:8px; margin-bottom:10px; cursor:pointer;">💡 Sugerir servicios cercanos que me falten</button>
+
+        <button id="btn-futuras-lineas-metro" onclick="conmutarFuturasLineasMetro()" style="width:100%; background:#1e293b; color:#f43f5e; border:1px solid #f43f5e; font-size:11px; font-weight:700; padding:9px; border-radius:6px; margin-bottom:10px; cursor:pointer;">🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)</button>
         <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
 
         <button id="btn-trazado-manual" style="background:#1e293b; color:#7dd3fc; border:1px solid #38bdf8; font-size:11px; padding:10px; font-weight:700; width:100%; margin-bottom:10px; border-radius:6px; cursor:pointer;" onclick="activarModoTrazadoManual()">✏️ TRAZAR RUTA MANUAL A UN SERVICIO</button>
@@ -1307,6 +1309,72 @@
         // Revisa, en el sector donde estás buscando, cuáles categorías conocidas del diccionario
         // (que todavía no tienes agregadas) sí tienen algo real cerca — y te las ofrece con un
         // botón para sumarlas al toque, en vez de tener que adivinar qué te falta.
+        // --- FUTURAS LÍNEAS DE METRO (L7, L8, L9, extensiones) ---
+        // A diferencia de los demás servicios (que son puntos), esto es geometría de líneas —
+        // se consulta directo a Overpass por tramos marcados como "en construcción" o
+        // "proyectados" en OpenStreetMap, y se dibujan como trazos punteados en el mapa, no como
+        // íconos. La cobertura depende de qué tan mapeado esté cada tramo en OpenStreetMap — no
+        // hay garantía de que todas las líneas futuras estén cargadas ahí todavía.
+        let capaFuturasLineasMetro = null;
+        let futurasLineasMetroVisibles = false;
+
+        function conmutarFuturasLineasMetro() {
+            let btn = document.getElementById('btn-futuras-lineas-metro');
+
+            if (futurasLineasMetroVisibles) {
+                if (capaFuturasLineasMetro) map.removeLayer(capaFuturasLineasMetro);
+                futurasLineasMetroVisibles = false;
+                btn.innerText = '🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)';
+                btn.style.background = '#1e293b';
+                return;
+            }
+
+            if (!coordenadasOrigen) { alert("Primero fija un origen (dirección) — se buscan las líneas futuras alrededor de ese punto."); return; }
+
+            btn.disabled = true;
+            btn.innerText = '⌛ Buscando líneas futuras...';
+
+            let radioMetro = 8000; // las líneas de metro son largas — radio más generoso que el de servicios normales
+            let geoFiltro = `(around:${radioMetro},${coordenadasOrigen.lat},${coordenadasOrigen.lng})`;
+            let query = `[out:json][timeout:25];(way["railway"="construction"]${geoFiltro};way["railway"="proposed"]${geoFiltro};);out geom;`;
+
+            consultarCategoriaConReintentos(query, "Futuras líneas de Metro").then(res => {
+                btn.disabled = false;
+
+                if (!res || !res.ok) {
+                    btn.innerText = '🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)';
+                    alert("Los servidores de Overpass no respondieron para esta consulta. Puedes intentar de nuevo en un momento.");
+                    return;
+                }
+
+                let tramosConGeometria = (res.elements || []).filter(el => el.geometry && el.geometry.length > 1);
+
+                if (tramosConGeometria.length === 0) {
+                    btn.innerText = '🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)';
+                    alert("No encontré tramos marcados como \"en construcción\" o \"proyectados\" en OpenStreetMap cerca de este punto. Esto no significa que no existan en la realidad — puede que todavía no estén cargados en el mapa colaborativo, o que estén fuera del radio de búsqueda (8 km).");
+                    return;
+                }
+
+                capaFuturasLineasMetro = L.layerGroup();
+                tramosConGeometria.forEach(el => {
+                    let coords = el.geometry.map(p => [p.lat, p.lon]);
+                    let nombreTramo = el.tags.name || `Tramo ${el.tags.construction || el.tags.proposed || 'futuro'} de Metro`;
+                    let linea = L.polyline(coords, {
+                        color: '#f43f5e', weight: 6, opacity: 0.85, dashArray: '12,10'
+                    }).bindPopup(`<b>🚇 ${escaparHTML(nombreTramo)}</b><br><small>${el.tags.railway === 'construction' ? 'En construcción' : 'Proyectado'}</small>`);
+                    capaFuturasLineasMetro.addLayer(linea);
+                });
+                capaFuturasLineasMetro.addTo(map);
+                futurasLineasMetroVisibles = true;
+                btn.innerText = '🔴 Ocultar futuras líneas de Metro';
+                btn.style.background = '#7c2d12';
+            }).catch(() => {
+                btn.disabled = false;
+                btn.innerText = '🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)';
+                alert("Ocurrió un error consultando las líneas futuras. Intenta de nuevo.");
+            });
+        }
+
         function sugerirServiciosCercanos() {
             let panel = document.getElementById('panel-sugerencias-servicios');
             let btn = document.getElementById('btn-sugerir-servicios');
