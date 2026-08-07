@@ -2690,6 +2690,21 @@
             document.getElementById('valor-tamano-letra-preview').innerText = px + 'px';
         }
 
+        // Ajusta el tamaño de los íconos de cada servicio en la vista previa — funciona tanto para
+        // imágenes personalizadas subidas (ancho/alto) como para emojis (tamaño de fuente).
+        function ajustarTamanoIconoPreview(valor) {
+            let px = parseInt(valor);
+            document.querySelectorAll('.icono-servicio-preview').forEach(el => {
+                if (el.tagName === 'IMG') {
+                    el.style.width = px + 'px';
+                    el.style.height = px + 'px';
+                } else {
+                    el.style.fontSize = Math.round(px * 0.8) + 'px';
+                }
+            });
+            document.getElementById('valor-tamano-icono-preview').innerText = px + 'px';
+        }
+
         function mostrarVistaPreviaReporte() {
             // Si ya había una vista previa abierta de antes, se saca primero — evita que se
             // acumulen ventanas y listeners de arrastre duplicados de sesiones anteriores.
@@ -2699,8 +2714,8 @@
             let items = obtenerItemsReporte();
             let filasHtml = items.map(item => {
                 let contenidoIcono = item.img
-                    ? `<img src="${item.img}" style="width:40px;height:40px;object-fit:contain;">`
-                    : `<span style="font-size:32px;">${item.em || '📍'}</span>`;
+                    ? `<img src="${item.img}" style="width:40px;height:40px;object-fit:contain;" class="icono-servicio-preview">`
+                    : `<span style="font-size:32px;" class="icono-servicio-preview">${item.em || '📍'}</span>`;
                 return `
                 <tr>
                     <td style="border:none; padding:6px; text-align:center; vertical-align:middle;">
@@ -2744,9 +2759,14 @@
                         <button style="background:none; border:none; color:#94a3b8; font-size:16px; cursor:pointer; padding:0 4px;" onclick="document.getElementById('overlay-vista-previa-reporte').remove()">✕</button>
                     </div>
                     <div style="background:#161a24; padding:6px 14px; display:flex; align-items:center; gap:8px; flex-shrink:0; border-bottom:1px solid #2a313d;">
-                        <span style="font-size:10.5px; color:#94a3b8; flex-shrink:0;">🔤 Tamaño letra</span>
+                        <span style="font-size:10.5px; color:#94a3b8; flex-shrink:0;">🔤 Letra</span>
                         <input type="range" id="slider-tamano-letra-preview" min="10" max="26" value="14" style="flex-grow:1;" oninput="ajustarTamanoLetraPreview(this.value)">
-                        <span id="valor-tamano-letra-preview" style="font-size:10px; color:#94a3b8; flex-shrink:0; width:28px;">14px</span>
+                        <span id="valor-tamano-letra-preview" style="font-size:10px; color:#94a3b8; flex-shrink:0; width:26px;">14px</span>
+                    </div>
+                    <div style="background:#161a24; padding:6px 14px; display:flex; align-items:center; gap:8px; flex-shrink:0; border-bottom:1px solid #2a313d;">
+                        <span style="font-size:10.5px; color:#94a3b8; flex-shrink:0;">🖼️ Íconos</span>
+                        <input type="range" id="slider-tamano-icono-preview" min="20" max="70" value="40" style="flex-grow:1;" oninput="ajustarTamanoIconoPreview(this.value)">
+                        <span id="valor-tamano-icono-preview" style="font-size:10px; color:#94a3b8; flex-shrink:0; width:26px;">40px</span>
                     </div>
                     <div style="padding:10px; overflow-y:auto; flex-grow:1; background:#fff;">
                         ${contenidoTabla}
