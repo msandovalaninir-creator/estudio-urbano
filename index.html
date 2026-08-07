@@ -2681,6 +2681,15 @@
             imgMapa.src = capturaMapaManualBase64;
         }
 
+        // Ajusta el tamaño de letra de la tabla de la vista previa en vivo, mientras se mueve el
+        // control deslizante — sube proporcionalmente el texto normal y el de los encabezados.
+        function ajustarTamanoLetraPreview(valor) {
+            let px = parseInt(valor);
+            document.querySelectorAll('.celda-texto-preview').forEach(el => el.style.fontSize = px + 'px');
+            document.querySelectorAll('.celda-header-preview').forEach(el => el.style.fontSize = (px + 2) + 'px');
+            document.getElementById('valor-tamano-letra-preview').innerText = px + 'px';
+        }
+
         function mostrarVistaPreviaReporte() {
             // Si ya había una vista previa abierta de antes, se saca primero — evita que se
             // acumulen ventanas y listeners de arrastre duplicados de sesiones anteriores.
@@ -2697,11 +2706,11 @@
                     <td style="border:none; padding:6px; text-align:center; vertical-align:middle;">
                         ${contenidoIcono}
                     </td>
-                    <td style="border:1px solid #333; padding:9px 14px; text-align:left; color:#1a56db; font-weight:600;">${escaparHTML(item.name)}</td>
-                    <td style="border:1px solid #333; padding:9px 14px; text-align:left; white-space:nowrap; color:#1a56db; font-weight:600;">
+                    <td style="border:1px solid #333; padding:9px 14px; text-align:left; color:#1a56db; font-weight:600;" class="celda-texto-preview">${escaparHTML(item.name)}</td>
+                    <td style="border:1px solid #333; padding:9px 14px; text-align:left; white-space:nowrap; color:#1a56db; font-weight:600;" class="celda-texto-preview">
                         <img src="${ICONO_CAMINANTE}" style="width:22px;height:22px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)}
                     </td>
-                    <td style="border:1px solid #333; padding:9px 14px; text-align:center; color:#1a56db; font-weight:600;">${item.distance} m</td>
+                    <td style="border:1px solid #333; padding:9px 14px; text-align:center; color:#1a56db; font-weight:600;" class="celda-texto-preview">${item.distance} m</td>
                 </tr>
             `;
             }).join('');
@@ -2709,13 +2718,13 @@
             let contenidoTabla = items.length === 0
                 ? `<p style="color:#333;">Aún no hay servicios trazados para incluir en el reporte.</p>`
                 : `
-                <table style="border-collapse:collapse; width:100%; background:#fff; font-family: Arial, sans-serif; font-size:14px; border:4px solid #000;">
+                <table id="tabla-preview-reporte" style="border-collapse:collapse; width:100%; background:#fff; font-family: Arial, sans-serif; font-size:14px; border:4px solid #000;">
                     <thead>
                         <tr style="background:#fff;">
                             <th style="border:none; padding:10px 6px;"></th>
-                            <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;">SERVICIO</th>
-                            <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;">TIEMPO</th>
-                            <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;">DISTANCIA</th>
+                            <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">SERVICIO</th>
+                            <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">TIEMPO</th>
+                            <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">DISTANCIA</th>
                         </tr>
                     </thead>
                     <tbody>${filasHtml}</tbody>
@@ -2733,6 +2742,11 @@
                             <p style="color:#94a3b8; font-size:11px; margin:2px 0 0;">${escaparHTML(nombreUbicacionActual)} · arrastra aquí para mover</p>
                         </div>
                         <button style="background:none; border:none; color:#94a3b8; font-size:16px; cursor:pointer; padding:0 4px;" onclick="document.getElementById('overlay-vista-previa-reporte').remove()">✕</button>
+                    </div>
+                    <div style="background:#161a24; padding:6px 14px; display:flex; align-items:center; gap:8px; flex-shrink:0; border-bottom:1px solid #2a313d;">
+                        <span style="font-size:10.5px; color:#94a3b8; flex-shrink:0;">🔤 Tamaño letra</span>
+                        <input type="range" id="slider-tamano-letra-preview" min="10" max="26" value="14" style="flex-grow:1;" oninput="ajustarTamanoLetraPreview(this.value)">
+                        <span id="valor-tamano-letra-preview" style="font-size:10px; color:#94a3b8; flex-shrink:0; width:28px;">14px</span>
                     </div>
                     <div style="padding:10px; overflow-y:auto; flex-grow:1; background:#fff;">
                         ${contenidoTabla}
