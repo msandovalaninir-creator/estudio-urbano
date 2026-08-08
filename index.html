@@ -2705,6 +2705,71 @@
             document.getElementById('valor-tamano-icono-preview').innerText = px + 'px';
         }
 
+        // Guarda el nombre corregido directamente en el dato real del servicio (no solo en la
+        // vista previa) — así también queda bien en el reporte que copies o exportes después.
+        function guardarNombreEditadoPreview(celda) {
+            let uid = celda.dataset.uid;
+            let item = elementosMapeadosActivos[uid];
+            if (!item) return;
+            let nuevoNombre = celda.innerText.trim();
+            if (nuevoNombre) {
+                item.name = nuevoNombre;
+                if (item.marker) item.marker.setPopupContent(item.marker.getPopup().getContent().replace(/<b>.*?<\/b>/, `<b>${escaparHTML(nuevoNombre)}</b>`));
+            } else {
+                celda.innerText = item.name; // no se permite dejarlo vacío
+            }
+        }
+
+        // Muestra un menú chico con todos los íconos ya usados en tus categorías, para asignarle
+        // uno distinto a este servicio puntual sin tener que subir una imagen nueva.
+        function abrirSelectorIconoPreview(evento, uid) {
+            evento.stopPropagation();
+            let existente = document.getElementById('selector-icono-preview');
+            if (existente) existente.remove();
+
+            // Se arma la lista de íconos únicos ya guardados en las categorías (sin repetir).
+            let iconosUnicos = [];
+            let vistos = new Set();
+            CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                let clave = s.img || s.em;
+                if (!clave || vistos.has(clave)) return;
+                vistos.add(clave);
+                iconosUnicos.push({ img: s.img, em: s.em, titulo: s.title });
+            });
+
+            let opcionesHtml = iconosUnicos.map(ic => `
+                <div style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; border-radius:6px; background:#f1f5f9;" title="${escaparHTML(ic.titulo)}" onclick="aplicarIconoElegidoPreview('${uid}', ${ic.img ? `'${ic.img}'` : 'null'}, '${ic.em || ''}')">
+                    ${ic.img ? `<img src="${ic.img}" style="width:26px;height:26px;object-fit:contain;">` : `<span style="font-size:22px;">${ic.em}</span>`}
+                </div>
+            `).join('');
+
+            let menu = document.createElement('div');
+            menu.id = 'selector-icono-preview';
+            menu.style.cssText = 'position:absolute; z-index:10000; background:#fff; border:2px solid #333; border-radius:8px; padding:8px; display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; box-shadow:0 4px 12px rgba(0,0,0,0.4); max-width:210px;';
+            menu.innerHTML = opcionesHtml;
+
+            document.body.appendChild(menu);
+            let rect = evento.currentTarget.getBoundingClientRect();
+            menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+            menu.style.left = (rect.left + window.scrollX) + 'px';
+
+            // Se cierra si se hace clic afuera del menú.
+            setTimeout(() => {
+                document.addEventListener('click', function cerrar(e) {
+                    if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', cerrar); }
+                });
+            }, 0);
+        }
+
+        function aplicarIconoElegidoPreview(uid, img, em) {
+            let item = elementosMapeadosActivos[uid];
+            if (!item) return;
+            item.img = img;
+            item.em = em;
+            document.getElementById('selector-icono-preview')?.remove();
+            mostrarVistaPreviaReporte(); // se reabre para reflejar el ícono nuevo, manteniendo los datos
+        }
+
         function mostrarVistaPreviaReporte() {
             // Si ya había una vista previa abierta de antes, se saca primero — evita que se
             // acumulen ventanas y listeners de arrastre duplicados de sesiones anteriores.
@@ -2718,10 +2783,10 @@
                     : `<span style="font-size:32px;" class="icono-servicio-preview">${item.em || '📍'}</span>`;
                 return `
                 <tr>
-                    <td style="border:none; padding:6px; text-align:center; vertical-align:middle;">
+                    <td style="border:none; padding:6px; text-align:center; vertical-align:middle; cursor:pointer; position:relative;" onclick="abrirSelectorIconoPreview(event, '${item.uid}')" title="Clic para cambiar el ícono">
                         ${contenidoIcono}
                     </td>
-                    <td style="border:1px solid #333; padding:9px 14px; text-align:left; color:#1a56db; font-weight:600;" class="celda-texto-preview">${escaparHTML(item.name)}</td>
+                    <td style="border:1px solid #333; padding:9px 14px; text-align:left; color:#1a56db; font-weight:600;" class="celda-texto-preview" contenteditable="true" data-uid="${item.uid}" onblur="guardarNombreEditadoPreview(this)" title="Clic para corregir el nombre">${escaparHTML(item.name)}</td>
                     <td style="border:1px solid #333; padding:9px 14px; text-align:left; white-space:nowrap; color:#1a56db; font-weight:600;" class="celda-texto-preview">
                         <img src="${ICONO_CAMINANTE}" style="width:22px;height:22px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)}
                     </td>
