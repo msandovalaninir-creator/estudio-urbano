@@ -2737,16 +2737,34 @@
                 iconosUnicos.push({ img: s.img, em: s.em, titulo: s.title });
             });
 
-            let opcionesHtml = iconosUnicos.map(ic => `
-                <div style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; border-radius:6px; background:#f1f5f9;" title="${escaparHTML(ic.titulo)}" onclick="aplicarIconoElegidoPreview('${uid}', ${ic.img ? `'${ic.img}'` : 'null'}, '${ic.em || ''}')">
-                    ${ic.img ? `<img src="${ic.img}" style="width:26px;height:26px;object-fit:contain;">` : `<span style="font-size:22px;">${ic.em}</span>`}
-                </div>
-            `).join('');
-
             let menu = document.createElement('div');
             menu.id = 'selector-icono-preview';
             menu.style.cssText = 'position:absolute; z-index:10000; background:#fff; border:2px solid #333; border-radius:8px; padding:8px; display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; box-shadow:0 4px 12px rgba(0,0,0,0.4); max-width:210px;';
-            menu.innerHTML = opcionesHtml;
+
+            // Se construye cada opción como elemento real (no como texto/HTML armado a mano), para
+            // que las imágenes con datos largos (íconos personalizados subidos) nunca rompan el
+            // botón — antes, al insertarlas como texto dentro de un atributo "onclick", se cortaban
+            // y el clic dejaba de funcionar sin ningún aviso.
+            iconosUnicos.forEach(ic => {
+                let opcion = document.createElement('div');
+                opcion.style.cssText = 'width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; border-radius:6px; background:#f1f5f9;';
+                opcion.title = ic.titulo;
+
+                if (ic.img) {
+                    let img = document.createElement('img');
+                    img.src = ic.img;
+                    img.style.cssText = 'width:26px;height:26px;object-fit:contain;';
+                    opcion.appendChild(img);
+                } else {
+                    let span = document.createElement('span');
+                    span.style.fontSize = '22px';
+                    span.innerText = ic.em;
+                    opcion.appendChild(span);
+                }
+
+                opcion.addEventListener('click', () => aplicarIconoElegidoPreview(uid, ic.img || null, ic.em || ''));
+                menu.appendChild(opcion);
+            });
 
             document.body.appendChild(menu);
             let rect = evento.currentTarget.getBoundingClientRect();
