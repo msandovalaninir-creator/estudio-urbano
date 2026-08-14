@@ -1936,6 +1936,27 @@
             });
         }
 
+        // Arma el ícono de un marcador (imagen personalizada o emoji) al tamaño indicado — se usa
+        // tanto al crear el marcador la primera vez como al cambiarle el ícono después desde la
+        // vista previa, para que ambos casos generen exactamente el mismo resultado visual.
+        function construirIconoServicio(img, em, tamano) {
+            let mitad = Math.floor(tamano / 2);
+            if (img) {
+                return L.divIcon({
+                    className: 'custom-hud-icon',
+                    html: `<img src="${img}">`,
+                    iconSize: [tamano, tamano],
+                    iconAnchor: [mitad, mitad]
+                });
+            }
+            return L.divIcon({
+                className: 'custom-hud-icon',
+                html: `<span style="font-size:${Math.floor(tamano * 0.48)}px;">${em}</span>`,
+                iconSize: [tamano, tamano],
+                iconAnchor: [mitad, mitad]
+            });
+        }
+
         function procesarElementosFiltrosVariables(elements, rMaxLineal, linealFiltroActivo, rMaxWalk, walkFiltroActivo) {
             let validos = [];
             let sizeDinamico = parseInt(document.getElementById('global-icon-size-slider').value) || 30;
@@ -2044,23 +2065,7 @@
                     itemsLimitados.forEach(r => {
                         let uid = "s_" + Date.now() + "_" + Math.floor(Math.random()*10000);
                         let markerOptions = { draggable: true };
-                        let halfSize = Math.floor(sizeDinamico / 2);
-
-                        if(r.img) {
-                            markerOptions.icon = L.divIcon({ 
-                                className: 'custom-hud-icon', 
-                                html: `<img src="${r.img}">`, 
-                                iconSize: [sizeDinamico, sizeDinamico], 
-                                iconAnchor: [halfSize, halfSize] 
-                            });
-                        } else {
-                            markerOptions.icon = L.divIcon({ 
-                                className: 'custom-hud-icon', 
-                                html: `<span style="font-size:${Math.floor(sizeDinamico * 0.48)}px;">${r.em}</span>`, 
-                                iconSize: [sizeDinamico, sizeDinamico], 
-                                iconAnchor: [halfSize, halfSize] 
-                            });
-                        }
+                        markerOptions.icon = construirIconoServicio(r.img, r.em, sizeDinamico);
 
                         let m = L.marker([r.lat, r.lng], markerOptions).addTo(serviciosLayerGroup).bindPopup(
                             `<b>${escaparHTML(r.nombre)}</b><br>📐 ~${r.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel, o haz clic aquí mientras el modo trazado esté activo</small>`
@@ -2785,6 +2790,14 @@
             if (!item) return;
             item.img = img;
             item.em = em;
+
+            // Se actualiza también el ícono real del marcador en el mapa, no solo el del reporte,
+            // para que ambos queden siempre iguales.
+            if (item.marker) {
+                let tamanoActual = parseInt(document.getElementById('global-icon-size-slider').value) || 30;
+                item.marker.setIcon(construirIconoServicio(img, em, tamanoActual));
+            }
+
             document.getElementById('selector-icono-preview')?.remove();
             mostrarVistaPreviaReporte(); // se reabre para reflejar el ícono nuevo, manteniendo los datos
         }
