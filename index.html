@@ -160,6 +160,31 @@
         /* Botonera de Selección Rápida Masiva */
         .mass-toggle-container { display: flex; gap: 6px; margin-bottom: 12px; background: rgba(0, 0, 0, 0.2); padding: 6px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); }
         .mass-toggle-container button { margin-bottom: 0; padding: 6px; font-size: 10px; letter-spacing: 0.3px; }
+
+        /* Mejoras seguras de cartografía: adapta los paneles y mantiene el mapa usable */
+        .leaflet-control-scale-line { background: rgba(17,20,26,.88) !important; color:#f1f5f9 !important; border-color:#94a3b8 !important; }
+        .leaflet-control-zoom a { background:rgba(17,20,26,.94) !important; color:#e2e8f0 !important; border-color:#2e3545 !important; }
+        .leaflet-control-zoom a:hover { background:#242b3a !important; color:#4facfe !important; }
+        .leaflet-control-attribution { background:rgba(17,20,26,.78) !important; color:#cbd5e1 !important; }
+        .leaflet-control-attribution a { color:#7dd3fc !important; }
+        #map { touch-action: pan-x pan-y; }
+        @media (max-width: 900px) {
+            #control-panel { width:min(340px, calc(100vw - 24px)); left:8px; top:8px; bottom:8px; padding:16px 12px; }
+            #results-panel { width:min(320px, calc(100vw - 24px)); right:8px; top:8px; bottom:8px; padding:16px 12px; }
+            #toggle-left-btn { left:min(356px, calc(100vw - 36px)); }
+            #toggle-right-btn { right:min(336px, calc(100vw - 36px)); }
+            #control-panel.hidden-sidebar { transform:translateX(calc(-100% - 18px)); }
+            #results-panel.hidden-sidebar { transform:translateX(calc(100% + 18px)); }
+        }
+        @media (max-width: 600px) {
+            #control-panel { width:calc(100vw - 54px); max-width:340px; }
+            #results-panel { width:calc(100vw - 54px); max-width:320px; }
+            #toggle-left-btn { left:auto; right:0; top:44%; width:26px; height:56px; }
+            #toggle-right-btn { right:auto; left:0; top:56%; width:26px; height:56px; }
+            #toggle-left-btn.collapsed { right:0; left:auto; }
+            #toggle-right-btn.collapsed { left:0; right:auto; }
+            .leaflet-control-layers { max-width:150px; }
+        }
     </style>
 </head>
 <body>
@@ -418,6 +443,7 @@
             panel.classList.toggle('hidden-sidebar');
             btn.innerText = panel.classList.contains('hidden-sidebar') ? "▶" : "◀";
             if (panel.classList.contains('hidden-sidebar')) btn.classList.add('collapsed'); else btn.classList.remove('collapsed');
+            actualizarTamanoMapa();
         }
 
         function toggleRightSidebar() {
@@ -426,7 +452,18 @@
             panel.classList.toggle('hidden-sidebar');
             btn.innerText = panel.classList.contains('hidden-sidebar') ? "◀" : "▶";
             if (panel.classList.contains('hidden-sidebar')) btn.classList.add('collapsed'); else btn.classList.remove('collapsed');
+            actualizarTamanoMapa();
         }
+
+        // Leaflet necesita recalcular el área visible después de cambios de panel/ventana.
+        let temporizadorTamanoMapa = null;
+        function actualizarTamanoMapa() {
+            if (temporizadorTamanoMapa) clearTimeout(temporizadorTamanoMapa);
+            temporizadorTamanoMapa = setTimeout(() => {
+                if (typeof map !== 'undefined' && map) map.invalidateSize({ animate: false, pan: false });
+            }, 180);
+        }
+        window.addEventListener('resize', actualizarTamanoMapa, { passive: true });
 
         function toggleSection(cId, aId) {
             const content = document.getElementById(cId); 
@@ -519,16 +556,47 @@
             }
         }
 
-        const capaMapaCalles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' });
-        const capaSateliteEsri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+        // Capas base con límites de zoom explícitos para evitar mosaicos vacíos al acercar demasiado.
+        const capaMapaCalles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors', maxZoom: 19, updateWhenIdle: true, keepBuffer: 3
+        });
+        const capaSateliteEsri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Imagery © Esri', maxZoom: 19, updateWhenIdle: true, keepBuffer: 3
+        });
 
-        const map = L.map('map', { center: [-33.4372, -70.6152], zoom: 14, layers: [capaMapaCalles] });
+        const map = L.map('map', {
+            center: [-33.4372, -70.6152], zoom: 14, layers: [capaMapaCalles],
+            zoomControl: false, preferCanvas: true, keyboard: true, wheelDebounceTime: 40
+        });
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.control.scale({ position: 'bottomleft', metric: true, imperial: false, maxWidth: 140 }).addTo(map);
         
         const capasBaseHUD = {
             "Vista Mapa": capaMapaCalles,
             "Vista Satélite": capaSateliteEsri
         };
-        L.control.layers(capasBaseHUD, null, { position: 'topright' }).addTo(map);
+        L.control.layers(capasBaseHUD, null, { position: 'topright', collapsed: true }).addTo(map);
+
+        // Si una fuente cartográfica falla temporalmente, avisar sin bloquear el resto del sistema.
+        let avisoTilesVisible = false;
+        function vigilarErroresTiles(capa, nombre) {
+            capa.on('tileerror', () => {
+                if (avisoTilesVisible) return;
+                avisoTilesVisible = true;
+                const aviso = L.control({ position: 'topright' });
+                aviso.onAdd = function() {
+                    const div = L.DomUtil.create('div', 'map-tile-warning');
+                    div.innerHTML = '⚠️ Algunos mosaicos de ' + nombre + ' no cargaron. Comprueba tu conexión o cambia de capa.';
+                    div.style.cssText = 'max-width:230px;padding:8px 10px;background:rgba(17,20,26,.94);color:#fbbf24;border:1px solid #92400e;border-radius:7px;font-size:11px;line-height:1.4;';
+                    return div;
+                };
+                aviso.addTo(map);
+                setTimeout(() => { try { map.removeControl(aviso); } catch(e) {} avisoTilesVisible = false; }, 6500);
+            });
+        }
+        vigilarErroresTiles(capaMapaCalles, 'mapa');
+        vigilarErroresTiles(capaSateliteEsri, 'satélite');
+
 
         let origenMarker = null, radioCirculo = null, areaInfluenciaCirculo = null;
         let serviciosLayerGroup = L.layerGroup().addTo(map);
