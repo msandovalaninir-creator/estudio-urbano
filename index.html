@@ -1773,7 +1773,7 @@
                 });
             });
 
-            ejecutarConPoolConcurrencia(tareasLotes, 2).then(resultadosLotes => {
+            ejecutarConPoolConcurrencia(tareasLotes, 1).then(resultadosLotes => {
                 let todosLosElementos = [];
                 let lotesFallidos = [];
                 resultadosLotes.forEach((res, idx) => {
@@ -1787,7 +1787,7 @@
                 if (todosLosElementos.length === 0 && lotesFallidos.length === lotes.length) {
                     document.getElementById('loading').style.display = 'none';
                     liberarBotonAnalizar();
-                    alert("Los servidores públicos de Overpass no respondieron para ninguna categoría (están saturados o caídos en este momento, incluso tras reintentar automáticamente).\n\nEsto es una limitación del servicio gratuito, no un error de la app. Prueba:\n• Esperar 1-2 minutos y volver a intentar\n• Reducir el radio de búsqueda\n• Desmarcar categorías de servicios que no necesites");
+                    alert("No fue posible obtener datos de OpenStreetMap desde los servidores públicos de Overpass después de varios intentos.\n\nLa app ahora consulta los servidores de respaldo en secuencia y evita lanzar lotes en paralelo para reducir rechazos por saturación. Si todos están caídos o bloquean temporalmente la conexión, la búsqueda no puede completarse desde el navegador.\n\nPrueba: esperar 1-2 minutos, reducir el radio o seleccionar menos categorías. Si persiste durante varios minutos, el problema probablemente está en la disponibilidad de Overpass y no en tu cuenta de GitHub.");
                     return;
                 }
 
@@ -1829,31 +1829,49 @@
                 .finally(() => clearTimeout(temporizador));
         }
 
+        function esperarOverpass(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
         function consultarCategoriaConReintentos(query, categoriaTitulo) {
-            function intentarEndpoint(endpointIdx) {
-                if(endpointIdx >= ENDPOINTS_OVERPASS.length) {
-                    return { ok: false, elements: [], title: categoriaTitulo };
-                }
-                // El cliente debe esperar MÁS que el timeout que le pedimos al servidor (25s),
-                // nunca menos — si se corta antes, se aborta una consulta que quizás sí iba a
-                // responder bien, solo un poco lenta, y eso obliga a reintentar sin necesidad.
-                return fetchConTiempoMaximo(ENDPOINTS_OVERPASS[endpointIdx], { method: 'POST', body: 'data=' + encodeURIComponent(query), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 30000)
-                    .then(res => {
-                        if(!res.ok) {
-                            return res.text().then(txt => {
-                                console.error(`Overpass [${ENDPOINTS_OVERPASS[endpointIdx]}] (${categoriaTitulo}) respondió ${res.status}: ${txt.slice(0,200)}`);
-                                throw new Error(`HTTP ${res.status}`);
-                            });
+            // Los servidores públicos suelen limitar consultas simultáneas y pueden responder
+            // 429/502/504 durante picos de carga. Se prueba cada instancia más de una vez,
+            // con pausas crecientes, y se deja más tiempo a las consultas amplias.
+            const MAX_VUELTAS = 2;
+            const TIMEOUT_CONSULTA = 45000;
+
+            async function intentar() {
+                for (let vuelta = 0; vuelta < MAX_VUELTAS; vuelta++) {
+                    for (let endpointIdx = 0; endpointIdx < ENDPOINTS_OVERPASS.length; endpointIdx++) {
+                        const endpoint = ENDPOINTS_OVERPASS[endpointIdx];
+                        try {
+                            if (vuelta > 0 || endpointIdx > 0) {
+                                await esperarOverpass(1200 + vuelta * 1800 + endpointIdx * 500);
+                            }
+                            const res = await fetchConTiempoMaximo(endpoint, {
+                                method: 'POST',
+                                body: 'data=' + encodeURIComponent(query),
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }
+                            }, TIMEOUT_CONSULTA);
+                            if (!res.ok) {
+                                const detalle = await res.text().catch(() => '');
+                                console.warn(`Overpass ${endpoint} (${categoriaTitulo}) respondió HTTP ${res.status}: ${detalle.slice(0,160)}`);
+                                continue;
+                            }
+                            const json = await res.json();
+                            if (!json || !Array.isArray(json.elements)) {
+                                console.warn(`Respuesta inválida de Overpass (${categoriaTitulo}) en ${endpoint}.`);
+                                continue;
+                            }
+                            return { ok: true, elements: json.elements, title: categoriaTitulo };
+                        } catch (err) {
+                            console.warn(`Intento Overpass fallido (${categoriaTitulo}) en ${endpoint}:`, err && err.message ? err.message : err);
                         }
-                        return res.json();
-                    })
-                    .then(json => ({ ok: true, elements: json.elements || [], title: categoriaTitulo }))
-                    .catch(err => {
-                        console.error(`Fallo consultando ${ENDPOINTS_OVERPASS[endpointIdx]} para "${categoriaTitulo}":`, err);
-                        return intentarEndpoint(endpointIdx + 1);
-                    });
+                    }
+                }
+                return { ok: false, elements: [], title: categoriaTitulo };
             }
-            return intentarEndpoint(0);
+            return intentar();
         }
 
         // Ejecuta un arreglo de "tareas" (funciones que devuelven una promesa) permitiendo
