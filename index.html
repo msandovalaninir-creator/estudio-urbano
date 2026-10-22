@@ -2560,12 +2560,29 @@
             }
         }
 
-        // Arma la lista de servicios a incluir en el reporte, respetando el orden de categorías
-        // configurado con las flechitas ▲▼, y dentro de cada categoría de más cerca a más lejos.
+        // Prepara los datos del reporte SIN modificar los datos originales del análisis.
+        // Cada servicio usa la medida que corresponda: trazado manual si existe; si no,
+        // distancia en línea recta y tiempo estimado con la misma velocidad de referencia (5 km/h).
+        // Así se pueden combinar ambos tipos de trayecto en un mismo reporte.
         function obtenerItemsReporte() {
             let ordenCategorias = CONFIG_SERVICIOS_PREDEFINIDOS.map(s => s.id);
             return Object.values(elementosMapeadosActivos)
-                .filter(item => item.trazadoManual && item.distance !== null)
+                .filter(item => item.trazadoManual && item.distance !== null && item.distance !== undefined
+                    || item.distanciaLinea !== null && item.distanciaLinea !== undefined)
+                .map(item => {
+                    let usaTrazadoManual = !!(item.trazadoManual && item.distance !== null && item.distance !== undefined);
+                    let distanciaReporte = usaTrazadoManual ? item.distance : item.distanciaLinea;
+                    let tiempoReporte = usaTrazadoManual && item.tiempo !== null && item.tiempo !== undefined
+                        ? item.tiempo
+                        : Math.round(Number(distanciaReporte || 0) / 1.39);
+                    return {
+                        ...item,
+                        distance: distanciaReporte,
+                        tiempo: tiempoReporte,
+                        tipoTrayecto: usaTrazadoManual ? 'TRAZADO MANUAL' : 'LÍNEA RECTA',
+                        esDistanciaAproximada: !usaTrazadoManual
+                    };
+                })
                 .sort((a, b) => {
                     let diffCategoria = ordenCategorias.indexOf(a.catId) - ordenCategorias.indexOf(b.catId);
                     if (diffCategoria !== 0) return diffCategoria;
@@ -2576,11 +2593,12 @@
         function generarTextoReporte() {
             let items = obtenerItemsReporte();
             let t = `${nombreUbicacionActual}\n\n`;
-            t += `Servicio\tTiempo\tDistancia\n`;
+            t += `Servicio\tTiempo\tDistancia\tTipo de trayecto\n`;
             items.forEach(item => {
-                t += `${item.name}\t🚶 ${formatoTiempoCaminando(item.tiempo)}\t${item.distance} m\n`;
+                let distanciaTxt = `${item.esDistanciaAproximada ? '~' : ''}${item.distance} m`;
+                t += `${item.name}\t🚶 ${formatoTiempoCaminando(item.tiempo)}\t${distanciaTxt}\t${item.tipoTrayecto}\n`;
             });
-            if(items.length === 0) t += `Aún no hay servicios trazados para incluir en el reporte.\n`;
+            if(items.length === 0) t += `Aún no hay servicios para incluir en el reporte.\n`;
             return t;
         }
 
@@ -2890,13 +2908,14 @@
                     <td style="border:1px solid #333; padding:9px 14px; text-align:left; white-space:nowrap; color:#1a56db; font-weight:600;" class="celda-texto-preview">
                         <img src="${ICONO_CAMINANTE}" style="width:22px;height:22px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)}
                     </td>
-                    <td style="border:1px solid #333; padding:9px 14px; text-align:center; color:#1a56db; font-weight:600;" class="celda-texto-preview">${item.distance} m</td>
+                    <td style="border:1px solid #333; padding:9px 14px; text-align:center; color:#1a56db; font-weight:600;" class="celda-texto-preview">${item.esDistanciaAproximada ? '~' : ''}${item.distance} m</td>
+                    <td style="border:1px solid #333; padding:9px 10px; text-align:center; color:${item.esDistanciaAproximada ? '#92400e' : '#166534'}; font-size:11px; font-weight:700;" class="celda-texto-preview">${item.tipoTrayecto}</td>
                 </tr>
             `;
             }).join('');
 
             let contenidoTabla = items.length === 0
-                ? `<p style="color:#333;">Aún no hay servicios trazados para incluir en el reporte.</p>`
+                ? `<p style="color:#333;">Aún no hay servicios para incluir en el reporte.</p>`
                 : `
                 <table id="tabla-preview-reporte" style="border-collapse:collapse; width:100%; background:#fff; font-family: Arial, sans-serif; font-size:14px; border:4px solid #000;">
                     <thead>
@@ -2905,6 +2924,7 @@
                             <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">SERVICIO</th>
                             <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">TIEMPO</th>
                             <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">DISTANCIA</th>
+                            <th style="border:1px solid #333; padding:10px 10px; text-align:center; color:#000; font-size:13px;" class="celda-header-preview">TIPO DE TRAYECTO</th>
                         </tr>
                     </thead>
                     <tbody>${filasHtml}</tbody>
