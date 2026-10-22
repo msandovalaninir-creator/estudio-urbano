@@ -2270,17 +2270,21 @@
             // como referencia mientras no se ha trazado.
             let distanciaEfectiva = item => (item.trazadoManual && item.distance !== null) ? item.distance : item.distanciaLinea;
 
-            // Prioridad de cercanía GLOBAL: primero se ordena cada categoría por distancia
-            // efectiva (trazado manual si existe; de lo contrario, línea recta aproximada) y
-            // luego las categorías se muestran según el servicio más cercano que contienen.
-            // Así no se antepone una categoría lejana solo por el orden de sus filtros.
-            let gruposConDatos = Object.entries(logsAgrupados)
-                .filter(([grupo, items]) => items.length > 0)
-                .map(([grupo, items]) => {
+            // El resumen respeta exactamente el orden configurado en la lista de categorías
+            // (por ejemplo: Estaciones de Metro, Supermercados, Paraderos, etc.).
+            // Dentro de cada categoría, los servicios siguen ordenados de menor a mayor distancia
+            // efectiva: ruta manual cuando existe, o distancia recta aproximada si aún no se traza.
+            // Así se mantiene el orden de presentación solicitado sin perder la prioridad por cercanía
+            // entre los servicios de una misma categoría.
+            let gruposConDatos = CONFIG_SERVICIOS_PREDEFINIDOS
+                .map(config => {
+                    let grupo = config.title;
+                    let items = logsAgrupados[grupo] || [];
+                    if (!items.length) return null;
                     let itemsOrdenados = items.sort((a, b) => distanciaEfectiva(a) - distanciaEfectiva(b));
                     return { grupo, itemsOrdenados, distanciaMinima: distanciaEfectiva(itemsOrdenados[0]) };
                 })
-                .sort((a, b) => a.distanciaMinima - b.distanciaMinima);
+                .filter(Boolean);
 
             cacheUltimoAnalisisExportable = gruposConDatos;
 
