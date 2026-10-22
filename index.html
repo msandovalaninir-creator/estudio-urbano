@@ -2270,17 +2270,17 @@
             // como referencia mientras no se ha trazado.
             let distanciaEfectiva = item => (item.trazadoManual && item.distance !== null) ? item.distance : item.distanciaLinea;
 
-            // Se ordenan los ítems DENTRO de cada categoría de más cercano a más lejano, pero las
-            // categorías ENTRE SÍ ahora respetan el orden que armaste con las flechitas ▲▼ en
-            // "Filtros Estratégicos Inteligentes" — no se reordenan solas según cercanía.
-            let ordenCategorias = CONFIG_SERVICIOS_PREDEFINIDOS.map(s => s.title);
+            // Prioridad de cercanía GLOBAL: primero se ordena cada categoría por distancia
+            // efectiva (trazado manual si existe; de lo contrario, línea recta aproximada) y
+            // luego las categorías se muestran según el servicio más cercano que contienen.
+            // Así no se antepone una categoría lejana solo por el orden de sus filtros.
             let gruposConDatos = Object.entries(logsAgrupados)
                 .filter(([grupo, items]) => items.length > 0)
                 .map(([grupo, items]) => {
                     let itemsOrdenados = items.sort((a, b) => distanciaEfectiva(a) - distanciaEfectiva(b));
-                    return { grupo, itemsOrdenados };
+                    return { grupo, itemsOrdenados, distanciaMinima: distanciaEfectiva(itemsOrdenados[0]) };
                 })
-                .sort((a, b) => ordenCategorias.indexOf(a.grupo) - ordenCategorias.indexOf(b.grupo));
+                .sort((a, b) => a.distanciaMinima - b.distanciaMinima);
 
             cacheUltimoAnalisisExportable = gruposConDatos;
 
@@ -2601,11 +2601,10 @@
                         esDistanciaAproximada: !usaTrazadoManual
                     };
                 })
-                .sort((a, b) => {
-                    let diffCategoria = ordenCategorias.indexOf(a.catId) - ordenCategorias.indexOf(b.catId);
-                    if (diffCategoria !== 0) return diffCategoria;
-                    return a.distance - b.distance;
-                });
+                // El reporte también queda ordenado globalmente de más cerca a más lejos,
+                // sin separar primero por categoría. Usa la distancia manual cuando existe;
+                // en los demás casos utiliza la distancia recta aproximada.
+                .sort((a, b) => a.distance - b.distance);
         }
 
         function generarTextoReporte() {
