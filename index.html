@@ -185,6 +185,68 @@
             #toggle-right-btn.collapsed { left:0; right:auto; }
             .leaflet-control-layers { max-width:150px; }
         }
+
+
+        /* --- Renovación visual profesional: conserva estructura y funciones --- */
+        :root {
+            --hud-bg: #0b1220;
+            --hud-panel: rgba(15, 23, 42, .96);
+            --hud-card: #172235;
+            --hud-card-hover: #1d2c43;
+            --hud-border: rgba(148, 163, 184, .22);
+            --hud-text: #e8eef8;
+            --hud-muted: #a8b7cc;
+            --hud-accent: #38bdf8;
+            --hud-accent-2: #818cf8;
+            --hud-green: #34d399;
+        }
+        body { background: var(--hud-bg); color: var(--hud-text); font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif; letter-spacing: .08px; }
+        #control-panel, #results-panel {
+            background: linear-gradient(155deg, rgba(15,23,42,.97), rgba(11,18,32,.96));
+            border: 1px solid var(--hud-border); border-radius: 18px;
+            box-shadow: 0 18px 48px rgba(2,6,23,.36), inset 0 1px rgba(255,255,255,.045);
+            scrollbar-width: thin; scrollbar-color: #475569 transparent;
+        }
+        #control-panel { padding: 22px 18px; }
+        #results-panel { padding: 22px 18px; }
+        h1, h2, h3 { letter-spacing: .35px; }
+        h2 { color: #f8fafc; border-bottom: 1px solid rgba(56,189,248,.35); padding-bottom: 10px; font-size: 14px; line-height: 1.45; }
+        h2::after { content: ""; display: block; width: 44px; height: 2px; margin-top: 8px; background: linear-gradient(90deg,var(--hud-accent),var(--hud-accent-2)); border-radius: 2px; }
+        label { color: #b9c7da; font-size: 11px; letter-spacing: .35px; line-height: 1.45; }
+        p, small, .servicio-control-left { line-height: 1.45; }
+        input[type="text"], input[type="number"], input[type="search"], select, input[type="file"], textarea {
+            background: rgba(8,15,29,.88); color: #edf5ff; border: 1px solid #34445e; border-radius: 9px;
+            padding: 10px 11px; font-size: 12.5px; transition: border-color .18s, box-shadow .18s, background .18s;
+        }
+        input[type="text"]:focus, input[type="number"]:focus, input[type="search"]:focus, select:focus, textarea:focus {
+            outline: none; border-color: var(--hud-accent); background: #0c1729; box-shadow: 0 0 0 3px rgba(56,189,248,.12);
+        }
+        button { border-radius: 9px; border: 1px solid #3a4a64; background: linear-gradient(180deg,#202e44,#172338); color: #e5edf8; font-size: 11px; letter-spacing: .22px; text-transform: none; box-shadow: 0 2px 5px rgba(0,0,0,.12); }
+        button:hover { background: linear-gradient(180deg,#2a405d,#20324c); color: #fff; border-color: var(--hud-accent); transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        .btn-secondary { background: #172338; border-color: #33445f; color: #c5d2e4; }
+        .btn-success { background: linear-gradient(135deg,#064e3b,#115e59); color: #d1fae5; border-color: #0f766e; }
+        .btn-danger-hud { background: linear-gradient(135deg,#4c1d2a,#351725); color: #fecdd3; border-color: #7f3045; }
+        #btn-analizar { background: linear-gradient(135deg,#0284c7,#4f46e5); border: 1px solid rgba(125,211,252,.6); border-radius: 12px; padding: 14px; font-size: 13px; letter-spacing: .5px; box-shadow: 0 8px 22px rgba(37,99,235,.24); }
+        #btn-analizar:hover { background: linear-gradient(135deg,#0ea5e9,#6366f1); box-shadow: 0 10px 26px rgba(37,99,235,.3); }
+        .collapsible-content { background: rgba(8,15,29,.58); border: 1px solid rgba(100,116,139,.24); border-radius: 11px; padding: 13px; }
+        .servicio-container-block { background: linear-gradient(145deg,rgba(30,41,59,.86),rgba(15,23,42,.92)); border: 1px solid rgba(100,116,139,.28); border-radius: 11px; padding: 10px; box-shadow: 0 3px 10px rgba(0,0,0,.08); transition: border-color .18s, background .18s; }
+        .servicio-container-block:hover { border-color: rgba(56,189,248,.48); background: linear-gradient(145deg,#1e3049,#172338); }
+        .kmz-historial-item { background: #172338; border-color: #34445e; border-radius: 9px; padding: 9px 10px; }
+        .kmz-historial-item.active-kmz-item { background: rgba(6,78,59,.28); border-color: #34d399; }
+        .preview-img-frame { border-color: #40516b; background: #0b1526; border-radius: 7px; }
+        .upload-icon-label { background: #263852; color: #cbd5e1; border-color: #40516b; border-radius: 6px; }
+        .toggle-sidebar-btn { background: linear-gradient(180deg,#172338,#0f172a); border-color: #40516b; color: #7dd3fc; box-shadow: 0 8px 20px rgba(2,6,23,.3); }
+        .toggle-sidebar-btn:hover { background: #1e3a5f; border-color: #38bdf8; }
+        input[type="checkbox"], input[type="radio"] { accent-color: #38bdf8; }
+        input[type="range"] { accent-color: #38bdf8; }
+        .leaflet-control-layers, .leaflet-control-zoom a { border-color: #334155 !important; }
+        .leaflet-control-layers { border-radius: 11px !important; padding: 5px; }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #0f172a; color: #e2e8f0; }
+        .leaflet-popup-content-wrapper { border: 1px solid #334155; border-radius: 10px; }
+        ::selection { background: rgba(56,189,248,.28); color: #fff; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; } }
+
     </style>
 </head>
 <body>
@@ -2157,6 +2219,7 @@
                             `<b>${escaparHTML(r.nombre)}</b><br>📐 ~${r.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel, o haz clic aquí mientras el modo trazado esté activo</small>`
                         );
                         m.bindTooltip(escaparHTML(r.nombre), { permanent: true, direction: 'bottom', offset: [0, 4], className: 'etiqueta-nombre-servicio' });
+                        m.on('mouseover', function() { if (m.getElement()) m.getElement().title = 'Clic para cambiar el ícono · Arrastra para ajustar la ubicación'; });
 
                         elementosMapeadosActivos[uid] = { 
                             uid: uid,
@@ -2178,9 +2241,24 @@
                         // Termina el trazado manual si estaba activo y se hace clic directo sobre
                         // este ícono (alternativa a usar el botón "Finalizar" del panel/banner).
                         m.on('click', function(ev) {
+                            // En modo trazado, el clic conserva su función original.
                             if (modoTrazadoManualActivo && (!servicioObjetivoTrazado || servicioObjetivoTrazado === uid)) {
                                 L.DomEvent.stopPropagation(ev);
                                 finalizarTrazadoManualSobreServicio(uid);
+                                return;
+                            }
+                            // Fuera del modo trazado, permite cambiar manualmente el icono
+                            // directamente desde el mapa usando el mismo selector de la vista previa.
+                            if (!modoTrazadoManualActivo) {
+                                L.DomEvent.stopPropagation(ev);
+                                if (m.closePopup) m.closePopup();
+                                const elementoIcono = m.getElement();
+                                if (elementoIcono) {
+                                    abrirSelectorIconoPreview({
+                                        stopPropagation: function() {},
+                                        currentTarget: elementoIcono
+                                    }, uid);
+                                }
                             }
                         });
 
