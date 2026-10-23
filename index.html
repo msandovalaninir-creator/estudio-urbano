@@ -264,6 +264,10 @@
                 <button class="btn-secondary" style="margin-bottom: 0; width: auto;" onclick="document.getElementById('address-input').value='';">🧹</button>
                 <button class="btn-success" style="margin-top: 0; margin-bottom: 0; width: auto;" onclick="guardarUbicacionActualEnBitacora()">📌 Guardar</button>
             </div>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:10px; padding:8px 10px; border:1px solid #334155; border-radius:9px; background:rgba(15,23,42,.72); cursor:pointer;">
+                <input type="checkbox" id="toggle-pin-origen" checked onchange="conmutarPinOrigen(this.checked)" style="width:16px;height:16px;">
+                <span>📍 Mostrar pin de ubicación del proyecto</span>
+            </label>
         </div>
 
         <button id="btn-analizar">🎯 GENERAR STUDY URBANO</button>
@@ -661,6 +665,7 @@
 
 
         let origenMarker = null, radioCirculo = null, areaInfluenciaCirculo = null;
+        let pinOrigenVisible = true;
         let serviciosLayerGroup = L.layerGroup().addTo(map);
         let capaGeometriasDibujadas = new L.FeatureGroup().addTo(map);
 
@@ -1663,6 +1668,17 @@
             controlesRuteoActivos = [];
         }
 
+        // Control independiente para mostrar u ocultar el pin del origen sin cambiar sus coordenadas.
+        function conmutarPinOrigen(visible) {
+            pinOrigenVisible = !!visible;
+            if (!origenMarker || !map) return;
+            if (pinOrigenVisible) {
+                if (!map.hasLayer(origenMarker)) origenMarker.addTo(map);
+            } else if (map.hasLayer(origenMarker)) {
+                map.removeLayer(origenMarker);
+            }
+        }
+
         function establecerPuntoOrigen(latlng, name) {
             coordenadasOrigen = { lat: latlng.lat, lng: latlng.lng };
             if(origenMarker) map.removeLayer(origenMarker); 
@@ -1673,7 +1689,10 @@
             limpiarControlesRuteoExistentes();
             elementosMapeadosActivos = {};
             
-            origenMarker = L.marker(latlng).addTo(map).bindPopup(`<b>${escaparHTML(name)}</b>`).openPopup();
+            origenMarker = L.marker(latlng).bindPopup(`<b>${escaparHTML(name)}</b>`);
+            if (pinOrigenVisible) {
+                origenMarker.addTo(map).openPopup();
+            }
             actualizarFisicamenteTodosLosVectores();
             
             let currentZoom = map.getZoom();
