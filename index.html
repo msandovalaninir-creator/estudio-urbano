@@ -278,7 +278,7 @@
         <button id="btn-futuras-lineas-metro" onclick="conmutarFuturasLineasMetro()" style="width:100%; background:#1e293b; color:#f43f5e; border:1px solid #f43f5e; font-size:11px; font-weight:700; padding:9px; border-radius:6px; margin-bottom:10px; cursor:pointer;">🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)</button>
         <div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
             <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
-            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-metro-existente" onchange="conmutarCapaInfraestructura('metro',this.checked)"> <span style="color:#f472b6">━</span> Líneas de Metro existentes</label>
+            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-metro-existente" onchange="conmutarCapaInfraestructura('metro',this.checked)"> <span style="color:#64748b">━</span> Líneas de Metro (colores por línea)</label>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"> <span style="color:#f59e0b">━</span> Calles troncales</label>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-buffer-troncales" onchange="conmutarCapaInfraestructura('bufferTroncal',this.checked)"> <span style="color:#fbbf24">━━</span> Buffer de calles troncales</label>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-expresas" onchange="conmutarCapaInfraestructura('expresa',this.checked)"> <span style="color:#ef4444">━</span> Calles expresas / autopistas</label>
@@ -679,8 +679,28 @@
             expresa: L.layerGroup(), bufferExpresa: L.layerGroup()
         };
         const estadoCargaInfraestructura = {};
+        // Colores oficiales aproximados de las líneas de Metro de Santiago.
+        // Se infiere la línea usando etiquetas OSM como colour, colour:*, ref o name.
+        function obtenerColorLineaMetro(tags = {}) {
+            const texto = [tags.colour, tags['colour:line'], tags['colour:route'], tags.ref, tags.line, tags.name, tags.description]
+                .filter(Boolean).join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const colores = [
+                { patron: /(^|[^a-z0-9])l\s*4\s*a([^a-z0-9]|$)|linea\s*4\s*a|linea 4a/, color: '#00a6d6' },
+                { patron: /(^|[^a-z0-9])l\s*1([^0-9]|$)|linea\s*1|linea 1/, color: '#e2231a' },
+                { patron: /(^|[^a-z0-9])l\s*2([^0-9]|$)|linea\s*2|linea 2/, color: '#f4d21f' },
+                { patron: /(^|[^a-z0-9])l\s*3([^0-9]|$)|linea\s*3|linea 3/, color: '#8b6f47' },
+                { patron: /(^|[^a-z0-9])l\s*4([^a-z0-9]|$)|linea\s*4|linea 4/, color: '#0067a5' },
+                { patron: /(^|[^a-z0-9])l\s*5([^0-9]|$)|linea\s*5|linea 5/, color: '#008c45' },
+                { patron: /(^|[^a-z0-9])l\s*6([^0-9]|$)|linea\s*6|linea 6/, color: '#7b2d8e' }
+            ];
+            // Si OSM trae un color explícito hexadecimal o CSS, se respeta primero.
+            const explicito = String(tags.colour || tags['colour:line'] || '').trim();
+            if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(explicito)) return explicito;
+            const encontrada = colores.find(item => item.patron.test(texto));
+            return encontrada ? encontrada.color : '#64748b';
+        }
         const definicionesInfraestructura = {
-            metro: { titulo: 'líneas de Metro existentes', selector: 'way["railway"="subway"]', color: '#ec4899', peso: 5, opacidad: .98 },
+            metro: { titulo: 'líneas de Metro existentes', selector: 'way["railway"="subway"]', color: '#64748b', peso: 5, opacidad: .98 },
             // Aproximación cartográfica: OSM no siempre utiliza la clasificación normativa chilena.
             // Se consideran primary/secondary como ejes troncales y trunk/motorway como expresas.
             troncal: { titulo: 'calles troncales (vías principales)', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link)$"]', color: '#f59e0b', peso: 5, opacidad: .98 },
@@ -708,8 +728,11 @@
                     const lineas = (datos.elements || []).filter(e => e.geometry && e.geometry.length > 1);
                     lineas.forEach(e => {
                         const coords = e.geometry.map(pt => [pt.lat, pt.lon]);
-                        L.polyline(coords, { color: definicion.color, weight: definicion.peso, opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa', bubblingMouseEvents: false })
-                         .bindTooltip(escaparHTML((e.tags && e.tags.name) || definicion.titulo), { sticky: true }).addTo(capa);
+                        const tags = e.tags || {};
+                        const colorLinea = tipo === 'metro' ? obtenerColorLineaMetro(tags) : definicion.color;
+                        const nombreLinea = tags.name || tags.ref || definicion.titulo;
+                        L.polyline(coords, { color: colorLinea, weight: definicion.peso, opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa', bubblingMouseEvents: false })
+                         .bindTooltip(escaparHTML(nombreLinea), { sticky: true }).addTo(capa);
                     });
                     estadoCargaInfraestructura[tipo] = 'lista';
                     capa.addTo(map);
