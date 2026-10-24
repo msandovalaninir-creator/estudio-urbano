@@ -781,7 +781,13 @@
                         const key = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') + ':' + punto.lat.toFixed(4) + ':' + punto.lon.toFixed(4);
                         if (vistos.has(key)) return;
                         vistos.add(key);
-                        const icono = L.divIcon({className:'metro-rm-station-icon',html:'<div style="width:13px;height:13px;border:3px solid #fff;border-radius:50%;background:'+obtenerColorLineaMetro(tags)+';box-shadow:0 0 0 2px #111827,0 1px 5px #0009;"></div>',iconSize:[17,17],iconAnchor:[8,8]});
+                        // Reutiliza el icono de Metro ya configurado por el usuario en la plataforma
+                        // (incluida su imagen personalizada), en vez de dibujar un punto genérico.
+                        const configMetro = CONFIG_SERVICIOS_PREDEFINIDOS.find(servicio => servicio.id === 'metro');
+                        const tamanoLogoMetro = Math.max(16, Math.min(64, parseInt(document.getElementById('global-icon-size-slider')?.value, 10) || 30));
+                        const icono = configMetro
+                            ? construirIconoServicio(configMetro.img, configMetro.em || '🚇', tamanoLogoMetro)
+                            : construirIconoServicio(null, '🚇', tamanoLogoMetro);
                         L.marker([punto.lat,punto.lon],{icon:icono,keyboard:false}).bindTooltip(escaparHTML(nombre),{direction:'top',offset:[0,-7]}).addTo(capaTodasEstacionesMetroRM);
                     });
                     if (!capaTodasEstacionesMetroRM.getLayers().length) throw new Error('Overpass no devolvió estaciones en el área administrativa consultada.');
