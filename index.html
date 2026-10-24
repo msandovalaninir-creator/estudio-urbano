@@ -276,6 +276,15 @@
         <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" style="width:100%; background:#1e293b; color:#fbbf24; border:1px solid #f59e0b; font-size:11px; font-weight:700; padding:9px; border-radius:6px; margin-top:8px; margin-bottom:10px; cursor:pointer;">💡 Sugerir servicios cercanos que me falten</button>
 
         <button id="btn-futuras-lineas-metro" onclick="conmutarFuturasLineasMetro()" style="width:100%; background:#1e293b; color:#f43f5e; border:1px solid #f43f5e; font-size:11px; font-weight:700; padding:9px; border-radius:6px; margin-bottom:10px; cursor:pointer;">🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)</button>
+        <div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
+            <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
+            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-metro-existente" onchange="conmutarCapaInfraestructura('metro',this.checked)"> <span style="color:#f472b6">━</span> Líneas de Metro existentes</label>
+            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"> <span style="color:#f59e0b">━</span> Calles troncales</label>
+            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-buffer-troncales" onchange="conmutarCapaInfraestructura('bufferTroncal',this.checked)"> <span style="color:#fbbf24">━━</span> Buffer de calles troncales</label>
+            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-expresas" onchange="conmutarCapaInfraestructura('expresa',this.checked)"> <span style="color:#ef4444">━</span> Calles expresas / autopistas</label>
+            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-buffer-expresas" onchange="conmutarCapaInfraestructura('bufferExpresa',this.checked)"> <span style="color:#f87171">━━</span> Buffer de calles expresas</label>
+            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Datos de OpenStreetMap. Los buffers son franjas visuales referenciales, no áreas normativas oficiales.</div>
+        </div>
         <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
 
         <button id="btn-trazado-manual" style="background:#1e293b; color:#7dd3fc; border:1px solid #38bdf8; font-size:11px; padding:10px; font-weight:700; width:100%; margin-bottom:10px; border-radius:6px; cursor:pointer;" onclick="activarModoTrazadoManual()">✏️ TRAZAR RUTA MANUAL A UN SERVICIO</button>
@@ -663,6 +672,55 @@
         vigilarErroresTiles(capaMapaCalles, 'mapa');
         vigilarErroresTiles(capaSateliteEsri, 'satélite');
 
+        // Capas opcionales de infraestructura existente. Se consultan al activar y se reutilizan
+        // durante la sesión para evitar solicitudes innecesarias a Overpass.
+        const capasInfraestructura = {
+            metro: L.layerGroup(), troncal: L.layerGroup(), bufferTroncal: L.layerGroup(),
+            expresa: L.layerGroup(), bufferExpresa: L.layerGroup()
+        };
+        const estadoCargaInfraestructura = {};
+        const definicionesInfraestructura = {
+            metro: { titulo: 'líneas de Metro existentes', selector: 'way["railway"="subway"]', color: '#ec4899', peso: 4, opacidad: .95 },
+            troncal: { titulo: 'calles troncales', selector: 'way["highway"="trunk"]', color: '#f59e0b', peso: 4, opacidad: .95 },
+            bufferTroncal: { titulo: 'buffer de calles troncales', selector: 'way["highway"="trunk"]', color: '#fbbf24', peso: 18, opacidad: .22 },
+            expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(motorway|motorway_link)$"]', color: '#ef4444', peso: 4, opacidad: .95 },
+            bufferExpresa: { titulo: 'buffer de calles expresas', selector: 'way["highway"~"^(motorway|motorway_link)$"]', color: '#f87171', peso: 22, opacidad: .22 }
+        };
+        async function conmutarCapaInfraestructura(tipo, visible) {
+            const capa = capasInfraestructura[tipo];
+            const definicion = definicionesInfraestructura[tipo];
+            if (!capa || !definicion) return;
+            if (!visible) { if (map.hasLayer(capa)) map.removeLayer(capa); return; }
+            if (estadoCargaInfraestructura[tipo] === 'cargando') return;
+            if (estadoCargaInfraestructura[tipo] === 'lista') { capa.addTo(map); return; }
+            estadoCargaInfraestructura[tipo] = 'cargando';
+            const b = map.getBounds();
+            const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].join(',');
+            const query = '[out:json][timeout:25];(' + definicion.selector + '(' + bbox + '););out geom;';
+            let errorFinal = null;
+            for (const endpoint of ENDPOINTS_OVERPASS) {
+                try {
+                    const respuesta = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body: 'data=' + encodeURIComponent(query) });
+                    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
+                    const datos = await respuesta.json();
+                    const lineas = (datos.elements || []).filter(e => e.geometry && e.geometry.length > 1);
+                    lineas.forEach(e => {
+                        const coords = e.geometry.map(pt => [pt.lat, pt.lon]);
+                        L.polyline(coords, { color: definicion.color, weight: definicion.peso, opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa' })
+                         .bindTooltip(escaparHTML((e.tags && e.tags.name) || definicion.titulo), { sticky: true }).addTo(capa);
+                    });
+                    estadoCargaInfraestructura[tipo] = 'lista';
+                    capa.addTo(map);
+                    if (!lineas.length) alert('No se encontraron ' + definicion.titulo + ' en el área visible. Acerca o desplaza el mapa y vuelve a activar la capa.');
+                    return;
+                } catch (err) { errorFinal = err; }
+            }
+            estadoCargaInfraestructura[tipo] = null;
+            const cb = document.getElementById('toggle-' + ({metro:'metro-existente',troncal:'vias-troncales',bufferTroncal:'buffer-troncales',expresa:'vias-expresas',bufferExpresa:'buffer-expresas'}[tipo]));
+            if (cb) cb.checked = false;
+            alert('No fue posible cargar ' + definicion.titulo + '. El servicio de mapas puede estar saturado. Inténtalo nuevamente en unos minutos.');
+            console.warn('Error cargando capa de infraestructura:', errorFinal);
+        }
 
         let origenMarker = null, radioCirculo = null, areaInfluenciaCirculo = null;
         let pinOrigenVisible = true;
