@@ -2702,10 +2702,19 @@
                         esDistanciaAproximada: !usaTrazadoManual
                     };
                 })
-                // El reporte también queda ordenado globalmente de más cerca a más lejos,
-                // sin separar primero por categoría. Usa la distancia manual cuando existe;
-                // en los demás casos utiliza la distancia recta aproximada.
-                .sort((a, b) => a.distance - b.distance);
+                // Mantener en la vista previa y en el texto del reporte el mismo orden
+                // de categorías configurado en el panel de servicios (Metro, supermercados,
+                // paraderos, parques, colegios, etc.). Dentro de cada categoría ordenar
+                // del servicio más cercano al más lejano, usando distancia manual si existe
+                // y distancia recta como referencia cuando aún no hay trazado.
+                .sort((a, b) => {
+                    const indiceA = ordenCategorias.indexOf(a.catId);
+                    const indiceB = ordenCategorias.indexOf(b.catId);
+                    const ordenA = indiceA === -1 ? Number.MAX_SAFE_INTEGER : indiceA;
+                    const ordenB = indiceB === -1 ? Number.MAX_SAFE_INTEGER : indiceB;
+                    if (ordenA !== ordenB) return ordenA - ordenB;
+                    return Number(a.distance || 0) - Number(b.distance || 0);
+                });
         }
 
         function generarTextoReporte() {
