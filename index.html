@@ -283,7 +283,7 @@
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-buffer-troncales" onchange="conmutarCapaInfraestructura('bufferTroncal',this.checked)"> <span style="color:#fbbf24">━━</span> Buffer de calles troncales</label>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-expresas" onchange="conmutarCapaInfraestructura('expresa',this.checked)"> <span style="color:#ef4444">━</span> Calles expresas / autopistas</label>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-buffer-expresas" onchange="conmutarCapaInfraestructura('bufferExpresa',this.checked)"> <span style="color:#f87171">━━</span> Buffer de calles expresas</label>
-            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Datos de OpenStreetMap. Los buffers son franjas visuales referenciales, no áreas normativas oficiales.</div>
+            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Las líneas de color siguen la geometría completa de cada vía consultada dentro del área visible. Troncales: vías primary/secondary; expresas: trunk/motorway según OpenStreetMap. Los buffers son franjas visuales referenciales, no áreas normativas oficiales.</div>
         </div>
         <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
 
@@ -680,11 +680,13 @@
         };
         const estadoCargaInfraestructura = {};
         const definicionesInfraestructura = {
-            metro: { titulo: 'líneas de Metro existentes', selector: 'way["railway"="subway"]', color: '#ec4899', peso: 4, opacidad: .95 },
-            troncal: { titulo: 'calles troncales', selector: 'way["highway"="trunk"]', color: '#f59e0b', peso: 4, opacidad: .95 },
-            bufferTroncal: { titulo: 'buffer de calles troncales', selector: 'way["highway"="trunk"]', color: '#fbbf24', peso: 18, opacidad: .22 },
-            expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(motorway|motorway_link)$"]', color: '#ef4444', peso: 4, opacidad: .95 },
-            bufferExpresa: { titulo: 'buffer de calles expresas', selector: 'way["highway"~"^(motorway|motorway_link)$"]', color: '#f87171', peso: 22, opacidad: .22 }
+            metro: { titulo: 'líneas de Metro existentes', selector: 'way["railway"="subway"]', color: '#ec4899', peso: 5, opacidad: .98 },
+            // Aproximación cartográfica: OSM no siempre utiliza la clasificación normativa chilena.
+            // Se consideran primary/secondary como ejes troncales y trunk/motorway como expresas.
+            troncal: { titulo: 'calles troncales (vías principales)', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link)$"]', color: '#f59e0b', peso: 5, opacidad: .98 },
+            bufferTroncal: { titulo: 'buffer visual de calles troncales', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link)$"]', color: '#fbbf24', peso: 20, opacidad: .24 },
+            expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(trunk|trunk_link|motorway|motorway_link)$"]', color: '#ef4444', peso: 5, opacidad: .98 },
+            bufferExpresa: { titulo: 'buffer visual de calles expresas', selector: 'way["highway"~"^(trunk|trunk_link|motorway|motorway_link)$"]', color: '#f87171', peso: 24, opacidad: .24 }
         };
         async function conmutarCapaInfraestructura(tipo, visible) {
             const capa = capasInfraestructura[tipo];
@@ -706,7 +708,7 @@
                     const lineas = (datos.elements || []).filter(e => e.geometry && e.geometry.length > 1);
                     lineas.forEach(e => {
                         const coords = e.geometry.map(pt => [pt.lat, pt.lon]);
-                        L.polyline(coords, { color: definicion.color, weight: definicion.peso, opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa' })
+                        L.polyline(coords, { color: definicion.color, weight: definicion.peso, opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa', bubblingMouseEvents: false })
                          .bindTooltip(escaparHTML((e.tags && e.tags.name) || definicion.titulo), { sticky: true }).addTo(capa);
                     });
                     estadoCargaInfraestructura[tipo] = 'lista';
