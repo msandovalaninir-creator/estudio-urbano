@@ -893,24 +893,34 @@
             ];
             const datosAcumulados = new Map();
             let errorFinal = null;
-            let completado = false;
-            for (const endpoint of ENDPOINTS_OVERPASS) {
-                try {
-                    datosAcumulados.clear();
-                    for (let i = 0; i < sectores.length; i++) {
-                        if (!checkbox?.checked) { estadoTodasEstacionesMetroRM = 'sin-cargar'; return; }
-                        const bbox = sectores[i].join(',');
-                        const query = '[out:json][timeout:15];(nwr["station"="subway"](' + bbox + ');nwr["railway"="subway"](' + bbox + ');nwr["railway"="station"]["network"~"Metro|Santiago",i](' + bbox + ');nwr["name"~"Vespucio Norte",i](' + bbox + '););out center;';
-                        if (checkbox) checkbox.parentElement.lastElementChild && (checkbox.parentElement.lastElementChild.textContent = ' Cargando sector ' + (i+1) + ' de ' + sectores.length + '…');
-                        const datosSector = await fetchOverpassConTiempo(endpoint, query, 12000);
-                        (datosSector.elements || []).forEach(el => datosAcumulados.set(el.type + '/' + el.id, el));
+            let completado = true;
+            // Caché en memoria por sector: cambiar la visibilidad o reintentar no repite
+            // las consultas de sectores que ya respondieron durante esta sesión.
+            window.__hudCacheEstacionesMetro = window.__hudCacheEstacionesMetro || new Map();
+            for (let i = 0; i < sectores.length; i++) {
+                if (!checkbox?.checked) { estadoTodasEstacionesMetroRM = 'sin-cargar'; if (checkbox) checkbox.disabled = false; return; }
+                const bbox = sectores[i].join(',');
+                const claveSector = 'rm-metro-v2-' + bbox;
+                let elementosSector = window.__hudCacheEstacionesMetro.get(claveSector);
+                if (!elementosSector) {
+                    const query = '[out:json][timeout:12];(node["station"="subway"](' + bbox + ');node["railway"="subway"](' + bbox + ');node["railway"="station"]["network"~"Metro|Santiago",i](' + bbox + ');node["name"~"Vespucio Norte",i](' + bbox + ');way["station"="subway"](' + bbox + ');way["railway"="subway"](' + bbox + ');way["railway"="station"]["network"~"Metro|Santiago",i](' + bbox + '););out center;';
+                    let sectorOk = false;
+                    for (const endpoint of ENDPOINTS_OVERPASS) {
+                        try {
+                            if (checkbox) checkbox.parentElement.lastElementChild && (checkbox.parentElement.lastElementChild.textContent = ' Consultando sector ' + (i+1) + '/' + sectores.length + ' (' + (endpoint.includes('lz4') ? 'respaldo 1' : endpoint.includes('kumi') ? 'respaldo 2' : 'principal') + ')…');
+                            const datosSector = await fetchOverpassConTiempo(endpoint, query, 14000);
+                            elementosSector = datosSector.elements || [];
+                            window.__hudCacheEstacionesMetro.set(claveSector, elementosSector);
+                            sectorOk = true;
+                            break;
+                        } catch (err) { errorFinal = err; console.warn('Falló sector ' + (i+1) + ' de estaciones:', err); }
                     }
-                    completado = true;
-                    break;
-                } catch (err) { errorFinal = err; console.warn('Sector de estaciones falló; se probará otro servidor:', err); }
+                    if (!sectorOk) { completado = false; break; }
+                }
+                elementosSector.forEach(el => datosAcumulados.set(el.type + '/' + el.id, el));
             }
             try {
-                    if (!completado) throw (errorFinal || new Error('No se pudieron consultar los sectores de estaciones.'));
+                    if (!completado) throw (errorFinal || new Error('No se pudo consultar uno de los sectores de estaciones.')); 
                     const datos = { elements: Array.from(datosAcumulados.values()) };
                     const vistos = new Set();
                     (datos.elements || []).forEach(el => {
