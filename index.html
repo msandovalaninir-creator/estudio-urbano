@@ -814,7 +814,7 @@
             // incluidas las secciones elevadas y subterráneas cuando están mapeadas en OSM.
             const tipoConsulta = tipo === 'bufferTroncal' ? 'troncal' : (tipo === 'bufferExpresa' ? 'expresa' : tipo);
             const query = tipo === 'metro'
-                ? '[out:json][timeout:25];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;way["railway"="subway"](area.rm);out geom;'
+                ? '[out:json][timeout:25];(way["railway"="subway"](-33.95,-71.95,-32.75,-69.65);relation["route"="subway"](-33.95,-71.95,-32.75,-69.65););out body;>;out skel qt;'
                 : '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bbox + '););out geom;';
             let errorFinal = null;
             for (const endpoint of ENDPOINTS_OVERPASS) {
@@ -881,7 +881,7 @@
             // Busca estaciones de Metro en toda la RM, incluyendo estaciones que OSM etiqueta
             // como railway=station sin station=subway. Se incluye Vespucio Norte explícitamente
             // como respaldo porque estaba ausente en algunos conjuntos de etiquetas.
-            const query = '[out:json][timeout:20];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(node(area.rm)["station"="subway"];node(area.rm)["railway"="station"]["network"~"Metro|Santiago",i];node(area.rm)["name"~"Vespucio Norte",i];);out body;';
+            const query = '[out:json][timeout:25];(nwr["station"="subway"](-33.95,-71.95,-32.75,-69.65);nwr["railway"="subway"](-33.95,-71.95,-32.75,-69.65);nwr["railway"="station"]["network"~"Metro|Santiago",i](-33.95,-71.95,-32.75,-69.65);nwr["name"~"Vespucio Norte",i](-33.95,-71.95,-32.75,-69.65););out center;';
             let errorFinal = null;
             for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
@@ -898,6 +898,7 @@
                         const nombreNormalizado = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
                         const esVespucioNorte = nombreNormalizado.includes('vespucio norte');
                         const esEstacionMetroEtiquetada = tags.station === 'subway' || tags.railway === 'subway' ||
+                            /metro/i.test([tags.operator, tags.network, tags.brand, tags.name].filter(Boolean).join(' ')) ||
                             /metro de santiago|metro s\.a\.|metro chile/i.test([tags.operator, tags.network, tags.brand].filter(Boolean).join(' '));
                         // railway=station por sí solo también puede corresponder a tren suburbano;
                         // solo se acepta si está etiquetado como Metro o es el respaldo explícito.
@@ -924,7 +925,7 @@
             }
             estadoTodasEstacionesMetroRM = 'sin-cargar';
             if (checkbox) { checkbox.checked = false; checkbox.disabled = false; }
-            alert('No fue posible cargar todas las estaciones de Metro de la RM. Esta consulta es independiente del radio de búsqueda, pero depende de la disponibilidad de Overpass y de que el límite regional esté identificado en OpenStreetMap. Inténtalo nuevamente más tarde.');
+            alert('No fue posible cargar las estaciones de Metro. Se probaron varios servidores de OpenStreetMap y la consulta cubre la Región Metropolitana mediante coordenadas, sin depender del límite regional. Puede ser una saturación temporal de Overpass o un problema de conexión. Inténtalo nuevamente.');
             console.warn('Error cargando estaciones de Metro RM:', errorFinal);
         }
 
