@@ -280,8 +280,6 @@
 
         <button id="btn-futuras-lineas-metro" onclick="conmutarFuturasLineasMetro()" style="width:100%; background:#1e293b; color:#f43f5e; border:1px solid #f43f5e; font-size:11px; font-weight:700; padding:9px; border-radius:6px; margin-bottom:10px; cursor:pointer;">🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)</button>
         <div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
-            <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:5px;">🗂️ Capas de infraestructura (carga bajo demanda)</div>
-            <div style="font-size:10px;color:#94a3b8;line-height:1.4;margin-bottom:8px;">Cada capa se consulta solo cuando la activas. Para evitar saturación, las estaciones se descargan por sectores y una consulta a la vez. Desactiva capas que no estés usando.</div>
             <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-metro-existente" onchange="conmutarCapaInfraestructura('metro',this.checked)"> <span style="color:#64748b">━</span> Líneas de Metro (colores por línea)</label>
             <div style="margin:0 0 10px 22px;padding:7px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.7);">
@@ -883,45 +881,11 @@
             // Busca estaciones de Metro en toda la RM, incluyendo estaciones que OSM etiqueta
             // como railway=station sin station=subway. Se incluye Vespucio Norte explícitamente
             // como respaldo porque estaba ausente en algunos conjuntos de etiquetas.
-            // Divide la RM en cuatro sectores y consulta secuencialmente. Cada petición devuelve
-            // menos datos que una descarga regional única y evita lanzar varias consultas en paralelo.
-            const sectores = [
-                [-33.95,-71.95,-33.35,-70.65], // sur-oeste
-                [-33.95,-70.65,-33.35,-69.65], // sur-este
-                [-33.35,-71.95,-32.75,-70.65], // norte-oeste
-                [-33.35,-70.65,-32.75,-69.65]  // norte-este
-            ];
-            const datosAcumulados = new Map();
+            const query = '[out:json][timeout:25];(nwr["station"="subway"](-33.95,-71.95,-32.75,-69.65);nwr["railway"="subway"](-33.95,-71.95,-32.75,-69.65);nwr["railway"="station"]["network"~"Metro|Santiago",i](-33.95,-71.95,-32.75,-69.65);nwr["name"~"Vespucio Norte",i](-33.95,-71.95,-32.75,-69.65););out center;';
             let errorFinal = null;
-            let completado = true;
-            // Caché en memoria por sector: cambiar la visibilidad o reintentar no repite
-            // las consultas de sectores que ya respondieron durante esta sesión.
-            window.__hudCacheEstacionesMetro = window.__hudCacheEstacionesMetro || new Map();
-            for (let i = 0; i < sectores.length; i++) {
-                if (!checkbox?.checked) { estadoTodasEstacionesMetroRM = 'sin-cargar'; if (checkbox) checkbox.disabled = false; return; }
-                const bbox = sectores[i].join(',');
-                const claveSector = 'rm-metro-v2-' + bbox;
-                let elementosSector = window.__hudCacheEstacionesMetro.get(claveSector);
-                if (!elementosSector) {
-                    const query = '[out:json][timeout:12];(node["station"="subway"](' + bbox + ');node["railway"="subway"](' + bbox + ');node["railway"="station"]["network"~"Metro|Santiago",i](' + bbox + ');node["name"~"Vespucio Norte",i](' + bbox + ');way["station"="subway"](' + bbox + ');way["railway"="subway"](' + bbox + ');way["railway"="station"]["network"~"Metro|Santiago",i](' + bbox + '););out center;';
-                    let sectorOk = false;
-                    for (const endpoint of ENDPOINTS_OVERPASS) {
-                        try {
-                            if (checkbox) checkbox.parentElement.lastElementChild && (checkbox.parentElement.lastElementChild.textContent = ' Consultando sector ' + (i+1) + '/' + sectores.length + ' (' + (endpoint.includes('lz4') ? 'respaldo 1' : endpoint.includes('kumi') ? 'respaldo 2' : 'principal') + ')…');
-                            const datosSector = await fetchOverpassConTiempo(endpoint, query, 14000);
-                            elementosSector = datosSector.elements || [];
-                            window.__hudCacheEstacionesMetro.set(claveSector, elementosSector);
-                            sectorOk = true;
-                            break;
-                        } catch (err) { errorFinal = err; console.warn('Falló sector ' + (i+1) + ' de estaciones:', err); }
-                    }
-                    if (!sectorOk) { completado = false; break; }
-                }
-                elementosSector.forEach(el => datosAcumulados.set(el.type + '/' + el.id, el));
-            }
-            try {
-                    if (!completado) throw (errorFinal || new Error('No se pudo consultar uno de los sectores de estaciones.')); 
-                    const datos = { elements: Array.from(datosAcumulados.values()) };
+            for (const endpoint of ENDPOINTS_OVERPASS) {
+                try {
+                    const datos = await fetchOverpassConTiempo(endpoint, query, 16000);
                     const vistos = new Set();
                     (datos.elements || []).forEach(el => {
                         const tags = el.tags || {};
@@ -952,15 +916,16 @@
                             : construirIconoServicio(null, '🚇', tamanoLogoMetro);
                         L.marker([punto.lat,punto.lon],{icon:icono,keyboard:false}).bindTooltip(escaparHTML(nombre),{direction:'top',offset:[0,-7]}).addTo(capaTodasEstacionesMetroRM);
                     });
-                    if (!capaTodasEstacionesMetroRM.getLayers().length) throw new Error('OpenStreetMap no devolvió estaciones etiquetadas como Metro en los sectores consultados.');
+                    if (!capaTodasEstacionesMetroRM.getLayers().length) throw new Error('Overpass no devolvió estaciones en el área administrativa consultada.');
                     estadoTodasEstacionesMetroRM = 'lista';
                     capaTodasEstacionesMetroRM.addTo(map);
-                    if (checkbox) { checkbox.disabled = false; checkbox.parentElement.lastElementChild && (checkbox.parentElement.lastElementChild.textContent = ' Mostrar TODAS las estaciones de Metro de la RM'); }
+                    if (checkbox) checkbox.disabled = false;
                     return;
-            } catch (err) { errorFinal = err; }
+                } catch (err) { errorFinal = err; }
+            }
             estadoTodasEstacionesMetroRM = 'sin-cargar';
-            if (checkbox) { checkbox.checked = false; checkbox.disabled = false; checkbox.parentElement.lastElementChild && (checkbox.parentElement.lastElementChild.textContent = ' Mostrar TODAS las estaciones de Metro de la RM'); }
-            alert('No fue posible completar la carga por sectores. No se bloqueará el mapa: puedes volver a activar esta capa más tarde. Si Overpass está saturado, espera unos minutos y vuelve a intentarlo.');
+            if (checkbox) { checkbox.checked = false; checkbox.disabled = false; }
+            alert('No fue posible cargar las estaciones de Metro. Se probaron varios servidores de OpenStreetMap y la consulta cubre la Región Metropolitana mediante coordenadas, sin depender del límite regional. Puede ser una saturación temporal de Overpass o un problema de conexión. Inténtalo nuevamente.');
             console.warn('Error cargando estaciones de Metro RM:', errorFinal);
         }
 
@@ -1760,12 +1725,10 @@
         // hay garantía de que todas las líneas futuras estén cargadas ahí todavía.
         let capaFuturasLineasMetro = null;
         let futurasLineasMetroVisibles = false;
-        let cargandoFuturasLineasMetro = false;
 
         async function conmutarFuturasLineasMetro() {
             let btn = document.getElementById('btn-futuras-lineas-metro');
 
-            if (cargandoFuturasLineasMetro) return;
             if (futurasLineasMetroVisibles) {
                 if (capaFuturasLineasMetro) map.removeLayer(capaFuturasLineasMetro);
                 futurasLineasMetroVisibles = false;
@@ -1776,7 +1739,6 @@
 
             
 
-            cargandoFuturasLineasMetro = true;
             btn.disabled = true;
             btn.innerText = '⌛ Buscando líneas futuras...';
 
@@ -1788,7 +1750,6 @@
                 catch (e) { console.warn('Consulta de futuras líneas falló:', e && e.message ? e.message : e); }
             }
             btn.disabled = false;
-            cargandoFuturasLineasMetro = false;
             try {
 
                 if (!res || !res.ok) {
@@ -1824,7 +1785,6 @@
                 btn.style.borderColor = '#38bdf8';
                 btn.style.color = '#38bdf8';
             } catch (error) {
-                cargandoFuturasLineasMetro = false;
                 btn.disabled = false;
                 btn.innerText = '🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)';
                 alert('La consulta de líneas futuras no pudo completarse. Revisa la conexión e inténtalo nuevamente.');
