@@ -723,25 +723,47 @@
             estadoCargaInfraestructura[tipo] = 'cargando';
             const b = map.getBounds();
             const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].join(',');
-            const query = '[out:json][timeout:25];(' + definicion.selector + '(' + bbox + '););out geom;';
+            // Para Metro no se consulta solo el rectángulo visible: eso cortaba las líneas en los
+            // bordes del mapa. Se solicitan las relaciones de rutas completas de la RM y sus vías,
+            // incluidas las secciones elevadas y subterráneas cuando están mapeadas en OSM.
+            const query = tipo === 'metro'
+                ? '[out:json][timeout:90];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(relation["route"="subway"](area.rm);way["railway"="subway"](area.rm););out body;>;out geom;'
+                : '[out:json][timeout:25];(' + definicion.selector + '(' + bbox + '););out geom;';
             let errorFinal = null;
             for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
                     const respuesta = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body: 'data=' + encodeURIComponent(query) });
                     if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
                     const datos = await respuesta.json();
-                    const lineas = (datos.elements || []).filter(e => e.geometry && e.geometry.length > 1);
+                    const elementos = datos.elements || [];
+                    let lineas;
+                    let colorPorWay = new Map();
+                    let nombrePorWay = new Map();
+                    if (tipo === 'metro') {
+                        const relaciones = elementos.filter(e => e.type === 'relation' && e.tags && e.tags.route === 'subway');
+                        relaciones.forEach(rel => {
+                            const color = obtenerColorLineaMetro(rel.tags || {});
+                            const nombre = rel.tags.name || rel.tags.ref || 'Línea de Metro';
+                            (rel.members || []).filter(m => m.type === 'way').forEach(m => {
+                                colorPorWay.set(m.ref, color);
+                                nombrePorWay.set(m.ref, nombre);
+                            });
+                        });
+                        lineas = elementos.filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1 && (e.tags?.railway === 'subway' || colorPorWay.has(e.id)));
+                    } else {
+                        lineas = elementos.filter(e => e.geometry && e.geometry.length > 1);
+                    }
                     lineas.forEach(e => {
                         const coords = e.geometry.map(pt => [pt.lat, pt.lon]);
                         const tags = e.tags || {};
-                        const colorLinea = tipo === 'metro' ? obtenerColorLineaMetro(tags) : definicion.color;
-                        const nombreLinea = tags.name || tags.ref || definicion.titulo;
-                        L.polyline(coords, { color: colorLinea, weight: definicion.peso, opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa', bubblingMouseEvents: false })
+                        const colorLinea = tipo === 'metro' ? (colorPorWay.get(e.id) || obtenerColorLineaMetro(tags)) : definicion.color;
+                        const nombreLinea = tipo === 'metro' ? (nombrePorWay.get(e.id) || tags.name || tags.ref || definicion.titulo) : (tags.name || tags.ref || definicion.titulo);
+                        L.polyline(coords, { color: colorLinea, weight: tipo === 'metro' ? 6 : definicion.peso, opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa', bubblingMouseEvents: false })
                          .bindTooltip(escaparHTML(nombreLinea), { sticky: true }).addTo(capa);
                     });
                     estadoCargaInfraestructura[tipo] = 'lista';
                     capa.addTo(map);
-                    if (!lineas.length) alert('No se encontraron ' + definicion.titulo + ' en el área visible. Acerca o desplaza el mapa y vuelve a activar la capa.');
+                    if (!lineas.length) alert('No se encontraron ' + definicion.titulo + (tipo === 'metro' ? ' en la Región Metropolitana consultada. Comprueba la cobertura de OpenStreetMap.' : ' en el área visible. Acerca o desplaza el mapa y vuelve a activar la capa.'));
                     return;
                 } catch (err) { errorFinal = err; }
             }
