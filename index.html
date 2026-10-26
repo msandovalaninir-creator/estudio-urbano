@@ -282,6 +282,11 @@
         <div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
             <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-metro-existente" onchange="conmutarCapaInfraestructura('metro',this.checked)"> <span style="color:#64748b">━</span> Líneas de Metro (colores por línea)</label>
+            <div style="margin:0 0 10px 22px;padding:7px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.7);">
+                <label for="metro-grosor-lineas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;margin-bottom:5px;">Grosor de líneas actuales y futuras <strong id="metro-grosor-valor" style="color:#38bdf8;">6 px</strong></label>
+                <input type="range" id="metro-grosor-lineas" min="2" max="14" step="1" value="6" oninput="actualizarGrosorLineasMetro(this.value)" style="width:100%;accent-color:#38bdf8;cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;"><span>Fino</span><span>Grueso</span></div>
+            </div>
             <label style="display:flex;align-items:center;gap:7px;margin:7px 0;padding:7px;border:1px solid #334155;border-radius:6px;background:rgba(30,41,59,.65);font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-todas-estaciones-metro-rm" onchange="conmutarTodasEstacionesMetroRM(this.checked)" style="width:15px;height:15px;"> <span style="color:#38bdf8">●</span> Mostrar TODAS las estaciones de Metro de la RM</label>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0 7px 22px;font-size:10px;color:#cbd5e1;cursor:pointer;"><input type="checkbox" id="toggle-mostrar-demas-servicios-con-metro" onchange="sincronizarVisibilidadServiciosConMetro()" style="width:14px;height:14px;"> Mostrar también los demás servicios</label>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"> <span style="color:#f59e0b">━</span> Calles troncales</label>
@@ -686,8 +691,21 @@
         const estadoCargaInfraestructura = {};
         // Colores oficiales aproximados de las líneas de Metro de Santiago.
         // Se infiere la línea usando etiquetas OSM como colour, colour:*, ref o name.
+        // Grosor compartido para todas las líneas de Metro actuales y futuras.
+        let grosorLineasMetro = 6;
+        function actualizarGrosorLineasMetro(valor) {
+            grosorLineasMetro = Math.max(2, Math.min(14, Number(valor) || 6));
+            const etiqueta = document.getElementById('metro-grosor-valor');
+            if (etiqueta) etiqueta.textContent = grosorLineasMetro + ' px';
+            // Leaflet aplica el estilo a todas las polilíneas ya dibujadas, sin volver a consultar datos.
+            [capasInfraestructura?.metro, capaFuturasLineasMetro].forEach(capa => {
+                if (capa && typeof capa.eachLayer === 'function') {
+                    capa.eachLayer(layer => { if (layer && typeof layer.setStyle === 'function') layer.setStyle({ weight: grosorLineasMetro }); });
+                }
+            });
+        }
         function obtenerColorLineaMetro(tags = {}) {
-            const texto = [tags.colour, tags['colour:line'], tags['colour:route'], tags.ref, tags.line, tags.name, tags.description]
+            const texto = [tags.colour, tags['colour:line'], tags['colour:route'], tags.ref, tags.line, tags.name, tags.description, tags.construction, tags.proposed, tags['railway:construction']]
                 .filter(Boolean).join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             const colores = [
                 { patron: /(^|[^a-z0-9])l\s*4\s*a([^a-z0-9]|$)|linea\s*4\s*a|linea 4a/, color: '#00a6d6' },
@@ -696,10 +714,13 @@
                 { patron: /(^|[^a-z0-9])l\s*3([^0-9]|$)|linea\s*3|linea 3/, color: '#8b6f47' },
                 { patron: /(^|[^a-z0-9])l\s*4([^a-z0-9]|$)|linea\s*4|linea 4/, color: '#0067a5' },
                 { patron: /(^|[^a-z0-9])l\s*5([^0-9]|$)|linea\s*5|linea 5/, color: '#008c45' },
-                { patron: /(^|[^a-z0-9])l\s*6([^0-9]|$)|linea\s*6|linea 6/, color: '#7b2d8e' }
+                { patron: /(^|[^a-z0-9])l\s*6([^0-9]|$)|linea\s*6|linea 6/, color: '#7b2d8e' },
+                // Colores diferenciados para proyectos futuros (referenciales, ajustables si Metro publica la identidad definitiva).
+                { patron: /(^|[^a-z0-9])l\s*7([^0-9]|$)|linea\s*7|linea 7/, color: '#f58220' },
+                { patron: /(^|[^a-z0-9])l\s*8([^0-9]|$)|linea\s*8|linea 8/, color: '#a64ca6' },
+                { patron: /(^|[^a-z0-9])l\s*9([^0-9]|$)|linea\s*9|linea 9/, color: '#d4b900' }
             ];
-            // Si OSM trae un color explícito hexadecimal o CSS, se respeta primero.
-            const explicito = String(tags.colour || tags['colour:line'] || '').trim();
+            const explicito = String(tags.colour || tags['colour:line'] || tags['colour:route'] || '').trim();
             if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(explicito)) return explicito;
             const encontrada = colores.find(item => item.patron.test(texto));
             return encontrada ? encontrada.color : '#64748b';
@@ -758,7 +779,7 @@
                         const tags = e.tags || {};
                         const colorLinea = tipo === 'metro' ? (colorPorWay.get(e.id) || obtenerColorLineaMetro(tags)) : definicion.color;
                         const nombreLinea = tipo === 'metro' ? (nombrePorWay.get(e.id) || tags.name || tags.ref || definicion.titulo) : (tags.name || tags.ref || definicion.titulo);
-                        L.polyline(coords, { color: colorLinea, weight: tipo === 'metro' ? 6 : definicion.peso, opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa', bubblingMouseEvents: false })
+                        L.polyline(coords, { color: colorLinea, weight: tipo === 'metro' ? grosorLineasMetro : definicion.peso, opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa', bubblingMouseEvents: false })
                          .bindTooltip(escaparHTML(nombreLinea), { sticky: true }).addTo(capa);
                     });
                     estadoCargaInfraestructura[tipo] = 'lista';
@@ -786,8 +807,10 @@
             if (estadoTodasEstacionesMetroRM === 'lista') { capaTodasEstacionesMetroRM.addTo(map); sincronizarVisibilidadServiciosConMetro(); return; }
             estadoTodasEstacionesMetroRM = 'cargando';
             if (checkbox) checkbox.disabled = true;
-            // Busca estaciones y accesos ferroviarios de tipo Metro dentro del límite regional.
-            const query = '[out:json][timeout:60];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(nwr(area.rm)["station"="subway"];nwr(area.rm)["railway"="station"]["station"="subway"];);out center tags;';
+            // Busca estaciones de Metro en toda la RM, incluyendo estaciones que OSM etiqueta
+            // como railway=station sin station=subway. Se incluye Vespucio Norte explícitamente
+            // como respaldo porque estaba ausente en algunos conjuntos de etiquetas.
+            const query = '[out:json][timeout:90];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(nwr(area.rm)["station"="subway"];nwr(area.rm)["railway"="station"];nwr(area.rm)["name"~"Vespucio Norte",i];);out center tags;';
             let errorFinal = null;
             for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
@@ -799,10 +822,17 @@
                         const tags = el.tags || {};
                         const punto = el.type === 'node' ? {lat:el.lat,lon:el.lon} : (el.center || (el.geometry && el.geometry.length ? el.geometry[Math.floor(el.geometry.length/2)] : null));
                         if (!punto || !Number.isFinite(punto.lat) || !Number.isFinite(punto.lon)) return;
-                        // Solo estaciones, nunca entradas/salidas ni elementos G/H.
+                        // Solo estaciones de Metro, nunca entradas/salidas ni elementos G/H.
                         if (tags.railway === 'subway_entrance' || tags.entrance || tags.subway_entrance) return;
                         const nombre = tags.name || tags['name:es'] || '';
                         if (!nombre || /\b(entrada|salida|acceso|entrada\s*y\s*salida|sur|norte|oriente|poniente|\b[gh]\b)\s*$/i.test(nombre)) return;
+                        const nombreNormalizado = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+                        const esVespucioNorte = nombreNormalizado.includes('vespucio norte');
+                        const esEstacionMetroEtiquetada = tags.station === 'subway' || tags.railway === 'subway' ||
+                            /metro de santiago|metro s\.a\.|metro chile/i.test([tags.operator, tags.network, tags.brand].filter(Boolean).join(' '));
+                        // railway=station por sí solo también puede corresponder a tren suburbano;
+                        // solo se acepta si está etiquetado como Metro o es el respaldo explícito.
+                        if (!esEstacionMetroEtiquetada && !esVespucioNorte) return;
                         // Fusiona por nombre de estación, no por coordenadas: una estación con varias líneas o accesos aparece una sola vez.
                         const key = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
                         if (vistos.has(key)) return;
@@ -1642,9 +1672,8 @@
             btn.disabled = true;
             btn.innerText = '⌛ Buscando líneas futuras...';
 
-            let radioMetro = 8000; // las líneas de metro son largas — radio más generoso que el de servicios normales
-            let geoFiltro = `(around:${radioMetro},${coordenadasOrigen.lat},${coordenadasOrigen.lng})`;
-            let query = `[out:json][timeout:25];(way["railway"="construction"]${geoFiltro};way["railway"="proposed"]${geoFiltro};);out geom;`;
+            // Buscar proyectos en toda la RM y no solo a 8 km del origen, para incluir los trazados completos.
+            let query = '[out:json][timeout:90];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(way["railway"="construction"](area.rm);way["railway"="proposed"](area.rm);way["construction"~"subway|railway",i](area.rm);way["proposed"~"subway|railway",i](area.rm););out geom;';
 
             consultarCategoriaConReintentos(query, "Futuras líneas de Metro").then(res => {
                 btn.disabled = false;
@@ -1666,16 +1695,21 @@
                 capaFuturasLineasMetro = L.layerGroup();
                 tramosConGeometria.forEach(el => {
                     let coords = el.geometry.map(p => [p.lat, p.lon]);
-                    let nombreTramo = el.tags.name || `Tramo ${el.tags.construction || el.tags.proposed || 'futuro'} de Metro`;
+                    let tags = el.tags || {};
+                    let nombreTramo = tags.name || tags.ref || `Tramo ${tags.construction || tags.proposed || 'futuro'} de Metro`;
+                    let colorFuturo = obtenerColorLineaMetro(tags);
+                    let estadoTramo = (tags.railway === 'construction' || tags.construction) ? 'En construcción' : 'Proyectado';
                     let linea = L.polyline(coords, {
-                        color: '#f43f5e', weight: 6, opacity: 0.85, dashArray: '12,10'
-                    }).bindPopup(`<b>🚇 ${escaparHTML(nombreTramo)}</b><br><small>${el.tags.railway === 'construction' ? 'En construcción' : 'Proyectado'}</small>`);
+                        color: colorFuturo, weight: grosorLineasMetro, opacity: 0.92, dashArray: '12,8', lineCap: 'round', lineJoin: 'round'
+                    }).bindPopup(`<b>🚇 ${escaparHTML(nombreTramo)}</b><br><small>${escaparHTML(estadoTramo)}</small>`);
                     capaFuturasLineasMetro.addLayer(linea);
                 });
                 capaFuturasLineasMetro.addTo(map);
                 futurasLineasMetroVisibles = true;
                 btn.innerText = '🔴 Ocultar futuras líneas de Metro';
-                btn.style.background = '#7c2d12';
+                btn.style.background = '#1e293b';
+                btn.style.borderColor = '#38bdf8';
+                btn.style.color = '#38bdf8';
             }).catch(() => {
                 btn.disabled = false;
                 btn.innerText = '🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)';
@@ -1699,7 +1733,9 @@
 
             if (!coordenadasOrigen) { alert("Primero fija un origen (dirección) antes de pedir sugerencias."); return; }
             btn.innerText = '🔴 Ocultar sugerencias';
-            btn.style.background = '#7c2d12';
+            btn.style.background = '#1e293b';
+                btn.style.borderColor = '#38bdf8';
+                btn.style.color = '#38bdf8';
             ejecutarBusquedaSugerencias();
         }
 
