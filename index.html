@@ -789,6 +789,16 @@
             dibujarBufferVias(tipo);
         }
 
+        async function fetchOverpassConTiempo(endpoint, query, timeoutMs = 18000) {
+            const controller = new AbortController();
+            const temporizador = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const respuesta = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body: 'data=' + encodeURIComponent(query), signal: controller.signal });
+                if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
+                return await respuesta.json();
+            } finally { clearTimeout(temporizador); }
+        }
+
         async function conmutarCapaInfraestructura(tipo, visible) {
             const capa = capasInfraestructura[tipo];
             const definicion = definicionesInfraestructura[tipo];
@@ -804,14 +814,12 @@
             // incluidas las secciones elevadas y subterráneas cuando están mapeadas en OSM.
             const tipoConsulta = tipo === 'bufferTroncal' ? 'troncal' : (tipo === 'bufferExpresa' ? 'expresa' : tipo);
             const query = tipo === 'metro'
-                ? '[out:json][timeout:90];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(relation["route"="subway"](area.rm);way["railway"="subway"](area.rm););out body;>;out geom;'
+                ? '[out:json][timeout:25];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;way["railway"="subway"](area.rm);out geom;'
                 : '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bbox + '););out geom;';
             let errorFinal = null;
             for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
-                    const respuesta = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body: 'data=' + encodeURIComponent(query) });
-                    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
-                    const datos = await respuesta.json();
+                    const datos = await fetchOverpassConTiempo(endpoint, query, tipo === 'metro' ? 18000 : 14000);
                     const elementos = datos.elements || [];
                     let lineas;
                     let colorPorWay = new Map();
@@ -873,13 +881,11 @@
             // Busca estaciones de Metro en toda la RM, incluyendo estaciones que OSM etiqueta
             // como railway=station sin station=subway. Se incluye Vespucio Norte explícitamente
             // como respaldo porque estaba ausente en algunos conjuntos de etiquetas.
-            const query = '[out:json][timeout:90];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(nwr(area.rm)["station"="subway"];nwr(area.rm)["railway"="station"];nwr(area.rm)["name"~"Vespucio Norte",i];);out center tags;';
+            const query = '[out:json][timeout:20];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(node(area.rm)["station"="subway"];node(area.rm)["railway"="station"]["network"~"Metro|Santiago",i];node(area.rm)["name"~"Vespucio Norte",i];);out body;';
             let errorFinal = null;
             for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
-                    const respuesta = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}, body:'data='+encodeURIComponent(query) });
-                    if (!respuesta.ok) throw new Error('HTTP '+respuesta.status);
-                    const datos = await respuesta.json();
+                    const datos = await fetchOverpassConTiempo(endpoint, query, 16000);
                     const vistos = new Set();
                     (datos.elements || []).forEach(el => {
                         const tags = el.tags || {};
@@ -1719,7 +1725,7 @@
         let capaFuturasLineasMetro = null;
         let futurasLineasMetroVisibles = false;
 
-        function conmutarFuturasLineasMetro() {
+        async function conmutarFuturasLineasMetro() {
             let btn = document.getElementById('btn-futuras-lineas-metro');
 
             if (futurasLineasMetroVisibles) {
@@ -1730,16 +1736,20 @@
                 return;
             }
 
-            if (!coordenadasOrigen) { alert("Primero fija un origen (dirección) — se buscan las líneas futuras alrededor de ese punto."); return; }
+            
 
             btn.disabled = true;
             btn.innerText = '⌛ Buscando líneas futuras...';
 
             // Buscar proyectos en toda la RM y no solo a 8 km del origen, para incluir los trazados completos.
-            let query = '[out:json][timeout:90];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(way["railway"="construction"](area.rm);way["railway"="proposed"](area.rm);way["construction"~"subway|railway",i](area.rm);way["proposed"~"subway|railway",i](area.rm););out geom;';
-
-            consultarCategoriaConReintentos(query, "Futuras líneas de Metro").then(res => {
-                btn.disabled = false;
+            let query = '[out:json][timeout:20];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(way["railway"="construction"](area.rm);way["railway"="proposed"](area.rm);way["construction"~"subway|railway",i](area.rm);way["proposed"~"subway|railway",i](area.rm););out geom;';
+            let res = null;
+            for (const endpoint of ENDPOINTS_OVERPASS) {
+                try { res = { ok: true, ...(await fetchOverpassConTiempo(endpoint, query, 16000)) }; break; }
+                catch (e) { console.warn('Consulta de futuras líneas falló:', e && e.message ? e.message : e); }
+            }
+            btn.disabled = false;
+            try {
 
                 if (!res || !res.ok) {
                     btn.innerText = '🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)';
@@ -1751,7 +1761,7 @@
 
                 if (tramosConGeometria.length === 0) {
                     btn.innerText = '🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)';
-                    alert("No encontré tramos marcados como \"en construcción\" o \"proyectados\" en OpenStreetMap cerca de este punto. Esto no significa que no existan en la realidad — puede que todavía no estén cargados en el mapa colaborativo, o que estén fuera del radio de búsqueda (8 km).");
+                    alert("No encontré tramos marcados como en construcción o proyectados en OpenStreetMap para la Región Metropolitana. Puede que el trazado oficial no esté cargado con esas etiquetas.");
                     return;
                 }
 
@@ -1773,11 +1783,12 @@
                 btn.style.background = '#1e293b';
                 btn.style.borderColor = '#38bdf8';
                 btn.style.color = '#38bdf8';
-            }).catch(() => {
+            } catch (error) {
                 btn.disabled = false;
                 btn.innerText = '🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)';
-                alert("Ocurrió un error consultando las líneas futuras. Intenta de nuevo.");
-            });
+                alert('La consulta de líneas futuras no pudo completarse. Revisa la conexión e inténtalo nuevamente.');
+                console.warn('Error consultando líneas futuras:', error);
+            }
         }
 
         function sugerirServiciosCercanos() {
