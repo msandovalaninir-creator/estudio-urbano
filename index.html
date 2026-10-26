@@ -290,10 +290,28 @@
             <label style="display:flex;align-items:center;gap:7px;margin:7px 0;padding:7px;border:1px solid #334155;border-radius:6px;background:rgba(30,41,59,.65);font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-todas-estaciones-metro-rm" onchange="conmutarTodasEstacionesMetroRM(this.checked)" style="width:15px;height:15px;"> <span style="color:#38bdf8">●</span> Mostrar TODAS las estaciones de Metro de la RM</label>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0 7px 22px;font-size:10px;color:#cbd5e1;cursor:pointer;"><input type="checkbox" id="toggle-mostrar-demas-servicios-con-metro" onchange="sincronizarVisibilidadServiciosConMetro()" style="width:14px;height:14px;"> Mostrar también los demás servicios</label>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"> <span style="color:#f59e0b">━</span> Calles troncales</label>
+            <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
+                <label for="grosor-troncales" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Grosor de línea central <strong id="grosor-troncales-valor">5 px</strong></label>
+                <input type="range" id="grosor-troncales" min="1" max="14" step="1" value="5" oninput="actualizarEstiloVias('troncal',this.value)" style="width:100%;accent-color:#f59e0b;">
+            </div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-buffer-troncales" onchange="conmutarCapaInfraestructura('bufferTroncal',this.checked)"> <span style="color:#fbbf24">━━</span> Buffer de calles troncales</label>
+            <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
+                <label for="ancho-buffer-troncales" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Ancho total del buffer <strong id="ancho-buffer-troncales-valor">400 m</strong></label>
+                <input type="range" id="ancho-buffer-troncales" min="50" max="2000" step="50" value="400" oninput="actualizarAnchoBuffer('bufferTroncal',this.value)" style="width:100%;accent-color:#fbbf24;">
+                <div style="font-size:9px;color:#94a3b8;">200 m a cada lado del eje</div>
+            </div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-expresas" onchange="conmutarCapaInfraestructura('expresa',this.checked)"> <span style="color:#ef4444">━</span> Calles expresas / autopistas</label>
+            <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
+                <label for="grosor-expresas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Grosor de línea central <strong id="grosor-expresas-valor">5 px</strong></label>
+                <input type="range" id="grosor-expresas" min="1" max="14" step="1" value="5" oninput="actualizarEstiloVias('expresa',this.value)" style="width:100%;accent-color:#ef4444;">
+            </div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-buffer-expresas" onchange="conmutarCapaInfraestructura('bufferExpresa',this.checked)"> <span style="color:#f87171">━━</span> Buffer de calles expresas</label>
-            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Las líneas de color siguen la geometría completa de cada vía consultada dentro del área visible. Troncales: vías primary/secondary; expresas: trunk/motorway según OpenStreetMap. Los buffers son franjas visuales referenciales, no áreas normativas oficiales.</div>
+            <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
+                <label for="ancho-buffer-expresas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Ancho total del buffer <strong id="ancho-buffer-expresas-valor">400 m</strong></label>
+                <input type="range" id="ancho-buffer-expresas" min="50" max="3000" step="50" value="400" oninput="actualizarAnchoBuffer('bufferExpresa',this.value)" style="width:100%;accent-color:#f87171;">
+                <div style="font-size:9px;color:#94a3b8;">200 m a cada lado del eje</div>
+            </div>
+            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Las líneas de color siguen la geometría completa de cada vía consultada dentro del área visible. Troncales: vías primary/secondary; expresas: trunk/motorway según OpenStreetMap. Los buffers se miden en metros desde el eje de cada vía (mitad del ancho por lado); son franjas cartográficas referenciales, no áreas normativas oficiales.</div>
         </div>
         <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
 
@@ -475,6 +493,7 @@
     <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
 
     <script>
         let CONFIG_SERVICIOS_PREDEFINIDOS = [
@@ -689,6 +708,9 @@
             expresa: L.layerGroup(), bufferExpresa: L.layerGroup()
         };
         const estadoCargaInfraestructura = {};
+        const datosViasInfraestructura = { troncal: [], expresa: [] };
+        const anchosBufferMetros = { bufferTroncal: 400, bufferExpresa: 400 };
+        const grosoresViasPx = { troncal: 5, expresa: 5 };
         // Colores oficiales aproximados de las líneas de Metro de Santiago.
         // Se infiere la línea usando etiquetas OSM como colour, colour:*, ref o name.
         // Grosor compartido para todas las líneas de Metro actuales y futuras.
@@ -734,6 +756,39 @@
             expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(trunk|trunk_link|motorway|motorway_link)$"]', color: '#ef4444', peso: 5, opacidad: .98 },
             bufferExpresa: { titulo: 'buffer visual de calles expresas', selector: 'way["highway"~"^(trunk|trunk_link|motorway|motorway_link)$"]', color: '#f87171', peso: 24, opacidad: .24 }
         };
+        function actualizarEstiloVias(tipo, valor) {
+            const peso = Math.max(1, Math.min(14, Number(valor) || 5));
+            grosoresViasPx[tipo] = peso;
+            const etiqueta = document.getElementById('grosor-' + (tipo === 'troncal' ? 'troncales' : 'expresas') + '-valor');
+            if (etiqueta) etiqueta.textContent = peso + ' px';
+            const capa = capasInfraestructura[tipo];
+            if (capa) capa.eachLayer(layer => { if (layer && layer.setStyle) layer.setStyle({ weight: peso }); });
+        }
+        function dibujarBufferVias(tipo) {
+            const capa = capasInfraestructura[tipo];
+            if (!capa) return;
+            capa.clearLayers();
+            const base = tipo === 'bufferTroncal' ? 'troncal' : 'expresa';
+            const ancho = anchosBufferMetros[tipo];
+            if (!window.turf || !datosViasInfraestructura[base]) return;
+            datosViasInfraestructura[base].forEach(via => {
+                try {
+                    const feature = { type: 'Feature', properties: via.tags || {}, geometry: { type: 'LineString', coordinates: via.geometry.map(pt => [pt.lon, pt.lat]) } };
+                    const poligono = turf.buffer(feature, ancho / 2000, { units: 'kilometers', steps: 8 });
+                    if (poligono) L.geoJSON(poligono, { style: { color: definicionesInfraestructura[tipo].color, weight: 1, opacity: .75, fillColor: definicionesInfraestructura[tipo].color, fillOpacity: .24, lineJoin: 'round' } }).addTo(capa);
+                } catch (e) { /* Omite únicamente las geometrías inválidas de OSM. */ }
+            });
+        }
+        function actualizarAnchoBuffer(tipo, valor) {
+            const ancho = Math.max(50, Math.min(tipo === 'bufferTroncal' ? 2000 : 3000, Number(valor) || 400));
+            anchosBufferMetros[tipo] = ancho;
+            const etiqueta = document.getElementById('ancho-' + (tipo === 'bufferTroncal' ? 'buffer-troncales' : 'buffer-expresas') + '-valor');
+            if (etiqueta) etiqueta.textContent = ancho + ' m';
+            const nota = document.querySelector('#' + (tipo === 'bufferTroncal' ? 'ancho-buffer-troncales' : 'ancho-buffer-expresas')).parentElement.querySelector('div');
+            if (nota) nota.textContent = (ancho / 2).toLocaleString('es-CL') + ' m a cada lado del eje';
+            dibujarBufferVias(tipo);
+        }
+
         async function conmutarCapaInfraestructura(tipo, visible) {
             const capa = capasInfraestructura[tipo];
             const definicion = definicionesInfraestructura[tipo];
@@ -747,9 +802,10 @@
             // Para Metro no se consulta solo el rectángulo visible: eso cortaba las líneas en los
             // bordes del mapa. Se solicitan las relaciones de rutas completas de la RM y sus vías,
             // incluidas las secciones elevadas y subterráneas cuando están mapeadas en OSM.
+            const tipoConsulta = tipo === 'bufferTroncal' ? 'troncal' : (tipo === 'bufferExpresa' ? 'expresa' : tipo);
             const query = tipo === 'metro'
                 ? '[out:json][timeout:90];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(relation["route"="subway"](area.rm);way["railway"="subway"](area.rm););out body;>;out geom;'
-                : '[out:json][timeout:25];(' + definicion.selector + '(' + bbox + '););out geom;';
+                : '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bbox + '););out geom;';
             let errorFinal = null;
             for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
@@ -774,14 +830,21 @@
                     } else {
                         lineas = elementos.filter(e => e.geometry && e.geometry.length > 1);
                     }
-                    lineas.forEach(e => {
-                        const coords = e.geometry.map(pt => [pt.lat, pt.lon]);
-                        const tags = e.tags || {};
-                        const colorLinea = tipo === 'metro' ? (colorPorWay.get(e.id) || obtenerColorLineaMetro(tags)) : definicion.color;
-                        const nombreLinea = tipo === 'metro' ? (nombrePorWay.get(e.id) || tags.name || tags.ref || definicion.titulo) : (tags.name || tags.ref || definicion.titulo);
-                        L.polyline(coords, { color: colorLinea, weight: tipo === 'metro' ? grosorLineasMetro : definicion.peso, opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa', bubblingMouseEvents: false })
-                         .bindTooltip(escaparHTML(nombreLinea), { sticky: true }).addTo(capa);
-                    });
+                    if (tipo === 'troncal' || tipo === 'expresa') datosViasInfraestructura[tipo] = lineas.map(e => ({ id: e.id, geometry: e.geometry, tags: e.tags || {} }));
+                    if (tipo === 'bufferTroncal' || tipo === 'bufferExpresa') {
+                        const base = tipo === 'bufferTroncal' ? 'troncal' : 'expresa';
+                        datosViasInfraestructura[base] = lineas.map(e => ({ id: e.id, geometry: e.geometry, tags: e.tags || {} }));
+                        dibujarBufferVias(tipo);
+                    } else {
+                        lineas.forEach(e => {
+                            const coords = e.geometry.map(pt => [pt.lat, pt.lon]);
+                            const tags = e.tags || {};
+                            const colorLinea = tipo === 'metro' ? (colorPorWay.get(e.id) || obtenerColorLineaMetro(tags)) : definicion.color;
+                            const nombreLinea = tipo === 'metro' ? (nombrePorWay.get(e.id) || tags.name || tags.ref || definicion.titulo) : (tags.name || tags.ref || definicion.titulo);
+                            L.polyline(coords, { color: colorLinea, weight: tipo === 'metro' ? grosorLineasMetro : (tipo === 'troncal' || tipo === 'expresa' ? grosoresViasPx[tipo] : definicion.peso), opacity: definicion.opacidad, lineCap: 'round', lineJoin: 'round', interactive: tipo === 'metro' || tipo === 'troncal' || tipo === 'expresa', bubblingMouseEvents: false })
+                             .bindTooltip(escaparHTML(nombreLinea), { sticky: true }).addTo(capa);
+                        });
+                    }
                     estadoCargaInfraestructura[tipo] = 'lista';
                     capa.addTo(map);
                     if (!lineas.length) alert('No se encontraron ' + definicion.titulo + (tipo === 'metro' ? ' en la Región Metropolitana consultada. Comprueba la cobertura de OpenStreetMap.' : ' en el área visible. Acerca o desplaza el mapa y vuelve a activar la capa.'));
