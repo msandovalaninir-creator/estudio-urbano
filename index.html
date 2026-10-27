@@ -288,6 +288,13 @@
                 <div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;"><span>Fino</span><span>Grueso</span></div>
             </div>
             <label style="display:flex;align-items:center;gap:7px;margin:7px 0;padding:7px;border:1px solid #334155;border-radius:6px;background:rgba(30,41,59,.65);font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-todas-estaciones-metro-rm" onchange="conmutarTodasEstacionesMetroRM(this.checked)" style="width:15px;height:15px;"> <span style="color:#38bdf8">●</span> Mostrar TODAS las estaciones de Metro de la RM</label>
+            <div style="margin:7px 0 9px 22px;padding:8px;border:1px solid #0e7490;border-radius:7px;background:rgba(8,47,73,.45);">
+                <label style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#bae6fd;cursor:pointer;"><input type="checkbox" id="toggle-radios-metro" onchange="conmutarRadiosMetro(this.checked)" style="width:15px;height:15px;"> ◉ Círculos de distancia desde cada estación</label>
+                <label for="radio-distancia-metro" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:10px;color:#cbd5e1;">Radio de cobertura <strong id="radio-distancia-metro-valor" style="color:#38bdf8;">400 m</strong></label>
+                <input id="radio-distancia-metro" type="range" min="200" max="2000" step="200" value="400" oninput="actualizarRadioMetro(this.value)" style="width:100%;accent-color:#38bdf8;">
+                <div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;"><span>200 m</span><span>1.000 m</span><span>2.000 m</span></div>
+                <div style="font-size:9px;color:#94a3b8;margin-top:5px;line-height:1.4;">Dibuja un círculo medido en metros alrededor de cada estación existente para identificar servicios y terrenos cercanos.</div>
+            </div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0 7px 22px;font-size:10px;color:#cbd5e1;cursor:pointer;"><input type="checkbox" id="toggle-mostrar-demas-servicios-con-metro" onchange="sincronizarVisibilidadServiciosConMetro()" style="width:14px;height:14px;"> Mostrar también los demás servicios</label>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"> <span style="color:#f59e0b">━</span> Calles troncales</label>
             <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
@@ -967,6 +974,7 @@
                     capaTodasEstacionesMetroRM.addTo(map);
                     if (checkbox) checkbox.disabled = false;
                     sincronizarVisibilidadServiciosConMetro();
+                    if (document.getElementById('toggle-radios-metro')?.checked) reconstruirRadiosMetro();
                     return;
                 }
                 throw new Error('La capa GIS no entregó estaciones dibujables');
@@ -998,6 +1006,7 @@
                     capaTodasEstacionesMetroRM.addTo(map);
                     if (checkbox) checkbox.disabled = false;
                     sincronizarVisibilidadServiciosConMetro();
+                    if (document.getElementById('toggle-radios-metro')?.checked) reconstruirRadiosMetro();
                     return;
                 } catch (err) { errorFinal = err; }
             }
@@ -1005,6 +1014,48 @@
             if (checkbox) { checkbox.checked = false; checkbox.disabled = false; }
             alert('No fue posible cargar las estaciones. Fallaron tanto el GIS del MINVU como los servidores de respaldo de OpenStreetMap. Revisa la conexión o inténtalo nuevamente.');
             console.warn('Error cargando estaciones de Metro RM:', errorFinal);
+        }
+
+        // Radios de proximidad alrededor de todas las estaciones de Metro cargadas.
+        const capaRadiosMetro = L.layerGroup();
+        let radioMetroMetros = 400;
+        function reconstruirRadiosMetro() {
+            capaRadiosMetro.clearLayers();
+            const checkbox = document.getElementById('toggle-radios-metro');
+            if (!checkbox || !checkbox.checked) return;
+            const estaciones = capaTodasEstacionesMetroRM.getLayers();
+            estaciones.forEach(estacion => {
+                if (typeof estacion.getLatLng !== 'function') return;
+                const centro = estacion.getLatLng();
+                L.circle(centro, {
+                    radius: radioMetroMetros,
+                    color: '#38bdf8', weight: 1.5, opacity: 0.9,
+                    fillColor: '#38bdf8', fillOpacity: 0.09,
+                    interactive: false
+                }).bindTooltip(radioMetroMetros + ' m desde estación de Metro', {sticky:true}).addTo(capaRadiosMetro);
+            });
+            if (capaRadiosMetro.getLayers().length && !map.hasLayer(capaRadiosMetro)) capaRadiosMetro.addTo(map);
+        }
+        function actualizarRadioMetro(valor) {
+            radioMetroMetros = Math.max(200, parseInt(valor, 10) || 400);
+            const etiqueta = document.getElementById('radio-distancia-metro-valor');
+            if (etiqueta) etiqueta.textContent = radioMetroMetros.toLocaleString('es-CL') + ' m';
+            reconstruirRadiosMetro();
+        }
+        async function conmutarRadiosMetro(visible) {
+            if (!visible) { if (map.hasLayer(capaRadiosMetro)) map.removeLayer(capaRadiosMetro); return; }
+            const estacionesCargadas = estadoTodasEstacionesMetroRM === 'lista' && capaTodasEstacionesMetroRM.getLayers().length > 0;
+            if (!estacionesCargadas) {
+                const chk = document.getElementById('toggle-todas-estaciones-metro-rm');
+                if (chk) chk.checked = true;
+                await conmutarTodasEstacionesMetroRM(true);
+            }
+            reconstruirRadiosMetro();
+            if (!capaRadiosMetro.getLayers().length) {
+                const chk = document.getElementById('toggle-radios-metro');
+                if (chk) chk.checked = false;
+                alert('No se pudieron dibujar los círculos porque no hay estaciones cargadas. Activa primero “Mostrar TODAS las estaciones de Metro de la RM” e inténtalo nuevamente.');
+            }
         }
 
         function sincronizarVisibilidadServiciosConMetro() {
