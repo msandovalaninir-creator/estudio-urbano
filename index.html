@@ -799,6 +799,31 @@
             } finally { clearTimeout(temporizador); }
         }
 
+        // Fuente GIS institucional de respaldo (MINVU). A diferencia de Overpass, consulta
+        // directamente las capas publicadas de Red Metro y Estaciones Metro en GeoJSON/WGS84.
+        const URL_GIS_METRO = 'https://geoide.minvu.cl/server2/rest/services/INFORMACION_EXTERNA/Metro/FeatureServer';
+        async function consultarGeoJSONArcGIS(urlBase, timeoutMs = 18000) {
+            const params = new URLSearchParams({
+                where: '1=1', outFields: '*', returnGeometry: 'true',
+                outSR: '4326', f: 'geojson'
+            });
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const response = await fetch(urlBase + '/query?' + params.toString(), {
+                    method: 'GET', mode: 'cors', cache: 'no-store', signal: controller.signal
+                });
+                if (!response.ok) throw new Error('GIS HTTP ' + response.status);
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message || 'Error del servicio GIS');
+                if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+                    throw new Error('Respuesta GIS no es GeoJSON');
+                }
+                if (!data.features.length) throw new Error('La capa GIS no devolvió elementos');
+                return data;
+            } finally { clearTimeout(timer); }
+        }
+
         async function conmutarCapaInfraestructura(tipo, visible) {
             const capa = capasInfraestructura[tipo];
             const definicion = definicionesInfraestructura[tipo];
@@ -807,6 +832,41 @@
             if (estadoCargaInfraestructura[tipo] === 'cargando') return;
             if (estadoCargaInfraestructura[tipo] === 'lista') { capa.addTo(map); return; }
             estadoCargaInfraestructura[tipo] = 'cargando';
+
+            // Las líneas actuales se cargan primero desde el GIS del MINVU. Si el servicio
+            // institucional falla o bloquea CORS, se conserva la consulta original de Overpass.
+            if (tipo === 'metro') {
+                try {
+                    const geo = await consultarGeoJSONArcGIS(URL_GIS_METRO + '/1');
+                    geo.features.forEach(feature => {
+                        const geom = feature.geometry;
+                        if (!geom) return;
+                        const props = feature.properties || {};
+                        const linea = String(props.LINEA || props.linea || props.LINE || '');
+                        const nombre = String(props.NOMBRE || props.NAME || (linea ? 'Línea ' + linea : 'Línea de Metro'));
+                        const color = obtenerColorLineaMetro({ ref: 'L' + linea, name: nombre, colour: props.COLOUR || props.COLOR });
+                        const dibujar = coords => {
+                            if (!Array.isArray(coords) || coords.length < 2) return;
+                            capa.addLayer(L.polyline(coords.map(pt => [pt[1], pt[0]]), {
+                                color, weight: grosorLineasMetro, opacity: 0.98,
+                                lineCap: 'round', lineJoin: 'round'
+                            }).bindTooltip(escaparHTML(nombre), { sticky: true }));
+                        };
+                        if (geom.type === 'LineString') dibujar(geom.coordinates);
+                        else if (geom.type === 'MultiLineString') geom.coordinates.forEach(dibujar);
+                    });
+                    if (capa.getLayers().length) {
+                        estadoCargaInfraestructura[tipo] = 'lista';
+                        capa.addTo(map);
+                        return;
+                    }
+                    throw new Error('La capa GIS de trazados no contiene geometrías dibujables');
+                } catch (gisError) {
+                    console.warn('GIS MINVU para líneas Metro no disponible; se intentará Overpass:', gisError);
+                    capa.clearLayers();
+                }
+            }
+
             const b = map.getBounds();
             const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].join(',');
             // Para Metro no se consulta solo el rectángulo visible: eso cortaba las líneas en los
@@ -872,60 +932,90 @@
         let estadoTodasEstacionesMetroRM = 'sin-cargar';
         async function conmutarTodasEstacionesMetroRM(visible) {
             const checkbox = document.getElementById('toggle-todas-estaciones-metro-rm');
-            if (!visible) { if (map.hasLayer(capaTodasEstacionesMetroRM)) map.removeLayer(capaTodasEstacionesMetroRM); sincronizarVisibilidadServiciosConMetro(); return; }
+            if (!visible) {
+                if (map.hasLayer(capaTodasEstacionesMetroRM)) map.removeLayer(capaTodasEstacionesMetroRM);
+                sincronizarVisibilidadServiciosConMetro();
+                return;
+            }
             sincronizarVisibilidadServiciosConMetro();
             if (estadoTodasEstacionesMetroRM === 'cargando') return;
-            if (estadoTodasEstacionesMetroRM === 'lista') { capaTodasEstacionesMetroRM.addTo(map); sincronizarVisibilidadServiciosConMetro(); return; }
+            if (estadoTodasEstacionesMetroRM === 'lista') {
+                capaTodasEstacionesMetroRM.addTo(map);
+                sincronizarVisibilidadServiciosConMetro();
+                return;
+            }
             estadoTodasEstacionesMetroRM = 'cargando';
             if (checkbox) checkbox.disabled = true;
-            // Busca estaciones de Metro en toda la RM, incluyendo estaciones que OSM etiqueta
-            // como railway=station sin station=subway. Se incluye Vespucio Norte explícitamente
-            // como respaldo porque estaba ausente en algunos conjuntos de etiquetas.
-            const query = '[out:json][timeout:25];(nwr["station"="subway"](-33.95,-71.95,-32.75,-69.65);nwr["railway"="subway"](-33.95,-71.95,-32.75,-69.65);nwr["railway"="station"]["network"~"Metro|Santiago",i](-33.95,-71.95,-32.75,-69.65);nwr["name"~"Vespucio Norte",i](-33.95,-71.95,-32.75,-69.65););out center;';
-            let errorFinal = null;
-            for (const endpoint of ENDPOINTS_OVERPASS) {
-                try {
-                    const datos = await fetchOverpassConTiempo(endpoint, query, 16000);
-                    const vistos = new Set();
-                    (datos.elements || []).forEach(el => {
-                        const tags = el.tags || {};
-                        const punto = el.type === 'node' ? {lat:el.lat,lon:el.lon} : (el.center || (el.geometry && el.geometry.length ? el.geometry[Math.floor(el.geometry.length/2)] : null));
-                        if (!punto || !Number.isFinite(punto.lat) || !Number.isFinite(punto.lon)) return;
-                        // Solo estaciones de Metro, nunca entradas/salidas ni elementos G/H.
-                        if (tags.railway === 'subway_entrance' || tags.entrance || tags.subway_entrance) return;
-                        const nombre = tags.name || tags['name:es'] || '';
-                        if (!nombre || /\b(entrada|salida|acceso|entrada\s*y\s*salida|sur|norte|oriente|poniente|\b[gh]\b)\s*$/i.test(nombre)) return;
-                        const nombreNormalizado = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-                        const esVespucioNorte = nombreNormalizado.includes('vespucio norte');
-                        const esEstacionMetroEtiquetada = tags.station === 'subway' || tags.railway === 'subway' ||
-                            /metro/i.test([tags.operator, tags.network, tags.brand, tags.name].filter(Boolean).join(' ')) ||
-                            /metro de santiago|metro s\.a\.|metro chile/i.test([tags.operator, tags.network, tags.brand].filter(Boolean).join(' '));
-                        // railway=station por sí solo también puede corresponder a tren suburbano;
-                        // solo se acepta si está etiquetado como Metro o es el respaldo explícito.
-                        if (!esEstacionMetroEtiquetada && !esVespucioNorte) return;
-                        // Fusiona por nombre de estación, no por coordenadas: una estación con varias líneas o accesos aparece una sola vez.
-                        const key = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
-                        if (vistos.has(key)) return;
-                        vistos.add(key);
-                        // Reutiliza el icono de Metro ya configurado por el usuario en la plataforma
-                        // (incluida su imagen personalizada), en vez de dibujar un punto genérico.
-                        const configMetro = CONFIG_SERVICIOS_PREDEFINIDOS.find(servicio => servicio.id === 'metro');
-                        const tamanoLogoMetro = Math.max(16, Math.min(64, parseInt(document.getElementById('global-icon-size-slider')?.value, 10) || 30));
-                        const icono = configMetro
-                            ? construirIconoServicio(configMetro.img, configMetro.em || '🚇', tamanoLogoMetro)
-                            : construirIconoServicio(null, '🚇', tamanoLogoMetro);
-                        L.marker([punto.lat,punto.lon],{icon:icono,keyboard:false}).bindTooltip(escaparHTML(nombre),{direction:'top',offset:[0,-7]}).addTo(capaTodasEstacionesMetroRM);
-                    });
-                    if (!capaTodasEstacionesMetroRM.getLayers().length) throw new Error('Overpass no devolvió estaciones en el área administrativa consultada.');
+
+            const agregarEstacion = (lat, lon, nombre) => {
+                if (!Number.isFinite(lat) || !Number.isFinite(lon) || !nombre) return;
+                const configMetro = CONFIG_SERVICIOS_PREDEFINIDOS.find(servicio => servicio.id === 'metro');
+                const tamanoLogoMetro = Math.max(16, Math.min(64, parseInt(document.getElementById('global-icon-size-slider')?.value, 10) || 30));
+                const icono = configMetro
+                    ? construirIconoServicio(configMetro.img, configMetro.em || '🚇', tamanoLogoMetro)
+                    : construirIconoServicio(null, '🚇', tamanoLogoMetro);
+                L.marker([lat, lon], { icon: icono, keyboard: false })
+                    .bindTooltip(escaparHTML(nombre), { direction: 'top', offset: [0, -7] })
+                    .addTo(capaTodasEstacionesMetroRM);
+            };
+
+            // 1) Fuente GIS institucional MINVU: capa oficial de puntos de estaciones.
+            try {
+                const geo = await consultarGeoJSONArcGIS(URL_GIS_METRO + '/0');
+                const vistosGIS = new Set();
+                geo.features.forEach(feature => {
+                    const geom = feature.geometry;
+                    const props = feature.properties || {};
+                    const nombre = String(props.NOMBRE || props.Nombre || props.name || '').trim();
+                    if (!geom || !nombre) return;
+                    const key = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+                    if (vistosGIS.has(key)) return;
+                    vistosGIS.add(key);
+                    if (geom.type === 'Point') agregarEstacion(geom.coordinates[1], geom.coordinates[0], nombre);
+                    else if (geom.type === 'MultiPoint') geom.coordinates.forEach(pt => agregarEstacion(pt[1], pt[0], nombre));
+                });
+                if (capaTodasEstacionesMetroRM.getLayers().length) {
                     estadoTodasEstacionesMetroRM = 'lista';
                     capaTodasEstacionesMetroRM.addTo(map);
                     if (checkbox) checkbox.disabled = false;
+                    sincronizarVisibilidadServiciosConMetro();
+                    return;
+                }
+                throw new Error('La capa GIS no entregó estaciones dibujables');
+            } catch (gisError) {
+                console.warn('GIS MINVU para estaciones no disponible; se intentará Overpass:', gisError);
+                capaTodasEstacionesMetroRM.clearLayers();
+            }
+
+            // 2) Respaldo OSM/Overpass con caja geográfica amplia de la Región Metropolitana.
+            const query = '[out:json][timeout:25];(nwr["station"="subway"](-33.95,-71.95,-32.75,-69.65);nwr["railway"="subway"](-33.95,-71.95,-32.75,-69.65);nwr["railway"="station"]["network"~"Metro|Santiago",i](-33.95,-71.95,-32.75,-69.65););out center;';
+            let errorFinal = null;
+            for (const endpoint of ENDPOINTS_OVERPASS) {
+                try {
+                    const datos = await fetchOverpassConTiempo(endpoint, query, 22000);
+                    const vistos = new Set();
+                    (datos.elements || []).forEach(el => {
+                        const tags = el.tags || {};
+                        if (tags.railway === 'subway_entrance' || tags.entrance || tags.subway_entrance) return;
+                        const nombre = tags.name || tags['name:es'] || '';
+                        if (!nombre) return;
+                        const key = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+                        if (vistos.has(key)) return;
+                        vistos.add(key);
+                        const punto = el.type === 'node' ? { lat: el.lat, lon: el.lon } : el.center;
+                        if (punto) agregarEstacion(punto.lat, punto.lon, nombre);
+                    });
+                    if (!capaTodasEstacionesMetroRM.getLayers().length) throw new Error('Overpass no devolvió estaciones.');
+                    estadoTodasEstacionesMetroRM = 'lista';
+                    capaTodasEstacionesMetroRM.addTo(map);
+                    if (checkbox) checkbox.disabled = false;
+                    sincronizarVisibilidadServiciosConMetro();
                     return;
                 } catch (err) { errorFinal = err; }
             }
             estadoTodasEstacionesMetroRM = 'sin-cargar';
             if (checkbox) { checkbox.checked = false; checkbox.disabled = false; }
-            alert('No fue posible cargar las estaciones de Metro. Se probaron varios servidores de OpenStreetMap y la consulta cubre la Región Metropolitana mediante coordenadas, sin depender del límite regional. Puede ser una saturación temporal de Overpass o un problema de conexión. Inténtalo nuevamente.');
+            alert('No fue posible cargar las estaciones. Fallaron tanto el GIS del MINVU como los servidores de respaldo de OpenStreetMap. Revisa la conexión o inténtalo nuevamente.');
             console.warn('Error cargando estaciones de Metro RM:', errorFinal);
         }
 
