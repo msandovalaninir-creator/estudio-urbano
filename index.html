@@ -293,6 +293,9 @@
                 <label for="radio-distancia-metro" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:10px;color:#cbd5e1;">Radio de cobertura <strong id="radio-distancia-metro-valor" style="color:#38bdf8;">400 m</strong></label>
                 <input id="radio-distancia-metro" type="range" min="200" max="2000" step="200" value="400" oninput="actualizarRadioMetro(this.value)" style="width:100%;accent-color:#38bdf8;">
                 <div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;"><span>200 m</span><span>1.000 m</span><span>2.000 m</span></div>
+                <label for="opacidad-relleno-radio-metro" style="display:flex;justify-content:space-between;gap:8px;margin-top:8px;font-size:10px;color:#cbd5e1;">Opacidad del relleno <strong id="opacidad-relleno-radio-metro-valor" style="color:#38bdf8;">9%</strong></label>
+                <input id="opacidad-relleno-radio-metro" type="range" min="0" max="60" step="1" value="9" oninput="actualizarEstiloRadiosMetro()" style="width:100%;accent-color:#38bdf8;">
+                <label for="color-borde-radio-metro" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px;font-size:10px;color:#cbd5e1;">Color del borde <input id="color-borde-radio-metro" type="color" value="#38bdf8" oninput="actualizarEstiloRadiosMetro()" style="width:38px;height:25px;padding:1px;border:1px solid #475569;border-radius:4px;background:#0f172a;cursor:pointer;"></label>
                 <div style="font-size:9px;color:#94a3b8;margin-top:5px;line-height:1.4;">Dibuja un círculo medido en metros alrededor de cada estación existente para identificar servicios y terrenos cercanos.</div>
             </div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0 7px 22px;font-size:10px;color:#cbd5e1;cursor:pointer;"><input type="checkbox" id="toggle-mostrar-demas-servicios-con-metro" onchange="sincronizarVisibilidadServiciosConMetro()" style="width:14px;height:14px;"> Mostrar también los demás servicios</label>
@@ -877,10 +880,10 @@
             const selector = esMetro
                 ? 'way["railway"="subway"]'
                 : definicionesInfraestructura[tipoConsulta].selector;
-            const query = '[out:json][timeout:18];(' + selector + '(' + bbox + '););out geom;';
+            const query = '[out:json][timeout:25];(' + selector + '(' + bbox + '););out geom;';
             for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
-                    const datos = await fetchOverpassConTiempo(endpoint, query, 16000);
+                    const datos = await fetchOverpassConTiempo(endpoint, query, 26000);
                     lineas = (datos.elements || []).filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1);
                     if (lineas.length) break;
                     errorFinal = new Error('La consulta no devolvió geometrías');
@@ -1027,14 +1030,22 @@
             estaciones.forEach(estacion => {
                 if (typeof estacion.getLatLng !== 'function') return;
                 const centro = estacion.getLatLng();
+                const colorBorde = document.getElementById('color-borde-radio-metro')?.value || '#38bdf8';
+                const opacidad = (Number(document.getElementById('opacidad-relleno-radio-metro')?.value ?? 9) || 0) / 100;
                 L.circle(centro, {
                     radius: radioMetroMetros,
-                    color: '#38bdf8', weight: 1.5, opacity: 0.9,
-                    fillColor: '#38bdf8', fillOpacity: 0.09,
+                    color: colorBorde, weight: 1.8, opacity: 0.95,
+                    fillColor: colorBorde, fillOpacity: opacidad,
                     interactive: false
                 }).bindTooltip(radioMetroMetros + ' m desde estación de Metro', {sticky:true}).addTo(capaRadiosMetro);
             });
             if (capaRadiosMetro.getLayers().length && !map.hasLayer(capaRadiosMetro)) capaRadiosMetro.addTo(map);
+        }
+        function actualizarEstiloRadiosMetro() {
+            const opacidad = Number(document.getElementById('opacidad-relleno-radio-metro')?.value ?? 9);
+            const etiqueta = document.getElementById('opacidad-relleno-radio-metro-valor');
+            if (etiqueta) etiqueta.textContent = opacidad + '%';
+            reconstruirRadiosMetro();
         }
         function actualizarRadioMetro(valor) {
             radioMetroMetros = Math.max(200, parseInt(valor, 10) || 400);
