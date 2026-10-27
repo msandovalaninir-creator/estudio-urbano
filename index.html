@@ -751,10 +751,10 @@
             metro: { titulo: 'líneas de Metro existentes', selector: 'way["railway"="subway"]', color: '#64748b', peso: 5, opacidad: .98 },
             // Aproximación cartográfica: OSM no siempre utiliza la clasificación normativa chilena.
             // Se consideran primary/secondary como ejes troncales y trunk/motorway como expresas.
-            troncal: { titulo: 'calles troncales (vías principales)', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link)$"]', color: '#f59e0b', peso: 5, opacidad: .98 },
-            bufferTroncal: { titulo: 'buffer visual de calles troncales', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link)$"]', color: '#fbbf24', peso: 20, opacidad: .24 },
-            expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(trunk|trunk_link|motorway|motorway_link)$"]', color: '#ef4444', peso: 5, opacidad: .98 },
-            bufferExpresa: { titulo: 'buffer visual de calles expresas', selector: 'way["highway"~"^(trunk|trunk_link|motorway|motorway_link)$"]', color: '#f87171', peso: 24, opacidad: .24 }
+            troncal: { titulo: 'calles troncales (vías principales)', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link)$"]', color: '#f59e0b', peso: 5, opacidad: .98 },
+            bufferTroncal: { titulo: 'buffer visual de calles troncales', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link)$"]', color: '#fbbf24', peso: 20, opacidad: .24 },
+            expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(trunk|trunk_link|motorway|motorway_link|primary|primary_link)$"]', color: '#ef4444', peso: 5, opacidad: .98 },
+            bufferExpresa: { titulo: 'buffer visual de calles expresas', selector: 'way["highway"~"^(trunk|trunk_link|motorway|motorway_link|primary|primary_link)$"]', color: '#f87171', peso: 24, opacidad: .24 }
         };
         function actualizarEstiloVias(tipo, valor) {
             const peso = Math.max(1, Math.min(14, Number(valor) || 5));
@@ -835,37 +835,9 @@
 
             // Las líneas actuales se cargan primero desde el GIS del MINVU. Si el servicio
             // institucional falla o bloquea CORS, se conserva la consulta original de Overpass.
-            if (tipo === 'metro') {
-                try {
-                    const geo = await consultarGeoJSONArcGIS(URL_GIS_METRO + '/1');
-                    geo.features.forEach(feature => {
-                        const geom = feature.geometry;
-                        if (!geom) return;
-                        const props = feature.properties || {};
-                        const linea = String(props.LINEA || props.linea || props.LINE || '');
-                        const nombre = String(props.NOMBRE || props.NAME || (linea ? 'Línea ' + linea : 'Línea de Metro'));
-                        const color = obtenerColorLineaMetro({ ref: 'L' + linea, name: nombre, colour: props.COLOUR || props.COLOR });
-                        const dibujar = coords => {
-                            if (!Array.isArray(coords) || coords.length < 2) return;
-                            capa.addLayer(L.polyline(coords.map(pt => [pt[1], pt[0]]), {
-                                color, weight: grosorLineasMetro, opacity: 0.98,
-                                lineCap: 'round', lineJoin: 'round'
-                            }).bindTooltip(escaparHTML(nombre), { sticky: true }));
-                        };
-                        if (geom.type === 'LineString') dibujar(geom.coordinates);
-                        else if (geom.type === 'MultiLineString') geom.coordinates.forEach(dibujar);
-                    });
-                    if (capa.getLayers().length) {
-                        estadoCargaInfraestructura[tipo] = 'lista';
-                        capa.addTo(map);
-                        return;
-                    }
-                    throw new Error('La capa GIS de trazados no contiene geometrías dibujables');
-                } catch (gisError) {
-                    console.warn('GIS MINVU para líneas Metro no disponible; se intentará Overpass:', gisError);
-                    capa.clearLayers();
-                }
-            }
+            // Las líneas existentes se obtienen de las relaciones de rutas de OSM para
+            // asignar el color oficial por línea. Se evita declarar éxito con un servicio GIS
+            // cuyo esquema no siempre coincide con los campos esperados.
 
             const b = map.getBounds();
             const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].join(',');
@@ -879,7 +851,7 @@
             let errorFinal = null;
             for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
-                    const datos = await fetchOverpassConTiempo(endpoint, query, tipo === 'metro' ? 18000 : 14000);
+                    const datos = await fetchOverpassConTiempo(endpoint, query, tipo === 'metro' ? 35000 : 25000);
                     const elementos = datos.elements || [];
                     let lineas;
                     let colorPorWay = new Map();
@@ -1833,10 +1805,10 @@
             btn.innerText = '⌛ Buscando líneas futuras...';
 
             // Buscar proyectos en toda la RM y no solo a 8 km del origen, para incluir los trazados completos.
-            let query = '[out:json][timeout:20];area["name"~"Región Metropolitana de Santiago|Region Metropolitana de Santiago|Región Metropolitana",i]["admin_level"="4"]->.rm;(way["railway"="construction"](area.rm);way["railway"="proposed"](area.rm);way["construction"~"subway|railway",i](area.rm);way["proposed"~"subway|railway",i](area.rm););out geom;';
+            let query = '[out:json][timeout:35];(way["railway"="construction"](-33.95,-71.95,-32.75,-69.65);way["railway"="proposed"](-33.95,-71.95,-32.75,-69.65);way["construction"~"subway|railway",i](-33.95,-71.95,-32.75,-69.65);way["proposed"~"subway|railway",i](-33.95,-71.95,-32.75,-69.65););out geom;';
             let res = null;
             for (const endpoint of ENDPOINTS_OVERPASS) {
-                try { res = { ok: true, ...(await fetchOverpassConTiempo(endpoint, query, 16000)) }; break; }
+                try { res = { ok: true, ...(await fetchOverpassConTiempo(endpoint, query, 30000)) }; break; }
                 catch (e) { console.warn('Consulta de futuras líneas falló:', e && e.message ? e.message : e); }
             }
             btn.disabled = false;
