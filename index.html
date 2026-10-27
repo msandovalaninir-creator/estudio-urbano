@@ -1026,18 +1026,36 @@
             capaRadiosMetro.clearLayers();
             const checkbox = document.getElementById('toggle-radios-metro');
             if (!checkbox || !checkbox.checked) return;
-            const estaciones = capaTodasEstacionesMetroRM.getLayers();
-            estaciones.forEach(estacion => {
+            const colorBorde = document.getElementById('color-borde-radio-metro')?.value || '#38bdf8';
+            const opacidad = (Number(document.getElementById('opacidad-relleno-radio-metro')?.value ?? 9) || 0) / 100;
+            const centros = new Map();
+            const agregarCentro = (latlng, nombre='Estación de Metro') => {
+                if (!latlng || !Number.isFinite(latlng.lat) || !Number.isFinite(latlng.lng)) return;
+                // Redondeo para evitar duplicar el mismo logo cuando coincide con la capa RM.
+                const key = latlng.lat.toFixed(5) + ',' + latlng.lng.toFixed(5);
+                if (!centros.has(key)) centros.set(key, {latlng, nombre});
+            };
+            // 1) Logos de todas las estaciones de la RM, si esa capa está cargada.
+            capaTodasEstacionesMetroRM.getLayers().forEach(estacion => {
                 if (typeof estacion.getLatLng !== 'function') return;
-                const centro = estacion.getLatLng();
-                const colorBorde = document.getElementById('color-borde-radio-metro')?.value || '#38bdf8';
-                const opacidad = (Number(document.getElementById('opacidad-relleno-radio-metro')?.value ?? 9) || 0) / 100;
-                L.circle(centro, {
+                const tooltip = estacion.getTooltip && estacion.getTooltip();
+                agregarCentro(estacion.getLatLng(), tooltip && tooltip.getContent ? tooltip.getContent() : 'Estación de Metro');
+            });
+            // 2) Logos individuales o agrupados obtenidos en una búsqueda/proyecto/KMZ.
+            // Solo usa marcadores cuya categoría sea Metro; ignora los demás servicios y dibujos.
+            if (typeof elementosMapeadosActivos !== 'undefined' && elementosMapeadosActivos) {
+                Object.values(elementosMapeadosActivos).forEach(item => {
+                    if (!item || String(item.catId || '').toLowerCase() !== 'metro' || !item.marker || typeof item.marker.getLatLng !== 'function') return;
+                    agregarCentro(item.marker.getLatLng(), item.name || 'Estación de Metro');
+                });
+            }
+            centros.forEach(({latlng, nombre}) => {
+                L.circle(latlng, {
                     radius: radioMetroMetros,
                     color: colorBorde, weight: 1.8, opacity: 0.95,
                     fillColor: colorBorde, fillOpacity: opacidad,
                     interactive: false
-                }).bindTooltip(radioMetroMetros + ' m desde estación de Metro', {sticky:true}).addTo(capaRadiosMetro);
+                }).bindTooltip(radioMetroMetros + ' m desde ' + nombre, {sticky:true}).addTo(capaRadiosMetro);
             });
             if (capaRadiosMetro.getLayers().length && !map.hasLayer(capaRadiosMetro)) capaRadiosMetro.addTo(map);
         }
@@ -2680,6 +2698,8 @@
                             img: r.img, 
                             em: r.em 
                         };
+                        // Si los radios están activos, incluir también esta estación Metro recién encontrada.
+                        if (String(r.catId || '').toLowerCase() === 'metro' && document.getElementById('toggle-radios-metro')?.checked) reconstruirRadiosMetro();
 
                         // Termina el trazado manual si estaba activo y se hace clic directo sobre
                         // este ícono (alternativa a usar el botón "Finalizar" del panel/banner).
