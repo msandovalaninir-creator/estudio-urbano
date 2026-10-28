@@ -249,6 +249,20 @@
 
     </style>
 <style>
+        .metro-selector-compacto{margin:4px 0 8px;padding:7px;border:1px solid #334155;border-radius:7px;background:rgba(2,6,23,.55);font-size:10px}
+        .metro-selector-head{display:flex;justify-content:space-between;align-items:center;gap:6px;color:#e2e8f0;font-weight:800;margin-bottom:5px}
+        .metro-leyenda{font-weight:600;color:#94a3b8;display:flex;gap:4px;align-items:center}.metro-leyenda b{display:inline-block;border:1px solid #64748b;border-radius:3px;padding:0 3px;color:#bae6fd}
+        .metro-selector-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-bottom:5px}
+        .metro-selector-actions button{margin:0!important;padding:5px 2px!important;font-size:9px!important;line-height:1.2;border-radius:4px!important;background:#1e293b;color:#dbeafe;border:1px solid #475569;cursor:pointer;min-width:0}
+        .metro-linea-grid{display:grid;grid-template-columns:1fr 28px 28px;gap:2px 4px;align-items:center}
+        .metro-linea-titulos,.metro-linea-row{display:contents}
+        .metro-linea-titulos>span{font-size:9px;color:#94a3b8;text-align:center;padding:2px 0;border-bottom:1px solid #334155}.metro-linea-titulos>span:first-child{text-align:left}
+        .metro-linea-row>span{display:flex;align-items:center;gap:6px;min-height:22px;color:#e2e8f0;font-size:10px}
+        .metro-linea-row i{display:inline-block;width:16px;height:4px;border-radius:3px;flex:none}
+        .metro-linea-row input{justify-self:center;width:14px;height:14px;margin:0;accent-color:#38bdf8;cursor:pointer}
+        #metro-selector-estado{font-size:9px;color:#94a3b8;margin-top:5px;line-height:1.3}
+        #control-panel .metro-selector-compacto~div label{font-size:10px!important}
+
         .metro-rm-station-icon { background: transparent !important; border: 0 !important; }
 </style>
 </head>
@@ -281,13 +295,27 @@
         <button id="btn-futuras-lineas-metro" onclick="conmutarFuturasLineasMetro()" style="width:100%; background:#1e293b; color:#f43f5e; border:1px solid #f43f5e; font-size:11px; font-weight:700; padding:9px; border-radius:6px; margin-bottom:10px; cursor:pointer;">🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)</button>
         <div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
             <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
-            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-metro-existente" onchange="conmutarCapaInfraestructura('metro',this.checked)"> <span style="color:#64748b">━</span> Líneas de Metro (colores por línea)</label>
-            <div style="margin:0 0 10px 22px;padding:7px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.7);">
+            <div class="metro-selector-compacto">
+                <div class="metro-selector-head"><span>Seleccionar por línea</span><span class="metro-leyenda"><b>T</b> trazado <b>E</b> estaciones</span></div>
+                <div class="metro-selector-actions"><button type="button" onclick="seleccionarMetroRapido('todo')">Todas</button><button type="button" onclick="seleccionarMetroRapido('trazados')">Solo trazados</button><button type="button" onclick="seleccionarMetroRapido('estaciones')">Solo estaciones</button><button type="button" onclick="seleccionarMetroRapido('nada')">Limpiar</button></div>
+                <div class="metro-linea-grid">
+                    <div class="metro-linea-titulos"><span>Línea</span><span>T</span><span>E</span></div>
+                    <div class="metro-linea-row"><span><i style="background:#e32119"></i>Línea 1</span><input aria-label="Trazado Línea 1" type="checkbox" id="metro-trazo-1" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 1" type="checkbox" id="metro-est-1" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#8cc63e"></i>Línea 2</span><input aria-label="Trazado Línea 2" type="checkbox" id="metro-trazo-2" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 2" type="checkbox" id="metro-est-2" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#6d398b"></i>Línea 3</span><input aria-label="Trazado Línea 3" type="checkbox" id="metro-trazo-3" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 3" type="checkbox" id="metro-est-3" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#005ca9"></i>Línea 4</span><input aria-label="Trazado Línea 4" type="checkbox" id="metro-trazo-4" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 4" type="checkbox" id="metro-est-4" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#f58220"></i>Línea 4A</span><input aria-label="Trazado Línea 4A" type="checkbox" id="metro-trazo-4a" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 4A" type="checkbox" id="metro-est-4a" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#00a8e0"></i>Línea 5</span><input aria-label="Trazado Línea 5" type="checkbox" id="metro-trazo-5" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 5" type="checkbox" id="metro-est-5" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#a7a9ac"></i>Línea 6</span><input aria-label="Trazado Línea 6" type="checkbox" id="metro-trazo-6" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 6" type="checkbox" id="metro-est-6" onchange="actualizarSeleccionMetro()"></div>
+                </div>
+                <div id="metro-selector-estado" role="status">Elige trazado y/o estaciones por separado.</div>
+            </div>
+            <div style="margin:0 0 7px 0;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.7);">
                 <label for="metro-grosor-lineas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;margin-bottom:5px;">Grosor de líneas actuales y futuras <strong id="metro-grosor-valor" style="color:#38bdf8;">6 px</strong></label>
                 <input type="range" id="metro-grosor-lineas" min="2" max="14" step="1" value="6" oninput="actualizarGrosorLineasMetro(this.value)" style="width:100%;accent-color:#38bdf8;cursor:pointer;">
                 <div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;"><span>Fino</span><span>Grueso</span></div>
             </div>
-            <label style="display:flex;align-items:center;gap:7px;margin:7px 0;padding:7px;border:1px solid #334155;border-radius:6px;background:rgba(30,41,59,.65);font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-todas-estaciones-metro-rm" onchange="conmutarTodasEstacionesMetroRM(this.checked)" style="width:15px;height:15px;"> <span style="color:#38bdf8">●</span> Mostrar TODAS las estaciones de Metro de la RM</label>
+            <input type="checkbox" id="toggle-todas-estaciones-metro-rm" onchange="conmutarTodasEstacionesMetroRM(this.checked)" style="display:none">
             <div style="margin:7px 0 9px 22px;padding:8px;border:1px solid #0e7490;border-radius:7px;background:rgba(8,47,73,.45);">
                 <label style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#bae6fd;cursor:pointer;"><input type="checkbox" id="toggle-radios-metro" onchange="conmutarRadiosMetro(this.checked)" style="width:15px;height:15px;"> ◉ Círculos de distancia desde cada estación</label>
                 <label for="radio-distancia-metro" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:10px;color:#cbd5e1;">Radio de cobertura <strong id="radio-distancia-metro-valor" style="color:#38bdf8;">400 m</strong></label>
@@ -730,7 +758,7 @@
             const etiqueta = document.getElementById('metro-grosor-valor');
             if (etiqueta) etiqueta.textContent = grosorLineasMetro + ' px';
             // Leaflet aplica el estilo a todas las polilíneas ya dibujadas, sin volver a consultar datos.
-            [capasInfraestructura?.metro, capaFuturasLineasMetro].forEach(capa => {
+            [capasInfraestructura?.metro, capaFuturasLineasMetro, ...Object.values(capasTrazadoMetroPorLinea || {})].forEach(capa => {
                 if (capa && typeof capa.eachLayer === 'function') {
                     capa.eachLayer(layer => { if (layer && typeof layer.setStyle === 'function') layer.setStyle({ weight: grosorLineasMetro }); });
                 }
@@ -863,29 +891,23 @@
             const b = map.getBounds();
             const bbox = esMetro ? '-33.95,-71.95,-32.75,-69.65' :
                 [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].join(',');
-            // Para las vías urbanas, intentar primero la clasificación normal y luego una
-            // consulta de respaldo más amplia. Algunos servidores Overpass omiten resultados
-            // al estar saturados o cuando la consulta regex estricta tarda demasiado.
             const query = esMetro
                 ? '[out:json][timeout:35];(way["railway"="subway"](' + bbox + ');relation["route"="subway"](' + bbox + '););out body;>;out geom;'
-                : '[out:json][timeout:45];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bbox + '););out geom;';
-            const queryRespaldoVias = !esMetro
-                ? '[out:json][timeout:45];way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|trunk|trunk_link|motorway|motorway_link)$"](' + bbox + ');out geom;'
-                : null;
+                : '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bbox + '););out geom;';
             let colorPorWay = new Map();
             let nombrePorWay = new Map();
-            const consultas = queryRespaldoVias ? [query, queryRespaldoVias] : [query];
-            for (const consultaActual of consultas) {
-              for (const endpoint of ENDPOINTS_OVERPASS) {
+            for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
-                    const datos = await fetchOverpassConTiempo(endpoint, consultaActual, esMetro ? 42000 : 50000);
-                    const elementos = Array.isArray(datos.elements) ? datos.elements : [];
+                    const datos = await fetchOverpassConTiempo(endpoint, query, esMetro ? 38000 : 26000);
+                    const elementos = datos.elements || [];
                     if (esMetro) {
                         elementos.filter(e => e.type === 'relation' && e.tags && e.tags.route === 'subway').forEach(rel => {
                             const tags = rel.tags || {};
                             const nombre = tags.name || tags.ref || tags.line || 'Línea de Metro';
                             const color = obtenerColorLineaMetro({...tags, name: nombre, ref: tags.ref || nombre});
                             (rel.members || []).filter(m => m.type === 'way').forEach(m => {
+                                // Si una vía pertenece a más de una relación, conservar la primera
+                                // línea identificada de forma específica.
                                 if (!colorPorWay.has(m.ref) || colorPorWay.get(m.ref) === '#64748b') colorPorWay.set(m.ref, color);
                                 if (!nombrePorWay.has(m.ref) || nombrePorWay.get(m.ref) === 'Línea de Metro') nombrePorWay.set(m.ref, nombre);
                             });
@@ -893,27 +915,18 @@
                         lineas = elementos.filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1 &&
                             (e.tags?.railway === 'subway' || colorPorWay.has(e.id)));
                     } else {
-                        // No depender de un solo campo de respuesta: exigir geometría utilizable
-                        // y filtrar por highway válido para impedir capas vacías o elementos raros.
-                        const vias = elementos.filter(e => e.type === 'way' && Array.isArray(e.geometry) && e.geometry.length > 1 && e.tags && e.tags.highway);
-                        lineas = vias.filter(e => {
-                            const h = String(e.tags.highway || '');
-                            if (tipoConsulta === 'troncal') return /^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link)$/.test(h);
-                            return /^(trunk|trunk_link|motorway|motorway_link|primary|primary_link)$/.test(h);
-                        });
+                        lineas = elementos.filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1);
                     }
                     if (lineas.length) break;
-                    errorFinal = new Error('Overpass respondió, pero no entregó vías con geometría dentro del mapa visible');
+                    errorFinal = new Error('La consulta no devolvió geometrías');
                 } catch (err) { errorFinal = err; }
-              }
-              if (lineas.length) break;
             }
 
             if (!lineas.length) {
                 estadoCargaInfraestructura[tipo] = null;
                 const cb = document.getElementById('toggle-' + ({metro:'metro-existente',troncal:'vias-troncales',bufferTroncal:'buffer-troncales',expresa:'vias-expresas',bufferExpresa:'buffer-expresas'}[tipo]));
                 if (cb) cb.checked = false;
-                alert('No fue posible cargar ' + definicion.titulo + '. Acerca el mapa a la zona que quieres analizar y vuelve a activar la capa. Si sigue fallando, el servidor OpenStreetMap/Overpass puede estar temporalmente saturado.');
+                alert('No fue posible cargar ' + definicion.titulo + '. Acerca el mapa a Santiago e inténtalo de nuevo. Si falla, el servidor de datos no respondió.');
                 console.warn('Error cargando capa de infraestructura:', errorFinal);
                 return;
             }
@@ -941,6 +954,102 @@
             }
             estadoCargaInfraestructura[tipo] = 'lista';
             capa.addTo(map);
+        }
+
+        // Selector independiente de trazados y estaciones por línea. Los datos GIS se cargan una sola vez.
+        const METRO_LINEAS_UI = ['1','2','3','4','4A','5','6'];
+        const METRO_COLORES_UI = {'1':'#e32119','2':'#8cc63e','3':'#6d398b','4':'#005ca9','4A':'#f58220','5':'#00a8e0','6':'#a7a9ac'};
+        const capasTrazadoMetroPorLinea = {};
+        const capasEstacionesMetroPorLinea = {};
+        let datosTrazadosMetroPorLinea = null;
+        let datosEstacionesMetroPorLinea = null;
+        let promesaCargaDatosMetro = null;
+        METRO_LINEAS_UI.forEach(linea => { capasTrazadoMetroPorLinea[linea]=L.layerGroup(); capasEstacionesMetroPorLinea[linea]=L.layerGroup(); });
+
+        function normalizarLineaMetro(valor) {
+            const v=String(valor ?? '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/LINEA|LINE|METRO|L\s*/g,'').replace(/[^0-9A-Z]/g,'');
+            if (v==='4A' || v==='A4') return '4A';
+            const m=v.match(/[1-6]/); return m ? m[0] : '';
+        }
+        function lineaDesdeAtributosMetro(props={}) {
+            for (const k of ['LINEA','Linea','linea','LINE','line','REF','ref','NOMBRE','Nombre','name']) {
+                if (props[k] != null) { const l=normalizarLineaMetro(props[k]); if (METRO_LINEAS_UI.includes(l)) return l; }
+            }
+            return '';
+        }
+        async function asegurarDatosMetroPorLinea() {
+            if (datosTrazadosMetroPorLinea && datosEstacionesMetroPorLinea) return;
+            if (promesaCargaDatosMetro) return promesaCargaDatosMetro;
+            promesaCargaDatosMetro=(async()=>{
+                const [trazos, estaciones]=await Promise.all([
+                    consultarGeoJSONArcGIS(URL_GIS_METRO+'/1',22000),
+                    consultarGeoJSONArcGIS(URL_GIS_METRO+'/0',22000)
+                ]);
+                datosTrazadosMetroPorLinea={}; datosEstacionesMetroPorLinea={};
+                METRO_LINEAS_UI.forEach(l=>{datosTrazadosMetroPorLinea[l]=[];datosEstacionesMetroPorLinea[l]=[];});
+                (trazos.features||[]).forEach(f=>{const l=lineaDesdeAtributosMetro(f.properties||{});if(l&&f.geometry)datosTrazadosMetroPorLinea[l].push(f);});
+                (estaciones.features||[]).forEach(f=>{const l=lineaDesdeAtributosMetro(f.properties||{});if(l&&f.geometry)datosEstacionesMetroPorLinea[l].push(f);});
+                if (!METRO_LINEAS_UI.some(l=>datosTrazadosMetroPorLinea[l].length) || !METRO_LINEAS_UI.some(l=>datosEstacionesMetroPorLinea[l].length)) throw new Error('La fuente GIS no entregó trazados y estaciones clasificables por línea.');
+            })().catch(err=>{promesaCargaDatosMetro=null;throw err;});
+            return promesaCargaDatosMetro;
+        }
+        function dibujarTrazadoMetroLinea(linea) {
+            const capa=capasTrazadoMetroPorLinea[linea]; if(capa.getLayers().length) return;
+            (datosTrazadosMetroPorLinea?.[linea]||[]).forEach(f=>{
+                const props=f.properties||{}, g=f.geometry; const nombre=String(props.NOMBRE||props.Nombre||props.name||('Línea '+linea));
+                const color=METRO_COLORES_UI[linea]||obtenerColorLineaMetro({name:nombre,ref:linea});
+                L.geoJSON(f,{style:{color,weight:grosorLineasMetro,opacity:.98,lineCap:'round',lineJoin:'round'},onEachFeature:(_feature,layer)=>layer.bindTooltip(escaparHTML(nombre),{sticky:true})}).addTo(capa);
+            });
+        }
+        function dibujarEstacionesMetroLinea(linea) {
+            const capa=capasEstacionesMetroPorLinea[linea]; if(capa.getLayers().length) return;
+            const config=CONFIG_SERVICIOS_PREDEFINIDOS.find(servicio=>servicio.id==='metro');
+            const tam=Math.max(16,Math.min(64,parseInt(document.getElementById('global-icon-size-slider')?.value,10)||30));
+            const icono=config?construirIconoServicio(config.img,config.em||'🚇',tam):construirIconoServicio(null,'🚇',tam);
+            (datosEstacionesMetroPorLinea?.[linea]||[]).forEach(f=>{
+                const g=f.geometry, p=f.properties||{}; if(!g) return;
+                const nombre=String(p.NOMBRE||p.Nombre||p.name||'Estación de Metro');
+                const add=(xy)=>L.marker([xy[1],xy[0]],{icon:icono,keyboard:false}).bindTooltip(escaparHTML(nombre+' · Línea '+linea),{direction:'top',offset:[0,-7]}).addTo(capa);
+                if(g.type==='Point')add(g.coordinates); else if(g.type==='MultiPoint')g.coordinates.forEach(add);
+            });
+        }
+        async function actualizarSeleccionMetro() {
+            const estado=document.getElementById('metro-selector-estado');
+            const seleccion=METRO_LINEAS_UI.flatMap(l=>[
+                {linea:l,tipo:'trazo',activo:!!document.getElementById('metro-trazo-'+l.toLowerCase())?.checked},
+                {linea:l,tipo:'est',activo:!!document.getElementById('metro-est-'+l.toLowerCase())?.checked}
+            ]);
+            const activos=seleccion.filter(x=>x.activo);
+            Object.values(capasTrazadoMetroPorLinea).forEach(c=>{if(map.hasLayer(c))map.removeLayer(c);});
+            Object.values(capasEstacionesMetroPorLinea).forEach(c=>{if(map.hasLayer(c))map.removeLayer(c);});
+            if(!activos.length){if(estado)estado.textContent='Sin capas Metro seleccionadas.';sincronizarVisibilidadServiciosConMetro();return;}
+            if(estado)estado.textContent='Cargando trazados y estaciones oficiales…';
+            try {
+                await asegurarDatosMetroPorLinea();
+                activos.forEach(x=>{
+                    if(x.tipo==='trazo'){dibujarTrazadoMetroLinea(x.linea);capasTrazadoMetroPorLinea[x.linea].addTo(map);}
+                    else {dibujarEstacionesMetroLinea(x.linea);capasEstacionesMetroPorLinea[x.linea].addTo(map);}
+                });
+                const resumen=METRO_LINEAS_UI.filter(l=>document.getElementById('metro-trazo-'+l.toLowerCase())?.checked||document.getElementById('metro-est-'+l.toLowerCase())?.checked).map(l=>{
+                    const t=document.getElementById('metro-trazo-'+l.toLowerCase())?.checked, e=document.getElementById('metro-est-'+l.toLowerCase())?.checked;
+                    return 'L'+l+(t&&e?' trazado+estaciones':t?' trazado':' estaciones');
+                });
+                if(estado)estado.textContent=resumen.join(' · ')+' | Selección aplicada.';
+                sincronizarVisibilidadServiciosConMetro();
+                if(document.getElementById('toggle-radios-metro')?.checked) reconstruirRadiosMetro();
+            } catch(err) {
+                console.error('No se pudo cargar el selector Metro por línea:',err);
+                if(estado)estado.textContent='No se pudo cargar la capa oficial. Prueba nuevamente; el resto del mapa no se modifica.';
+                alert('No fue posible cargar las capas oficiales de Metro por línea. Revisa tu conexión e inténtalo de nuevo.');
+            }
+        }
+        function seleccionarMetroRapido(modo) {
+            METRO_LINEAS_UI.forEach(l=>{
+                const t=document.getElementById('metro-trazo-'+l.toLowerCase()), e=document.getElementById('metro-est-'+l.toLowerCase());
+                if(t)t.checked=modo==='todo'||modo==='trazados';
+                if(e)e.checked=modo==='todo'||modo==='estaciones';
+            });
+            actualizarSeleccionMetro();
         }
 
         // Capa independiente del radio de análisis: estaciones de Metro de toda la Región Metropolitana.
@@ -1062,6 +1171,15 @@
                     agregarCentro(estacion.getLatLng(), tooltip && tooltip.getContent ? tooltip.getContent() : 'Estación de Metro');
                 });
             }
+            // Las estaciones activadas desde el selector por línea también cuentan para los radios.
+            Object.entries(capasEstacionesMetroPorLinea || {}).forEach(([linea,capa]) => {
+                if (!map.hasLayer(capa)) return;
+                capa.getLayers().forEach(estacion => {
+                    if (typeof estacion.getLatLng !== 'function') return;
+                    const tooltip=estacion.getTooltip && estacion.getTooltip();
+                    agregarCentro(estacion.getLatLng(), tooltip && tooltip.getContent ? tooltip.getContent() : 'Estación de Metro · Línea '+linea);
+                });
+            });
             // Agrega solo marcadores de Metro de búsquedas/proyectos/KMZ que estén actualmente en el mapa.
             if (typeof elementosMapeadosActivos !== 'undefined' && elementosMapeadosActivos) {
                 Object.values(elementosMapeadosActivos).forEach(item => {
@@ -1102,7 +1220,7 @@
             // únicamente a los marcadores de Metro que el usuario decidió mostrar.
             reconstruirRadiosMetro();
             if (!capaRadiosMetro.getLayers().length) {
-                alert('No hay estaciones de Metro visibles para dibujar círculos. Muestra una búsqueda/proyecto con estaciones de Metro o activa “Mostrar TODAS las estaciones de Metro de la RM”.');
+                alert('No hay estaciones de Metro visibles para dibujar círculos. Activa estaciones en el selector por línea o muestra una búsqueda/proyecto con estaciones de Metro.');
             }
         }
 
