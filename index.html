@@ -744,7 +744,7 @@
                 tags['railway:construction'], tags.route, tags.network]
                 .filter(v => v !== undefined && v !== null && String(v).trim() !== '')
                 .map(v => String(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
-            const texto = valores.join(' ');
+            const texto = valores.join(' ').replace(/\blinea\s*([1-9])\b/g, ' l$1 ').replace(/\bline\s*([1-9])\b/g, ' l$1 ');
             // Si la fuente entrega un color hexadecimal válido, se respeta.
             const explicito = String(tags.colour || tags['colour:line'] || tags['colour:route'] || tags.COLOUR || tags.COLOR || '').trim();
             if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(explicito)) return explicito;
@@ -757,9 +757,9 @@
                 { patron: /(?:^|[^a-z0-9])(?:l\s*4|linea\s*4|line\s*4|linea4|line4)(?:$|[^a-z0-9])/, color: '#0067a5' },
                 { patron: /(?:^|[^a-z0-9])(?:l\s*5|linea\s*5|line\s*5|linea5|line5)(?:$|[^0-9])/, color: '#008c45' },
                 { patron: /(?:^|[^a-z0-9])(?:l\s*6|linea\s*6|line\s*6|linea6|line6)(?:$|[^0-9])/, color: '#7b2d8e' },
-                { patron: /(?:^|[^a-z0-9])(?:l\s*7|linea\s*7|line\s*7|linea7|line7)(?:$|[^0-9])/, color: '#8b1e8c' },
-                { patron: /(?:^|[^a-z0-9])(?:l\s*8|linea\s*8|line\s*8|linea8|line8)(?:$|[^0-9])/, color: '#f58220' },
-                { patron: /(?:^|[^a-z0-9])(?:l\s*9|linea\s*9|line\s*9|linea9|line9)(?:$|[^0-9])/, color: '#d4b900' }
+                { patron: /(?:^|[^a-z0-9])(?:l\s*[- ]?7|linea\s*7|line\s*7|linea7|line7|metro\s*7)(?:$|[^0-9])/, color: '#8b1e8c' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*[- ]?8|linea\s*8|line\s*8|linea8|line8|metro\s*8)(?:$|[^0-9])/, color: '#f58220' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*[- ]?9|linea\s*9|line\s*9|linea9|line9|metro\s*9)(?:$|[^0-9])/, color: '#d4b900' }
             ];
             const encontrada = colores.find(item => item.patron.test(texto));
             return encontrada ? encontrada.color : '#64748b';
@@ -857,41 +857,38 @@
             let lineas = [];
             let errorFinal = null;
 
-            // 1) Metro: fuente institucional de trazado. Evita una consulta Overpass gigante
-            // de toda la RM; el atributo LINEA permite conservar el color de cada línea.
-            if (esMetro) {
-                const urlMetro = 'https://geoide.minvu.cl/server2/rest/services/INFORMACION_EXTERNA/Metro/MapServer/1';
-                try {
-                    const geo = await consultarGeoJSONArcGIS(urlMetro, 16000);
-                    const feats = (geo.features || []).filter(f => f.geometry &&
-                        (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString'));
-                    feats.forEach(f => {
-                        const props = f.properties || {};
-                        const nombre = props.LINEA || props.linea || props.NOMBRE || props.NOMBRE_LINEA || 'Metro';
-                        const color = obtenerColorLineaMetro({...props, name: String(nombre), ref: String(nombre), colour: props.COLOUR || props.COLOR || props.colour || ''});
-                        L.geoJSON(f, {style: {color, weight: grosorLineasMetro, opacity: .98, lineCap:'round', lineJoin:'round'}})
-                            .bindTooltip(escaparHTML(String(nombre)), {sticky:true}).addTo(capa);
-                    });
-                    if (capa.getLayers().length) {
-                        estadoCargaInfraestructura[tipo] = 'lista';
-                        capa.addTo(map);
-                        return;
-                    }
-                } catch (err) { errorFinal = err; console.warn('Trazado GIS Metro no disponible; respaldo Overpass:', err); }
-            }
-
-            // 2) Vías y respaldo de Metro: consulta solo el área visible para reducir tiempos y
-            // evitar pedir todas las geometrías de la RM en una sola respuesta.
+            // Metro: usar relaciones route=subway de OpenStreetMap para asociar cada tramo
+            // a su línea. La capa GIS anterior devolvía geometrías, pero sus atributos no
+            // identificaban de forma consistente la línea y por eso quedaban grises.
             const b = map.getBounds();
-            const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].join(',');
-            const selector = esMetro
-                ? 'way["railway"="subway"]'
-                : definicionesInfraestructura[tipoConsulta].selector;
-            const query = '[out:json][timeout:25];(' + selector + '(' + bbox + '););out geom;';
+            const bbox = esMetro ? '-33.95,-71.95,-32.75,-69.65' :
+                [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].join(',');
+            const query = esMetro
+                ? '[out:json][timeout:35];(way["railway"="subway"](' + bbox + ');relation["route"="subway"](' + bbox + '););out body;>;out geom;'
+                : '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bbox + '););out geom;';
+            let colorPorWay = new Map();
+            let nombrePorWay = new Map();
             for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
-                    const datos = await fetchOverpassConTiempo(endpoint, query, 26000);
-                    lineas = (datos.elements || []).filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1);
+                    const datos = await fetchOverpassConTiempo(endpoint, query, esMetro ? 38000 : 26000);
+                    const elementos = datos.elements || [];
+                    if (esMetro) {
+                        elementos.filter(e => e.type === 'relation' && e.tags && e.tags.route === 'subway').forEach(rel => {
+                            const tags = rel.tags || {};
+                            const nombre = tags.name || tags.ref || tags.line || 'Línea de Metro';
+                            const color = obtenerColorLineaMetro({...tags, name: nombre, ref: tags.ref || nombre});
+                            (rel.members || []).filter(m => m.type === 'way').forEach(m => {
+                                // Si una vía pertenece a más de una relación, conservar la primera
+                                // línea identificada de forma específica.
+                                if (!colorPorWay.has(m.ref) || colorPorWay.get(m.ref) === '#64748b') colorPorWay.set(m.ref, color);
+                                if (!nombrePorWay.has(m.ref) || nombrePorWay.get(m.ref) === 'Línea de Metro') nombrePorWay.set(m.ref, nombre);
+                            });
+                        });
+                        lineas = elementos.filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1 &&
+                            (e.tags?.railway === 'subway' || colorPorWay.has(e.id)));
+                    } else {
+                        lineas = elementos.filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1);
+                    }
                     if (lineas.length) break;
                     errorFinal = new Error('La consulta no devolvió geometrías');
                 } catch (err) { errorFinal = err; }
@@ -918,8 +915,8 @@
                 lineas.forEach(e => {
                     const coords = e.geometry.map(pt => [pt.lat, pt.lon]);
                     const tags = e.tags || {};
-                    const color = esMetro ? obtenerColorLineaMetro(tags) : definicionColor;
-                    const nombre = esMetro ? (tags.name || tags.ref || 'Línea de Metro') : (tags.name || tags.ref || definicion.titulo);
+                    const color = esMetro ? (colorPorWay.get(e.id) || obtenerColorLineaMetro(tags)) : definicionColor;
+                    const nombre = esMetro ? (nombrePorWay.get(e.id) || tags.name || tags.ref || 'Línea de Metro') : (tags.name || tags.ref || definicion.titulo);
                     L.polyline(coords, {
                         color, weight: esMetro ? grosorLineasMetro : grosoresViasPx[tipoConsulta],
                         opacity: definicion.opacidad, lineCap:'round', lineJoin:'round',
