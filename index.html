@@ -841,6 +841,64 @@
             const capa = capasInfraestructura[tipo];
             if (capa) capa.eachLayer(layer => { if (layer && layer.setStyle) layer.setStyle({ weight: peso }); });
         }
+        // Une tramos viales contiguos de GIS/OSM cuando sus extremos coinciden o están
+        // separados por un pequeño error de digitalización. Esto evita que los buffers
+        // parezcan una sucesión de piezas independientes.
+        function unirSegmentosViales(entradas, toleranciaMetros = 22) {
+            const segmentos = (entradas || []).map((v, i) => ({
+                id: v.id ?? ('via_' + i), tags: v.tags || {},
+                geometry: (v.geometry || []).map(p => ({lat:Number(p.lat), lon:Number(p.lon)}))
+                    .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon))
+            })).filter(v => v.geometry.length >= 2);
+            const distanciaM = (a,b) => {
+                const rad = Math.PI / 180, y = (b.lat-a.lat)*111320;
+                const x = (b.lon-a.lon)*111320*Math.cos((a.lat+b.lat)*Math.PI/360);
+                return Math.sqrt(x*x+y*y);
+            };
+            const familia = h => /^(motorway|motorway_link|trunk|trunk_link)$/.test(h || '') ? 'expresa' :
+                /^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link)$/.test(h || '') ? 'arterial' : (h || '');
+            const compatibles = (a,b) => {
+                const fa=familia(a.tags.highway), fb=familia(b.tags.highway);
+                if (fa && fb && fa !== fb) return false;
+                const na=String(a.tags.name || '').trim().toLowerCase(), nb=String(b.tags.name || '').trim().toLowerCase();
+                return !na || !nb || na === nb;
+            };
+            // Elimina duplicados exactos antes de unir extremos, evitando que una misma vía
+            // recibida por las dos fuentes GIS/OSM se dibuje dos veces.
+            const unique=[], seen=new Set();
+            for (const seg of segmentos) {
+                const a=seg.geometry[0], z=seg.geometry[seg.geometry.length-1];
+                const fmt=p=>Number(p.lat).toFixed(5)+','+Number(p.lon).toFixed(5);
+                const ends=[fmt(a),fmt(z)].sort().join('|');
+                const sig=familia(seg.tags.highway)+'|'+String(seg.tags.name||'').trim().toLowerCase()+'|'+ends+'|'+seg.geometry.length;
+                if (seen.has(sig)) continue;
+                seen.add(sig); unique.push(seg);
+            }
+            const usados=new Set(), resultado=[];
+            for (let i=0;i<unique.length;i++) {
+                if (usados.has(i)) continue;
+                usados.add(i);
+                const cadena={id:unique[i].id, tags:{...unique[i].tags}, geometry:unique[i].geometry.slice()};
+                let cambio=true, vueltas=0;
+                while(cambio && vueltas++ < unique.length) {
+                    cambio=false;
+                    const ini=cadena.geometry[0], fin=cadena.geometry[cadena.geometry.length-1];
+                    for(let j=0;j<unique.length;j++) {
+                        if(usados.has(j) || !compatibles(cadena,unique[j])) continue;
+                        const g=unique[j].geometry, a=g[0], z=g[g.length-1];
+                        if(distanciaM(fin,a)<=toleranciaMetros) cadena.geometry.push(...g.slice(1));
+                        else if(distanciaM(fin,z)<=toleranciaMetros) cadena.geometry.push(...g.slice(0,-1).reverse());
+                        else if(distanciaM(ini,z)<=toleranciaMetros) cadena.geometry.unshift(...g.slice(0,-1));
+                        else if(distanciaM(ini,a)<=toleranciaMetros) cadena.geometry.unshift(...g.slice(1).reverse());
+                        else continue;
+                        usados.add(j); cambio=true; break;
+                    }
+                }
+                resultado.push(cadena);
+            }
+            return resultado;
+        }
+
         function dibujarBufferVias(tipo) {
             const capa = capasInfraestructura[tipo];
             if (!capa) return;
@@ -1062,6 +1120,11 @@
                 return;
             }
 
+            if (!esMetro && (tipoConsulta === 'troncal' || tipoConsulta === 'expresa')) {
+                const cantidadOriginal = lineas.length;
+                lineas = unirSegmentosViales(lineas, 22);
+                console.info('Continuidad vial: segmentos conectados', {originales:cantidadOriginal, cadenasContinuas:lineas.length});
+            }
             if (tipoConsulta === 'troncal' || tipoConsulta === 'expresa') {
                 datosViasInfraestructura[tipoConsulta] = lineas.map(e => ({id:e.id, geometry:e.geometry, tags:e.tags || {}}));
             }
