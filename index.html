@@ -366,9 +366,9 @@
             </div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-buffer-troncales" onchange="conmutarCapaInfraestructura('bufferTroncal',this.checked)"> <span style="color:#fbbf24">━━</span> Buffer de calles troncales</label>
             <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
-                <label for="ancho-buffer-troncales" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Ancho total del buffer <strong id="ancho-buffer-troncales-valor">400 m</strong></label>
-                <input type="range" id="ancho-buffer-troncales" min="50" max="2000" step="50" value="400" oninput="actualizarAnchoBuffer('bufferTroncal',this.value)" style="width:100%;accent-color:#fbbf24;">
-                <div style="font-size:9px;color:#94a3b8;">200 m a cada lado del eje</div>
+                <label for="ancho-buffer-troncales" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Ancho total del buffer <strong id="ancho-buffer-troncales-valor">200 m</strong></label>
+                <input type="range" id="ancho-buffer-troncales" min="50" max="2000" step="50" value="200" oninput="actualizarAnchoBuffer('bufferTroncal',this.value)" style="width:100%;accent-color:#fbbf24;">
+                <div style="font-size:9px;color:#94a3b8;">100 m a cada lado del eje (200 m total)</div>
             </div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-expresas" onchange="conmutarCapaInfraestructura('expresa',this.checked)"> <span style="color:#ef4444">━</span> Calles expresas / autopistas</label>
             <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
@@ -379,7 +379,7 @@
             <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
                 <label for="ancho-buffer-expresas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Ancho total del buffer <strong id="ancho-buffer-expresas-valor">400 m</strong></label>
                 <input type="range" id="ancho-buffer-expresas" min="50" max="3000" step="50" value="400" oninput="actualizarAnchoBuffer('bufferExpresa',this.value)" style="width:100%;accent-color:#f87171;">
-                <div style="font-size:9px;color:#94a3b8;">200 m a cada lado del eje</div>
+                <div style="font-size:9px;color:#94a3b8;">200 m a cada lado del eje (400 m total)</div>
             </div>
             <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Las líneas de color siguen la geometría completa de cada vía consultada dentro del área visible. Troncales: vías primary/secondary; expresas: trunk/motorway según OpenStreetMap. Los buffers se miden en metros desde el eje de cada vía (mitad del ancho por lado); son franjas cartográficas referenciales, no áreas normativas oficiales.</div>
         </div>
@@ -779,7 +779,7 @@
         };
         const estadoCargaInfraestructura = {};
         const datosViasInfraestructura = { troncal: [], expresa: [] };
-        const anchosBufferMetros = { bufferTroncal: 400, bufferExpresa: 400 };
+        const anchosBufferMetros = { bufferTroncal: 200, bufferExpresa: 400 };
         const grosoresViasPx = { troncal: 5, expresa: 5 };
         // Colores oficiales aproximados de las líneas de Metro de Santiago.
         // Se infiere la línea usando etiquetas OSM como colour, colour:*, ref o name.
