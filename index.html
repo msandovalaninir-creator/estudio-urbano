@@ -772,7 +772,7 @@
         vigilarErroresTiles(capaSateliteEsri, 'satélite');
 
         // Capas opcionales de infraestructura existente. Se consultan al activar y se reutilizan
-        // durante la sesión para evitar solicitudes innecesarias a Overpass.
+        // durante la sesión; calles primero usan GIS y Overpass queda como respaldo.
         const capasInfraestructura = {
             metro: L.layerGroup(), troncal: L.layerGroup(), bufferTroncal: L.layerGroup(),
             expresa: L.layerGroup(), bufferExpresa: L.layerGroup()
@@ -901,6 +901,51 @@
             } finally { clearTimeout(timer); }
         }
 
+
+        // Consulta vial GIS con geometría limitada al área visible del mapa.
+        // Se usa primero porque Overpass puede tardar o rechazar consultas grandes.
+        async function consultarViasGIS(tipoConsulta) {
+            const bounds = map.getBounds();
+            const west = bounds.getWest(), south = bounds.getSouth(), east = bounds.getEast(), north = bounds.getNorth();
+            const highway = tipoConsulta === 'troncal'
+                ? "'primary','primary_link','secondary','secondary_link','tertiary','tertiary_link'"
+                : "'trunk','trunk_link','motorway','motorway_link','primary','primary_link'";
+            const url = 'https://services6.arcgis.com/Do88DoK2xjTUCXd1/ArcGIS/rest/services/OSM_SA_Highways/FeatureServer/0/query';
+            const params = new URLSearchParams({
+                where: 'highway IN (' + highway + ')',
+                outFields: 'OBJECTID,highway,name,ref',
+                returnGeometry: 'true', outSR: '4326', f: 'geojson',
+                geometry: JSON.stringify({xmin:west,ymin:south,xmax:east,ymax:north,spatialReference:{wkid:4326}}),
+                geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+                resultRecordCount: '2000'
+            });
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 18000);
+            try {
+                const response = await fetch(url + '?' + params.toString(), {mode:'cors',cache:'no-store',signal:controller.signal});
+                if (!response.ok) throw new Error('GIS vial HTTP ' + response.status);
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message || 'Error GIS vial');
+                const features = Array.isArray(data.features) ? data.features : [];
+                const result = [];
+                for (const f of features) {
+                    const props = f.properties || {};
+                    const geom = f.geometry;
+                    if (!geom) continue;
+                    const groups = geom.type === 'LineString' ? [geom.coordinates] : (geom.type === 'MultiLineString' ? geom.coordinates : []);
+                    for (const group of groups) {
+                        if (!Array.isArray(group) || group.length < 2) continue;
+                        result.push({type:'way',id:props.OBJECTID || (props.name || '') + '_' + result.length,
+                            tags:{highway:props.highway || '',name:props.name || '',ref:props.ref || ''},
+                            geometry:group.map(c => ({lon:Number(c[0]),lat:Number(c[1])})).filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lon))});
+                    }
+                }
+                const valid = result.filter(x => x.geometry.length > 1);
+                if (!valid.length) throw new Error('El GIS vial no devolvió calles para esta vista');
+                return valid;
+            } finally { clearTimeout(timer); }
+        }
+
         async function conmutarCapaInfraestructura(tipo, visible) {
             const capa = capasInfraestructura[tipo];
             const definicion = definicionesInfraestructura[tipo];
@@ -928,7 +973,12 @@
                 : '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bbox + '););out geom;';
             let colorPorWay = new Map();
             let nombrePorWay = new Map();
-            for (const endpoint of ENDPOINTS_OVERPASS) {
+            // Para calles y buffers, priorizar el servicio GIS vial y dejar Overpass como respaldo.
+            if (!esMetro) {
+                try { lineas = await consultarViasGIS(tipoConsulta); }
+                catch (errGIS) { errorFinal = errGIS; console.warn('GIS vial no disponible; se intenta Overpass:', errGIS); }
+            }
+            if (!lineas.length) for (const endpoint of ENDPOINTS_OVERPASS) {
                 try {
                     const datos = await fetchOverpassConTiempo(endpoint, query, esMetro ? 38000 : 26000);
                     const elementos = datos.elements || [];
@@ -958,7 +1008,7 @@
                 estadoCargaInfraestructura[tipo] = null;
                 const cb = document.getElementById('toggle-' + ({metro:'metro-existente',troncal:'vias-troncales',bufferTroncal:'buffer-troncales',expresa:'vias-expresas',bufferExpresa:'buffer-expresas'}[tipo]));
                 if (cb) cb.checked = false;
-                alert('No fue posible cargar ' + definicion.titulo + '. Acerca el mapa a Santiago e inténtalo de nuevo. Si falla, el servidor de datos no respondió.');
+                alert('No fue posible cargar ' + definicion.titulo + '. Se intentó el servicio GIS y el respaldo de OpenStreetMap. Comprueba tu conexión, acerca el mapa a Santiago y vuelve a intentarlo.');
                 console.warn('Error cargando capa de infraestructura:', errorFinal);
                 return;
             }
