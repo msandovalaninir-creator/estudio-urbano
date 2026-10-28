@@ -863,12 +863,9 @@
             const b = map.getBounds();
             const bbox = esMetro ? '-33.95,-71.95,-32.75,-69.65' :
                 [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].join(',');
-            // IMPORTANTE: mantener intacta la consulta de Metro que ya funcionaba.
-            // Para las calles, consultar las vías etiquetadas highway y clasificarlas localmente;
-            // evita depender de regex/filtros Overpass que a veces devuelven cero resultados.
             const query = esMetro
                 ? '[out:json][timeout:35];(way["railway"="subway"](' + bbox + ');relation["route"="subway"](' + bbox + '););out body;>;out geom;'
-                : '[out:json][timeout:35];way["highway"](' + bbox + ');out geom;';
+                : '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bbox + '););out geom;';
             let colorPorWay = new Map();
             let nombrePorWay = new Map();
             for (const endpoint of ENDPOINTS_OVERPASS) {
@@ -890,10 +887,7 @@
                         lineas = elementos.filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1 &&
                             (e.tags?.railway === 'subway' || colorPorWay.has(e.id)));
                     } else {
-                        const clases = tipoConsulta === 'troncal'
-                            ? new Set(['primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link'])
-                            : new Set(['trunk', 'trunk_link', 'motorway', 'motorway_link', 'primary', 'primary_link']);
-                        lineas = elementos.filter(e => e.type === 'way' && Array.isArray(e.geometry) && e.geometry.length > 1 && e.tags && clases.has(String(e.tags.highway || '').toLowerCase()));
+                        lineas = elementos.filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1);
                     }
                     if (lineas.length) break;
                     errorFinal = new Error('La consulta no devolvió geometrías');
