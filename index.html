@@ -737,23 +737,30 @@
             });
         }
         function obtenerColorLineaMetro(tags = {}) {
-            const texto = [tags.colour, tags['colour:line'], tags['colour:route'], tags.ref, tags.line, tags.name, tags.description, tags.construction, tags.proposed, tags['railway:construction']]
-                .filter(Boolean).join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            const colores = [
-                { patron: /(^|[^a-z0-9])l\s*4\s*a([^a-z0-9]|$)|linea\s*4\s*a|linea 4a/, color: '#00a6d6' },
-                { patron: /(^|[^a-z0-9])l\s*1([^0-9]|$)|linea\s*1|linea 1/, color: '#e2231a' },
-                { patron: /(^|[^a-z0-9])l\s*2([^0-9]|$)|linea\s*2|linea 2/, color: '#f4d21f' },
-                { patron: /(^|[^a-z0-9])l\s*3([^0-9]|$)|linea\s*3|linea 3/, color: '#8b6f47' },
-                { patron: /(^|[^a-z0-9])l\s*4([^a-z0-9]|$)|linea\s*4|linea 4/, color: '#0067a5' },
-                { patron: /(^|[^a-z0-9])l\s*5([^0-9]|$)|linea\s*5|linea 5/, color: '#008c45' },
-                { patron: /(^|[^a-z0-9])l\s*6([^0-9]|$)|linea\s*6|linea 6/, color: '#7b2d8e' },
-                // Colores diferenciados para proyectos futuros (referenciales, ajustables si Metro publica la identidad definitiva).
-                { patron: /(^|[^a-z0-9])l\s*7([^0-9]|$)|linea\s*7|linea 7/, color: '#f58220' },
-                { patron: /(^|[^a-z0-9])l\s*8([^0-9]|$)|linea\s*8|linea 8/, color: '#a64ca6' },
-                { patron: /(^|[^a-z0-9])l\s*9([^0-9]|$)|linea\s*9|linea 9/, color: '#d4b900' }
-            ];
-            const explicito = String(tags.colour || tags['colour:line'] || tags['colour:route'] || '').trim();
+            // Normaliza nombres procedentes de MINVU, OSM y trazados futuros.
+            const valores = [tags.colour, tags['colour:line'], tags['colour:route'], tags.ref,
+                tags.line, tags.LINEA, tags.linea, tags.NOMBRE_LINEA, tags.NOMBRE,
+                tags.name, tags.description, tags.construction, tags.proposed,
+                tags['railway:construction'], tags.route, tags.network]
+                .filter(v => v !== undefined && v !== null && String(v).trim() !== '')
+                .map(v => String(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+            const texto = valores.join(' ');
+            // Si la fuente entrega un color hexadecimal válido, se respeta.
+            const explicito = String(tags.colour || tags['colour:line'] || tags['colour:route'] || tags.COLOUR || tags.COLOR || '').trim();
             if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(explicito)) return explicito;
+            // L4A debe evaluarse antes que L4 para evitar clasificarla como L4.
+            const colores = [
+                { patron: /(?:^|[^a-z0-9])(?:l\s*4\s*a|linea\s*4\s*a|line\s*4\s*a|linea4a|line4a)(?:$|[^a-z0-9])/, color: '#00a6d6' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*1|linea\s*1|line\s*1|linea1|line1)(?:$|[^0-9])/, color: '#e2231a' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*2|linea\s*2|line\s*2|linea2|line2)(?:$|[^0-9])/, color: '#f4d21f' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*3|linea\s*3|line\s*3|linea3|line3)(?:$|[^0-9])/, color: '#8b6f47' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*4|linea\s*4|line\s*4|linea4|line4)(?:$|[^a-z0-9])/, color: '#0067a5' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*5|linea\s*5|line\s*5|linea5|line5)(?:$|[^0-9])/, color: '#008c45' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*6|linea\s*6|line\s*6|linea6|line6)(?:$|[^0-9])/, color: '#7b2d8e' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*7|linea\s*7|line\s*7|linea7|line7)(?:$|[^0-9])/, color: '#8b1e8c' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*8|linea\s*8|line\s*8|linea8|line8)(?:$|[^0-9])/, color: '#f58220' },
+                { patron: /(?:^|[^a-z0-9])(?:l\s*9|linea\s*9|line\s*9|linea9|line9)(?:$|[^0-9])/, color: '#d4b900' }
+            ];
             const encontrada = colores.find(item => item.patron.test(texto));
             return encontrada ? encontrada.color : '#64748b';
         }
@@ -861,7 +868,7 @@
                     feats.forEach(f => {
                         const props = f.properties || {};
                         const nombre = props.LINEA || props.linea || props.NOMBRE || props.NOMBRE_LINEA || 'Metro';
-                        const color = obtenerColorLineaMetro({name: String(nombre), ref: String(nombre), colour: props.COLOUR || props.COLOR || ''});
+                        const color = obtenerColorLineaMetro({...props, name: String(nombre), ref: String(nombre), colour: props.COLOUR || props.COLOR || props.colour || ''});
                         L.geoJSON(f, {style: {color, weight: grosorLineasMetro, opacity: .98, lineCap:'round', lineJoin:'round'}})
                             .bindTooltip(escaparHTML(String(nombre)), {sticky:true}).addTo(capa);
                     });
