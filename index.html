@@ -828,10 +828,10 @@
             metro: { titulo: 'líneas de Metro existentes', selector: 'way["railway"="subway"]', color: '#64748b', peso: 5, opacidad: .98 },
             // Aproximación cartográfica: OSM no siempre utiliza la clasificación normativa chilena.
             // Se consideran primary/secondary como ejes troncales y trunk/motorway como expresas.
-            troncal: { titulo: 'calles troncales (vías principales)', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link)$"]', color: '#f59e0b', peso: 5, opacidad: .98 },
-            bufferTroncal: { titulo: 'buffer visual de calles troncales', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link)$"]', color: '#fbbf24', peso: 20, opacidad: .24 },
-            expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(trunk|trunk_link|motorway|motorway_link|primary|primary_link)$"]', color: '#ef4444', peso: 5, opacidad: .98 },
-            bufferExpresa: { titulo: 'buffer visual de calles expresas', selector: 'way["highway"~"^(trunk|trunk_link|motorway|motorway_link|primary|primary_link)$"]', color: '#f87171', peso: 24, opacidad: .24 }
+            troncal: { titulo: 'calles troncales (vías principales)', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified)$"]', color: '#f59e0b', peso: 5, opacidad: .98 },
+            bufferTroncal: { titulo: 'buffer visual de calles troncales', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified)$"]', color: '#fbbf24', peso: 20, opacidad: .24 },
+            expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link)$"]' , color: '#ef4444', peso: 5, opacidad: .98 },
+            bufferExpresa: { titulo: 'buffer visual de calles expresas', selector: 'way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link)$"]' , color: '#f87171', peso: 24, opacidad: .24 }
         };
         function actualizarEstiloVias(tipo, valor) {
             const peso = Math.max(1, Math.min(14, Number(valor) || 5));
@@ -971,13 +971,13 @@
             // Consultar un margen alrededor de la vista evita que las franjas/buffers queden
             // cortadas justo en los bordes del mapa. Al mover o acercar el mapa se recarga la vista.
             const bounds = map.getBounds();
-            const padLat = Math.max((bounds.getNorth() - bounds.getSouth()) * 0.35, 0.015);
-            const padLon = Math.max((bounds.getEast() - bounds.getWest()) * 0.35, 0.02);
+            const padLat = Math.max((bounds.getNorth() - bounds.getSouth()) * 0.50, 0.025);
+            const padLon = Math.max((bounds.getEast() - bounds.getWest()) * 0.50, 0.03);
             const west = Math.max(-180, bounds.getWest() - padLon), south = Math.max(-90, bounds.getSouth() - padLat);
             const east = Math.min(180, bounds.getEast() + padLon), north = Math.min(90, bounds.getNorth() + padLat);
             const highway = tipoConsulta === 'troncal'
-                ? "'primary','primary_link','secondary','secondary_link','tertiary','tertiary_link'"
-                : "'trunk','trunk_link','motorway','motorway_link','primary','primary_link'";
+                ? "'primary','primary_link','secondary','secondary_link','tertiary','tertiary_link','unclassified'"
+                : "'motorway','motorway_link','trunk','trunk_link','primary','primary_link','secondary','secondary_link'";
             const url = 'https://services6.arcgis.com/Do88DoK2xjTUCXd1/ArcGIS/rest/services/OSM_SA_Highways/FeatureServer/0/query';
             const result = [], seen = new Set();
             const pageSize = 1500;
@@ -1058,8 +1058,8 @@
             // La consulta OSM de vías se ejecuta también como complemento, no solo como respaldo.
             // Se usa un margen del 35% alrededor de la vista para cubrir bordes y continuidad.
             const boundsConsulta = map.getBounds();
-            const padLatConsulta = Math.max((boundsConsulta.getNorth()-boundsConsulta.getSouth())*0.35,0.015);
-            const padLonConsulta = Math.max((boundsConsulta.getEast()-boundsConsulta.getWest())*0.35,0.02);
+            const padLatConsulta = Math.max((boundsConsulta.getNorth()-boundsConsulta.getSouth())*0.50,0.025);
+            const padLonConsulta = Math.max((boundsConsulta.getEast()-boundsConsulta.getWest())*0.50,0.03);
             const bboxViasCompleto = [boundsConsulta.getSouth()-padLatConsulta,boundsConsulta.getWest()-padLonConsulta,
                 boundsConsulta.getNorth()+padLatConsulta,boundsConsulta.getEast()+padLonConsulta].join(',');
             const queryViasCompleta = '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bboxViasCompleto + '););out geom;';
@@ -1122,7 +1122,7 @@
 
             if (!esMetro && (tipoConsulta === 'troncal' || tipoConsulta === 'expresa')) {
                 const cantidadOriginal = lineas.length;
-                lineas = unirSegmentosViales(lineas, 22);
+                lineas = unirSegmentosViales(lineas, tipoConsulta === 'expresa' ? 45 : 30);
                 console.info('Continuidad vial: segmentos conectados', {originales:cantidadOriginal, cadenasContinuas:lineas.length});
             }
             if (tipoConsulta === 'troncal' || tipoConsulta === 'expresa') {
