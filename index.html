@@ -265,6 +265,38 @@
 
         .metro-rm-station-icon { background: transparent !important; border: 0 !important; }
 </style>
+
+<style id="hud-compacto-v42">
+/* Compactación del panel de infraestructura: conserva todos los controles y funciones */
+#control-panel > div:has(> .metro-selector-compacto) { padding:6px !important; margin-bottom:7px !important; }
+#control-panel > div:has(> .metro-selector-compacto) > div:first-child { margin-bottom:4px !important; font-size:10px !important; }
+.metro-selector-compacto { padding:5px !important; margin:3px 0 5px !important; }
+.metro-selector-head { margin-bottom:3px !important; }
+.metro-selector-actions { gap:3px !important; margin-bottom:3px !important; }
+.metro-selector-actions button { padding:4px 2px !important; font-size:8px !important; }
+.metro-linea-grid { grid-template-columns:minmax(0,1fr) 24px 24px !important; gap:1px 3px !important; }
+.metro-linea-row>span { min-height:18px !important; font-size:9px !important; gap:5px !important; }
+.metro-linea-row i { width:14px !important; height:3px !important; }
+.metro-linea-row input { width:12px !important; height:12px !important; }
+#metro-selector-estado { margin-top:3px !important; font-size:8px !important; }
+#control-panel > div:has(> .metro-selector-compacto) > div[style*="GROSOR"] { padding:4px 6px !important; }
+#control-panel > div:has(> .metro-selector-compacto) > div:has(> label[for="metro-grosor-lineas"]) { padding:4px 6px !important; margin-bottom:5px !important; }
+#metro-grosor-lineas { height:12px !important; margin:1px 0 !important; }
+#control-panel > div:has(> .metro-selector-compacto) > div:has(> label[for="radio-distancia-metro"]) { margin:5px 0 6px 10px !important; padding:5px !important; }
+#control-panel label[for="radio-distancia-metro"], #control-panel label[for="opacidad-relleno-radio-metro"], #control-panel label[for="color-borde-radio-metro"] { margin-top:5px !important; font-size:9px !important; }
+#radio-distancia-metro, #opacidad-relleno-radio-metro { height:12px !important; margin:1px 0 !important; }
+#color-borde-radio-metro { width:32px !important; height:21px !important; }
+#toggle-radios-metro { width:13px !important; height:13px !important; }
+#control-panel > div:has(> .metro-selector-compacto) > label { margin-top:3px !important; margin-bottom:4px !important; font-size:9px !important; }
+#control-panel > div:has(> .metro-selector-compacto) > div:has(> label[for="grosor-troncales"]),
+#control-panel > div:has(> .metro-selector-compacto) > div:has(> label[for="ancho-buffer-troncales"]),
+#control-panel > div:has(> .metro-selector-compacto) > div:has(> label[for="grosor-expresas"]),
+#control-panel > div:has(> .metro-selector-compacto) > div:has(> label[for="ancho-buffer-expresas"]) { margin:2px 0 5px 10px !important; padding:4px 6px !important; }
+#grosor-troncales, #ancho-buffer-troncales, #grosor-expresas, #ancho-buffer-expresas { height:12px !important; margin:1px 0 !important; }
+#control-panel > div:has(> .metro-selector-compacto) > div[style*="Las líneas de color"] { font-size:8px !important; line-height:1.25 !important; margin-top:4px !important; }
+#toggle-mostrar-demas-servicios-con-metro { width:12px !important; height:12px !important; }
+</style>
+
 </head>
 <body>
 
