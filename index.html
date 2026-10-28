@@ -850,9 +850,14 @@
             if (!window.turf || !datosViasInfraestructura[base]) return;
             datosViasInfraestructura[base].forEach(via => {
                 try {
-                    const feature = { type: 'Feature', properties: via.tags || {}, geometry: { type: 'LineString', coordinates: via.geometry.map(pt => [pt.lon, pt.lat]) } };
-                    const poligono = turf.buffer(feature, ancho / 2000, { units: 'kilometers', steps: 8 });
-                    if (poligono) L.geoJSON(poligono, { style: { color: definicionesInfraestructura[tipo].color, weight: 1, opacity: .75, fillColor: definicionesInfraestructura[tipo].color, fillOpacity: .24, lineJoin: 'round' } }).addTo(capa);
+                    const coords = (via.geometry || []).map(pt => [Number(pt.lon), Number(pt.lat)])
+                        .filter(pt => Number.isFinite(pt[0]) && Number.isFinite(pt[1]));
+                    if (coords.length < 2) return;
+                    // Turf mide desde el eje de la vía: ancho total / 2 en cada lado.
+                    // Mantener el trazo completo evita dejar huecos en buffers de segmentos válidos.
+                    const feature = { type: 'Feature', properties: via.tags || {}, geometry: { type: 'LineString', coordinates: coords } };
+                    const poligono = turf.buffer(feature, ancho / 2000, { units: 'kilometers', steps: 12 });
+                    if (poligono && poligono.geometry) L.geoJSON(poligono, { style: { color: definicionesInfraestructura[tipo].color, weight: 1, opacity: .85, fillColor: definicionesInfraestructura[tipo].color, fillOpacity: .30, lineJoin: 'round' } }).addTo(capa);
                 } catch (e) { /* Omite únicamente las geometrías inválidas de OSM. */ }
             });
         }
@@ -905,44 +910,56 @@
         // Consulta vial GIS con geometría limitada al área visible del mapa.
         // Se usa primero porque Overpass puede tardar o rechazar consultas grandes.
         async function consultarViasGIS(tipoConsulta) {
+            // Consultar un margen alrededor de la vista evita que las franjas/buffers queden
+            // cortadas justo en los bordes del mapa. Al mover o acercar el mapa se recarga la vista.
             const bounds = map.getBounds();
-            const west = bounds.getWest(), south = bounds.getSouth(), east = bounds.getEast(), north = bounds.getNorth();
+            const padLat = Math.max((bounds.getNorth() - bounds.getSouth()) * 0.18, 0.008);
+            const padLon = Math.max((bounds.getEast() - bounds.getWest()) * 0.18, 0.01);
+            const west = Math.max(-180, bounds.getWest() - padLon), south = Math.max(-90, bounds.getSouth() - padLat);
+            const east = Math.min(180, bounds.getEast() + padLon), north = Math.min(90, bounds.getNorth() + padLat);
             const highway = tipoConsulta === 'troncal'
                 ? "'primary','primary_link','secondary','secondary_link','tertiary','tertiary_link'"
                 : "'trunk','trunk_link','motorway','motorway_link','primary','primary_link'";
             const url = 'https://services6.arcgis.com/Do88DoK2xjTUCXd1/ArcGIS/rest/services/OSM_SA_Highways/FeatureServer/0/query';
-            const params = new URLSearchParams({
-                where: 'highway IN (' + highway + ')',
-                outFields: 'OBJECTID,highway,name,ref',
-                returnGeometry: 'true', outSR: '4326', f: 'geojson',
-                geometry: JSON.stringify({xmin:west,ymin:south,xmax:east,ymax:north,spatialReference:{wkid:4326}}),
-                geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
-                resultRecordCount: '2000'
-            });
+            const result = [], seen = new Set();
+            const pageSize = 1500;
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 18000);
+            const timer = setTimeout(() => controller.abort(), 30000);
             try {
-                const response = await fetch(url + '?' + params.toString(), {mode:'cors',cache:'no-store',signal:controller.signal});
-                if (!response.ok) throw new Error('GIS vial HTTP ' + response.status);
-                const data = await response.json();
-                if (data.error) throw new Error(data.error.message || 'Error GIS vial');
-                const features = Array.isArray(data.features) ? data.features : [];
-                const result = [];
-                for (const f of features) {
-                    const props = f.properties || {};
-                    const geom = f.geometry;
-                    if (!geom) continue;
-                    const groups = geom.type === 'LineString' ? [geom.coordinates] : (geom.type === 'MultiLineString' ? geom.coordinates : []);
-                    for (const group of groups) {
-                        if (!Array.isArray(group) || group.length < 2) continue;
-                        result.push({type:'way',id:props.OBJECTID || (props.name || '') + '_' + result.length,
-                            tags:{highway:props.highway || '',name:props.name || '',ref:props.ref || ''},
-                            geometry:group.map(c => ({lon:Number(c[0]),lat:Number(c[1])})).filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lon))});
+                // Paginación: el servicio puede devolver más vías que el límite de una sola consulta.
+                for (let offset = 0; offset < 12000; offset += pageSize) {
+                    const params = new URLSearchParams({
+                        where: 'highway IN (' + highway + ')',
+                        outFields: 'OBJECTID,highway,name,ref',
+                        returnGeometry: 'true', outSR: '4326', f: 'geojson',
+                        geometry: JSON.stringify({xmin:west,ymin:south,xmax:east,ymax:north,spatialReference:{wkid:4326}}),
+                        geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+                        resultRecordCount: String(pageSize), resultOffset: String(offset), orderByFields: 'OBJECTID ASC'
+                    });
+                    const response = await fetch(url + '?' + params.toString(), {mode:'cors',cache:'no-store',signal:controller.signal});
+                    if (!response.ok) throw new Error('GIS vial HTTP ' + response.status);
+                    const data = await response.json();
+                    if (data.error) throw new Error(data.error.message || 'Error GIS vial');
+                    const features = Array.isArray(data.features) ? data.features : [];
+                    for (const f of features) {
+                        const props = f.properties || {}, geom = f.geometry;
+                        if (!geom) continue;
+                        const oid = props.OBJECTID;
+                        const groups = geom.type === 'LineString' ? [geom.coordinates] : (geom.type === 'MultiLineString' ? geom.coordinates : []);
+                        for (let gi = 0; gi < groups.length; gi++) {
+                            const group = groups[gi];
+                            if (!Array.isArray(group) || group.length < 2) continue;
+                            const key = String(oid ?? ((props.name || '') + '_' + offset)) + '_seg' + gi;
+                            if (seen.has(key)) continue;
+                            seen.add(key);
+                            const geometry = group.map(c => ({lon:Number(c[0]),lat:Number(c[1])})).filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lon));
+                            if (geometry.length > 1) result.push({type:'way',id:key,tags:{highway:props.highway || '',name:props.name || '',ref:props.ref || ''},geometry});
+                        }
                     }
+                    if (features.length < pageSize || data.exceededTransferLimit === false) break;
                 }
-                const valid = result.filter(x => x.geometry.length > 1);
-                if (!valid.length) throw new Error('El GIS vial no devolvió calles para esta vista');
-                return valid;
+                if (!result.length) throw new Error('El GIS vial no devolvió calles para esta vista');
+                return result;
             } finally { clearTimeout(timer); }
         }
 
@@ -1037,6 +1054,40 @@
             estadoCargaInfraestructura[tipo] = 'lista';
             capa.addTo(map);
         }
+
+        // Actualiza las capas viales cuando el usuario desplaza/escala el mapa. La consulta usa
+        // un margen y paginación, así que el mapa no queda limitado a la primera vista cargada.
+        let temporizadorRecargaVias = null;
+        let recargaViasEnCurso = false;
+        map.on('moveend', () => {
+            clearTimeout(temporizadorRecargaVias);
+            temporizadorRecargaVias = setTimeout(async () => {
+                if (recargaViasEnCurso) return;
+                const tipos = [
+                    ['troncal','toggle-vias-troncales'], ['expresa','toggle-vias-expresas'],
+                    ['bufferTroncal','toggle-buffer-troncales'], ['bufferExpresa','toggle-buffer-expresas']
+                ];
+                const activos = tipos.filter(([tipo,id]) => document.getElementById(id)?.checked);
+                if (!activos.length) return;
+                recargaViasEnCurso = true;
+                try {
+                    for (const [tipo] of activos) {
+                        if (map.hasLayer(capasInfraestructura[tipo])) map.removeLayer(capasInfraestructura[tipo]);
+                        capasInfraestructura[tipo].clearLayers();
+                        estadoCargaInfraestructura[tipo] = null;
+                    }
+                    datosViasInfraestructura.troncal = [];
+                    datosViasInfraestructura.expresa = [];
+                    // Primero cargar ejes, luego buffers, manteniendo el mismo flujo de activación.
+                    const orden = ['troncal','expresa','bufferTroncal','bufferExpresa'];
+                    for (const tipo of orden) {
+                        const entrada = activos.find(([t]) => t === tipo);
+                        if (entrada) await conmutarCapaInfraestructura(tipo, true);
+                    }
+                } catch (e) { console.warn('No se pudieron actualizar todas las capas viales tras mover el mapa:', e); }
+                finally { recargaViasEnCurso = false; }
+            }, 450);
+        });
 
         // Selector independiente de trazados y estaciones por línea. Los datos GIS se cargan una sola vez.
         const METRO_LINEAS_UI = ['1','2','3','4','4A','5','6'];
