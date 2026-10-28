@@ -913,8 +913,8 @@
             // Consultar un margen alrededor de la vista evita que las franjas/buffers queden
             // cortadas justo en los bordes del mapa. Al mover o acercar el mapa se recarga la vista.
             const bounds = map.getBounds();
-            const padLat = Math.max((bounds.getNorth() - bounds.getSouth()) * 0.18, 0.008);
-            const padLon = Math.max((bounds.getEast() - bounds.getWest()) * 0.18, 0.01);
+            const padLat = Math.max((bounds.getNorth() - bounds.getSouth()) * 0.35, 0.015);
+            const padLon = Math.max((bounds.getEast() - bounds.getWest()) * 0.35, 0.02);
             const west = Math.max(-180, bounds.getWest() - padLon), south = Math.max(-90, bounds.getSouth() - padLat);
             const east = Math.min(180, bounds.getEast() + padLon), north = Math.min(90, bounds.getNorth() + padLat);
             const highway = tipoConsulta === 'troncal'
@@ -990,32 +990,64 @@
                 : '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bbox + '););out geom;';
             let colorPorWay = new Map();
             let nombrePorWay = new Map();
-            // Para calles y buffers, priorizar el servicio GIS vial y dejar Overpass como respaldo.
+            // Vías: combinar GIS (rápido) con OpenStreetMap/Overpass (más completo).
+            // Antes se aceptaba cualquier resultado GIS no vacío y nunca se consultaba
+            // Overpass; eso dejaba fuera calles que no estaban en el extracto GIS.
             if (!esMetro) {
                 try { lineas = await consultarViasGIS(tipoConsulta); }
-                catch (errGIS) { errorFinal = errGIS; console.warn('GIS vial no disponible; se intenta Overpass:', errGIS); }
+                catch (errGIS) { errorFinal = errGIS; console.warn('GIS vial no disponible; se intentará Overpass:', errGIS); }
             }
-            if (!lineas.length) for (const endpoint of ENDPOINTS_OVERPASS) {
-                try {
-                    const datos = await fetchOverpassConTiempo(endpoint, query, esMetro ? 38000 : 26000);
-                    const elementos = datos.elements || [];
-                    if (esMetro) {
-                        elementos.filter(e => e.type === 'relation' && e.tags && e.tags.route === 'subway').forEach(rel => {
-                            const tags = rel.tags || {};
-                            const nombre = tags.name || tags.ref || tags.line || 'Línea de Metro';
-                            const color = obtenerColorLineaMetro({...tags, name: nombre, ref: tags.ref || nombre});
-                            (rel.members || []).filter(m => m.type === 'way').forEach(m => {
-                                // Si una vía pertenece a más de una relación, conservar la primera
-                                // línea identificada de forma específica.
-                                if (!colorPorWay.has(m.ref) || colorPorWay.get(m.ref) === '#64748b') colorPorWay.set(m.ref, color);
-                                if (!nombrePorWay.has(m.ref) || nombrePorWay.get(m.ref) === 'Línea de Metro') nombrePorWay.set(m.ref, nombre);
-                            });
-                        });
-                        lineas = elementos.filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1 &&
-                            (e.tags?.railway === 'subway' || colorPorWay.has(e.id)));
-                    } else {
-                        lineas = elementos.filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1);
+            // La consulta OSM de vías se ejecuta también como complemento, no solo como respaldo.
+            // Se usa un margen del 35% alrededor de la vista para cubrir bordes y continuidad.
+            const boundsConsulta = map.getBounds();
+            const padLatConsulta = Math.max((boundsConsulta.getNorth()-boundsConsulta.getSouth())*0.35,0.015);
+            const padLonConsulta = Math.max((boundsConsulta.getEast()-boundsConsulta.getWest())*0.35,0.02);
+            const bboxViasCompleto = [boundsConsulta.getSouth()-padLatConsulta,boundsConsulta.getWest()-padLonConsulta,
+                boundsConsulta.getNorth()+padLatConsulta,boundsConsulta.getEast()+padLonConsulta].join(',');
+            const queryViasCompleta = '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bboxViasCompleto + '););out geom;';
+            // GIS IDs y OSM IDs tienen espacios de nombres distintos; se deduplica por geometría.
+            const firmaVia = e => {
+                const g=e.geometry||[]; if(g.length<2) return '';
+                const a=g[0], z=g[g.length-1];
+                const p1=Number(a.lat).toFixed(4)+','+Number(a.lon).toFixed(4);
+                const p2=Number(z.lat).toFixed(4)+','+Number(z.lon).toFixed(4);
+                return String(e.tags?.highway||'')+'|'+([p1,p2].sort().join('|'))+'|'+g.length;
+            };
+            if (!esMetro) {
+                let osmVias=[];
+                for (const endpoint of ENDPOINTS_OVERPASS) {
+                    try {
+                        const datos=await fetchOverpassConTiempo(endpoint,queryViasCompleta,26000);
+                        osmVias=(datos.elements||[]).filter(e=>e.type==='way'&&e.geometry&&e.geometry.length>1);
+                        if(osmVias.length) break;
+                    } catch(err) { errorFinal=err; }
+                }
+                if(osmVias.length) {
+                    const firmas=new Set(lineas.map(firmaVia).filter(Boolean));
+                    let agregadas=0;
+                    for(const via of osmVias) {
+                        const firma=firmaVia(via);
+                        if(firma && firmas.has(firma)) continue;
+                        if(firma) firmas.add(firma);
+                        lineas.push(via); agregadas++;
                     }
+                    console.info('Cobertura vial combinada: GIS + OSM', {gisYOSM:lineas.length, viasOSM:osmVias.length, agregadas});
+                }
+            } else if (!lineas.length) for (const endpoint of ENDPOINTS_OVERPASS) {
+                try {
+                    const datos = await fetchOverpassConTiempo(endpoint, query, 38000);
+                    const elementos = datos.elements || [];
+                    elementos.filter(e => e.type === 'relation' && e.tags && e.tags.route === 'subway').forEach(rel => {
+                        const tags = rel.tags || {};
+                        const nombre = tags.name || tags.ref || tags.line || 'Línea de Metro';
+                        const color = obtenerColorLineaMetro({...tags, name: nombre, ref: tags.ref || nombre});
+                        (rel.members || []).filter(m => m.type === 'way').forEach(m => {
+                            if (!colorPorWay.has(m.ref) || colorPorWay.get(m.ref) === '#64748b') colorPorWay.set(m.ref, color);
+                            if (!nombrePorWay.has(m.ref) || nombrePorWay.get(m.ref) === 'Línea de Metro') nombrePorWay.set(m.ref, nombre);
+                        });
+                    });
+                    lineas = elementos.filter(e => e.type === 'way' && e.geometry && e.geometry.length > 1 &&
+                        (e.tags?.railway === 'subway' || colorPorWay.has(e.id)));
                     if (lineas.length) break;
                     errorFinal = new Error('La consulta no devolvió geometrías');
                 } catch (err) { errorFinal = err; }
