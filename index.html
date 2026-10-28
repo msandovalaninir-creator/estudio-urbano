@@ -1031,21 +1031,23 @@
             const centros = new Map();
             const agregarCentro = (latlng, nombre='Estación de Metro') => {
                 if (!latlng || !Number.isFinite(latlng.lat) || !Number.isFinite(latlng.lng)) return;
-                // Redondeo para evitar duplicar el mismo logo cuando coincide con la capa RM.
                 const key = latlng.lat.toFixed(5) + ',' + latlng.lng.toFixed(5);
                 if (!centros.has(key)) centros.set(key, {latlng, nombre});
             };
-            // 1) Logos de todas las estaciones de la RM, si esa capa está cargada.
-            capaTodasEstacionesMetroRM.getLayers().forEach(estacion => {
-                if (typeof estacion.getLatLng !== 'function') return;
-                const tooltip = estacion.getTooltip && estacion.getTooltip();
-                agregarCentro(estacion.getLatLng(), tooltip && tooltip.getContent ? tooltip.getContent() : 'Estación de Metro');
-            });
-            // 2) Logos individuales o agrupados obtenidos en una búsqueda/proyecto/KMZ.
-            // Solo usa marcadores cuya categoría sea Metro; ignora los demás servicios y dibujos.
+            // IMPORTANTE: solo dibujar círculos para estaciones cuyos marcadores están visibles.
+            // La capa global de estaciones no debe generar círculos cuando está oculta.
+            if (map.hasLayer(capaTodasEstacionesMetroRM)) {
+                capaTodasEstacionesMetroRM.getLayers().forEach(estacion => {
+                    if (typeof estacion.getLatLng !== 'function' || !map.hasLayer(estacion)) return;
+                    const tooltip = estacion.getTooltip && estacion.getTooltip();
+                    agregarCentro(estacion.getLatLng(), tooltip && tooltip.getContent ? tooltip.getContent() : 'Estación de Metro');
+                });
+            }
+            // Agrega solo marcadores de Metro de búsquedas/proyectos/KMZ que estén actualmente en el mapa.
             if (typeof elementosMapeadosActivos !== 'undefined' && elementosMapeadosActivos) {
                 Object.values(elementosMapeadosActivos).forEach(item => {
                     if (!item || String(item.catId || '').toLowerCase() !== 'metro' || !item.marker || typeof item.marker.getLatLng !== 'function') return;
+                    if (!map.hasLayer(item.marker)) return;
                     agregarCentro(item.marker.getLatLng(), item.name || 'Estación de Metro');
                 });
             }
@@ -1071,19 +1073,17 @@
             if (etiqueta) etiqueta.textContent = radioMetroMetros.toLocaleString('es-CL') + ' m';
             reconstruirRadiosMetro();
         }
-        async function conmutarRadiosMetro(visible) {
-            if (!visible) { if (map.hasLayer(capaRadiosMetro)) map.removeLayer(capaRadiosMetro); return; }
-            const estacionesCargadas = estadoTodasEstacionesMetroRM === 'lista' && capaTodasEstacionesMetroRM.getLayers().length > 0;
-            if (!estacionesCargadas) {
-                const chk = document.getElementById('toggle-todas-estaciones-metro-rm');
-                if (chk) chk.checked = true;
-                await conmutarTodasEstacionesMetroRM(true);
+        function conmutarRadiosMetro(visible) {
+            if (!visible) {
+                if (map.hasLayer(capaRadiosMetro)) map.removeLayer(capaRadiosMetro);
+                capaRadiosMetro.clearLayers();
+                return;
             }
+            // No cargar ni activar todas las estaciones automáticamente: los círculos siguen
+            // únicamente a los marcadores de Metro que el usuario decidió mostrar.
             reconstruirRadiosMetro();
             if (!capaRadiosMetro.getLayers().length) {
-                const chk = document.getElementById('toggle-radios-metro');
-                if (chk) chk.checked = false;
-                alert('No se pudieron dibujar los círculos porque no hay estaciones cargadas. Activa primero “Mostrar TODAS las estaciones de Metro de la RM” e inténtalo nuevamente.');
+                alert('No hay estaciones de Metro visibles para dibujar círculos. Muestra una búsqueda/proyecto con estaciones de Metro o activa “Mostrar TODAS las estaciones de Metro de la RM”.');
             }
         }
 
