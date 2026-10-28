@@ -988,7 +988,30 @@
                 datosTrazadosMetroPorLinea={}; datosEstacionesMetroPorLinea={};
                 METRO_LINEAS_UI.forEach(l=>{datosTrazadosMetroPorLinea[l]=[];datosEstacionesMetroPorLinea[l]=[];});
                 (trazos.features||[]).forEach(f=>{const l=lineaDesdeAtributosMetro(f.properties||{});if(l&&f.geometry)datosTrazadosMetroPorLinea[l].push(f);});
-                (estaciones.features||[]).forEach(f=>{const l=lineaDesdeAtributosMetro(f.properties||{});if(l&&f.geometry)datosEstacionesMetroPorLinea[l].push(f);});
+                // En la capa oficial, el campo de línea no siempre está informado de forma
+                // consistente. Para evitar que estaciones de L2 queden asignadas a otra línea
+                // (o fuera del selector), se usa una lista explícita de estaciones conocidas.
+                // Los nombres se normalizan sin tildes ni signos y las estaciones de combinación
+                // se asignan a ambas líneas cuando corresponde (por ejemplo, Los Héroes: L1 y L2).
+                const estacionesPorLineaNombre = {
+                    '1': ['san pablo','neptuno','pajaritos','las rejas','ecuador','san alberto hurtado','universidad de santiago','estacion central','union latinoamericana','republica','los heroes','la moneda','universidad de chile','santa lucia','universidad catolica','baquedano','salvador','manuel montt','pedro de valdivia','los leones','el golf','alcantara','escuela militar','manquehue','hernando de magallanes','los dominicos'],
+                    '2': ['vespucio norte','zapadores','dorsal','einstein','cementerios','cerro blanco','patronato','puente cal y canto','puente calicanto','santa ana','los heroes','toesca','parque ohiggins','rondizzoni','franklin','el llano','san miguel','lo vial','departamental','ciudad del nino','lo ovalle','el parron','la cisterna'],
+                    '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irrarazaval','monseñor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco'],
+                    '4': ['tobalaba','cristobal colon','francisco bilbao','principe de gales','simón bolívar','simón bolivar','plaza egaña','los orientales','grecia','los presidentes','quilín','quilin','las torres','macul','vicuna mackenna','vicuna mackenna','bellavista de la florida','rojas magallanes','trinidad','san jose de la estrella','los quillayes','elisa correa','hospital sotero del rio','protectora de la infancia','las mercedes','plaza de puente alto'],
+                    '4A': ['la cisterna','san ramon','santa rosa','la granja','santa julia','vicuna mackenna'],
+                    '5': ['plaza de maipu','santiago bueras','del sol','monte tabor','las parcelas','laguna sur','barrancas','pudahuel','san pablo','lo prado','blanqueado','gruta de lourdes','quinta normal','cumming','santa ana','plaza de armas','bellas artes','baquedano','parque bustamante','santa isabel','irrarazaval','nuble','rodrigo de araya','camino agricola','san joaquin','pedrero','mirador','bellavista de la florida'],
+                    '6': ['cerrillos','lo valledor','presidente pedro aguirre cerda','franklin','bio bio','nuble','estadio nacional','nunoa','ines de suarez','los leones']
+                };
+                const normalizarNombreEstacion = valor => String(valor||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+                (estaciones.features||[]).forEach(f=>{
+                    if(!f.geometry) return;
+                    const props=f.properties||{};
+                    const nombre=normalizarNombreEstacion(props.NOMBRE||props.Nombre||props.name||props.NOM_EST||props.ESTACION||'');
+                    const lineasPorNombre=METRO_LINEAS_UI.filter(l=>(estacionesPorLineaNombre[l]||[]).some(n=>normalizarNombreEstacion(n)===nombre || (nombre && (nombre.endsWith(' '+normalizarNombreEstacion(n)) || nombre.startsWith(normalizarNombreEstacion(n)+' ')))));
+                    const lineaAtributo=lineaDesdeAtributosMetro(props);
+                    const lineasAsignadas=lineasPorNombre.length ? lineasPorNombre : (lineaAtributo ? [lineaAtributo] : []);
+                    lineasAsignadas.forEach(l=>{if(datosEstacionesMetroPorLinea[l]) datosEstacionesMetroPorLinea[l].push(f);});
+                });
                 if (!METRO_LINEAS_UI.some(l=>datosTrazadosMetroPorLinea[l].length) || !METRO_LINEAS_UI.some(l=>datosEstacionesMetroPorLinea[l].length)) throw new Error('La fuente GIS no entregó trazados y estaciones clasificables por línea.');
             })().catch(err=>{promesaCargaDatosMetro=null;throw err;});
             return promesaCargaDatosMetro;
