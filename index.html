@@ -848,12 +848,26 @@
             if (!visible) { if (map.hasLayer(capa)) map.removeLayer(capa); return; }
             if (estadoCargaInfraestructura[tipo] === 'cargando') return;
             if (estadoCargaInfraestructura[tipo] === 'lista') { capa.addTo(map); return; }
-            estadoCargaInfraestructura[tipo] = 'cargando';
-            capa.clearLayers();
-
             const tipoConsulta = tipo === 'bufferTroncal' ? 'troncal' : (tipo === 'bufferExpresa' ? 'expresa' : tipo);
             const esMetro = tipo === 'metro';
             const esBuffer = tipo === 'bufferTroncal' || tipo === 'bufferExpresa';
+
+            // Si las vías centrales ya se descargaron, los buffers reutilizan esos datos:
+            // evita una segunda consulta Overpass y evita que el buffer quede vacío por timeout.
+            if (esBuffer) {
+                const baseCache = tipo === 'bufferTroncal' ? 'troncal' : 'expresa';
+                if (datosViasInfraestructura[baseCache] && datosViasInfraestructura[baseCache].length) {
+                    estadoCargaInfraestructura[tipo] = 'cargando';
+                    capa.clearLayers();
+                    dibujarBufferVias(tipo);
+                    estadoCargaInfraestructura[tipo] = 'lista';
+                    capa.addTo(map);
+                    return;
+                }
+            }
+
+            estadoCargaInfraestructura[tipo] = 'cargando';
+            capa.clearLayers();
             let lineas = [];
             let errorFinal = null;
 
@@ -866,11 +880,13 @@
             // Para las vías urbanas, intentar primero la clasificación normal y luego una
             // consulta de respaldo más amplia. Algunos servidores Overpass omiten resultados
             // al estar saturados o cuando la consulta regex estricta tarda demasiado.
+            // Para calles se consulta cualquier vía con etiqueta highway y se clasifica
+            // localmente. Es más compatible que depender de una expresión regular en Overpass.
             const query = esMetro
                 ? '[out:json][timeout:35];(way["railway"="subway"](' + bbox + ');relation["route"="subway"](' + bbox + '););out body;>;out geom;'
-                : '[out:json][timeout:45];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bbox + '););out geom;';
+                : '[out:json][timeout:50];way["highway"](' + bbox + ');out geom;';
             const queryRespaldoVias = !esMetro
-                ? '[out:json][timeout:45];way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|trunk|trunk_link|motorway|motorway_link)$"](' + bbox + ');out geom;'
+                ? '[out:json][timeout:50];(way["highway"="primary"](' + bbox + ');way["highway"="secondary"](' + bbox + ');way["highway"="tertiary"](' + bbox + ');way["highway"="trunk"](' + bbox + ');way["highway"="motorway"](' + bbox + '););out geom;'
                 : null;
             let colorPorWay = new Map();
             let nombrePorWay = new Map();
@@ -897,7 +913,7 @@
                         // y filtrar por highway válido para impedir capas vacías o elementos raros.
                         const vias = elementos.filter(e => e.type === 'way' && Array.isArray(e.geometry) && e.geometry.length > 1 && e.tags && e.tags.highway);
                         lineas = vias.filter(e => {
-                            const h = String(e.tags.highway || '');
+                            const h = String(e.tags.highway || '').toLowerCase();
                             if (tipoConsulta === 'troncal') return /^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link)$/.test(h);
                             return /^(trunk|trunk_link|motorway|motorway_link|primary|primary_link)$/.test(h);
                         });
