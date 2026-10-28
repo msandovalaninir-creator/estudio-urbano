@@ -300,13 +300,13 @@
                 <div class="metro-selector-actions"><button type="button" onclick="seleccionarMetroRapido('todo')">Todas</button><button type="button" onclick="seleccionarMetroRapido('trazados')">Solo trazados</button><button type="button" onclick="seleccionarMetroRapido('estaciones')">Solo estaciones</button><button type="button" onclick="seleccionarMetroRapido('nada')">Limpiar</button></div>
                 <div class="metro-linea-grid">
                     <div class="metro-linea-titulos"><span>Línea</span><span>T</span><span>E</span></div>
-                    <div class="metro-linea-row"><span><i style="background:#e32119"></i>Línea 1</span><input aria-label="Trazado Línea 1" type="checkbox" id="metro-trazo-1" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 1" type="checkbox" id="metro-est-1" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#8cc63e"></i>Línea 2</span><input aria-label="Trazado Línea 2" type="checkbox" id="metro-trazo-2" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 2" type="checkbox" id="metro-est-2" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#6d398b"></i>Línea 3</span><input aria-label="Trazado Línea 3" type="checkbox" id="metro-trazo-3" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 3" type="checkbox" id="metro-est-3" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#005ca9"></i>Línea 4</span><input aria-label="Trazado Línea 4" type="checkbox" id="metro-trazo-4" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 4" type="checkbox" id="metro-est-4" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#e2231a"></i>Línea 1</span><input aria-label="Trazado Línea 1" type="checkbox" id="metro-trazo-1" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 1" type="checkbox" id="metro-est-1" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#f4d21f"></i>Línea 2</span><input aria-label="Trazado Línea 2" type="checkbox" id="metro-trazo-2" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 2" type="checkbox" id="metro-est-2" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#8b6f47"></i>Línea 3</span><input aria-label="Trazado Línea 3" type="checkbox" id="metro-trazo-3" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 3" type="checkbox" id="metro-est-3" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#0067a5"></i>Línea 4</span><input aria-label="Trazado Línea 4" type="checkbox" id="metro-trazo-4" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 4" type="checkbox" id="metro-est-4" onchange="actualizarSeleccionMetro()"></div>
                     <div class="metro-linea-row"><span><i style="background:#f58220"></i>Línea 4A</span><input aria-label="Trazado Línea 4A" type="checkbox" id="metro-trazo-4a" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 4A" type="checkbox" id="metro-est-4a" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#00a8e0"></i>Línea 5</span><input aria-label="Trazado Línea 5" type="checkbox" id="metro-trazo-5" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 5" type="checkbox" id="metro-est-5" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#a7a9ac"></i>Línea 6</span><input aria-label="Trazado Línea 6" type="checkbox" id="metro-trazo-6" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 6" type="checkbox" id="metro-est-6" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#008c45"></i>Línea 5</span><input aria-label="Trazado Línea 5" type="checkbox" id="metro-trazo-5" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 5" type="checkbox" id="metro-est-5" onchange="actualizarSeleccionMetro()"></div>
+                    <div class="metro-linea-row"><span><i style="background:#7b2d8e"></i>Línea 6</span><input aria-label="Trazado Línea 6" type="checkbox" id="metro-trazo-6" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 6" type="checkbox" id="metro-est-6" onchange="actualizarSeleccionMetro()"></div>
                 </div>
                 <div id="metro-selector-estado" role="status">Elige trazado y/o estaciones por separado.</div>
             </div>
@@ -958,7 +958,7 @@
 
         // Selector independiente de trazados y estaciones por línea. Los datos GIS se cargan una sola vez.
         const METRO_LINEAS_UI = ['1','2','3','4','4A','5','6'];
-        const METRO_COLORES_UI = {'1':'#e32119','2':'#8cc63e','3':'#6d398b','4':'#005ca9','4A':'#f58220','5':'#00a8e0','6':'#a7a9ac'};
+        const METRO_COLORES_UI = {'1':'#e2231a','2':'#f4d21f','3':'#8b6f47','4':'#0067a5','4A':'#f58220','5':'#008c45','6':'#7b2d8e'};
         const capasTrazadoMetroPorLinea = {};
         const capasEstacionesMetroPorLinea = {};
         let datosTrazadosMetroPorLinea = null;
