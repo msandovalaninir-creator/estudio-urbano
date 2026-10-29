@@ -411,6 +411,88 @@
 
 </style>
 
+
+<style id="metro-selector-layout-v55">
+/* Acciones distribuidas verticalmente a la altura de las líneas, sin dejar un hueco al final. */
+.metro-selector-compacto {
+  display:grid !important;
+  grid-template-columns:minmax(0, 1.15fr) minmax(104px, .85fr) !important;
+  grid-template-areas:
+    "head head"
+    "lines actions"
+    "status status" !important;
+  align-items:stretch !important;
+  column-gap:8px !important;
+  row-gap:3px !important;
+}
+.metro-selector-head { grid-area:head; margin-bottom:2px !important; }
+.metro-selector-compacto > .metro-linea-grid {
+  grid-area:lines;
+  align-self:stretch !important;
+  grid-template-columns:minmax(0,1fr) 22px 22px !important;
+  gap:1px 3px !important;
+}
+.metro-selector-compacto > .metro-selector-actions {
+  grid-area:actions;
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) !important;
+  grid-template-rows:repeat(4,minmax(0,1fr)) !important;
+  align-content:stretch !important;
+  align-self:stretch !important;
+  gap:5px !important;
+  margin:0 !important;
+  padding:25px 0 2px !important;
+  min-height:0 !important;
+  box-sizing:border-box !important;
+}
+.metro-selector-compacto .metro-selector-actions button {
+  width:100% !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  height:100% !important;
+  margin:0 !important;
+  padding:4px 3px !important;
+  font-size:clamp(8px,1.9vw,10px) !important;
+  line-height:1.15 !important;
+  white-space:normal !important;
+  align-self:stretch !important;
+}
+.metro-selector-compacto #metro-selector-estado { grid-area:status; margin-top:2px !important; }
+@media (max-width:290px) {
+ .metro-selector-compacto { grid-template-columns:minmax(0,1fr) !important; grid-template-areas:"head" "actions" "lines" "status" !important; }
+ .metro-selector-compacto > .metro-selector-actions { grid-template-columns:repeat(4,minmax(0,1fr)) !important; grid-template-rows:auto !important; padding:0 !important; }
+ .metro-selector-compacto .metro-selector-actions button { min-height:28px !important; height:auto !important; }
+}
+</style>
+
+
+<style id="hud-premium-analysis-v56">
+/* HUD premium: compacta Radios de Corte y Área Visual sin cambiar sus funciones */
+#sec-radio-captura, #sec-circulo { padding:7px !important; }
+.hud-analysis-row { box-sizing:border-box; background:#1e2430; border:1px solid rgba(71,85,105,.38); border-radius:7px; padding:6px 8px; min-width:0; }
+.hud-radius-row { display:grid !important; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:7px !important; margin:0 0 6px !important; }
+.hud-radius-row > .switch { grid-column:1; grid-row:1; }
+.hud-radius-row > span[title] { grid-column:1; grid-row:1; margin-left:25px; }
+.hud-radius-row > input[type="range"] { grid-column:1 / -1; grid-row:2; width:100%; min-width:0; margin:1px 0 0; }
+.hud-radius-row > .slider-value { grid-column:2; grid-row:1; justify-self:end; }
+.hud-radius-row > .switch + span + input[type="range"] { grid-column:1 / -1; }
+.hud-icon-style-row { display:grid !important; grid-template-columns:16px minmax(45px,1fr) 31px 22px 36px 36px; align-items:center; gap:5px !important; margin:0 0 6px; padding:5px 7px; }
+.hud-icon-style-row input[type="range"] { min-width:0; width:100% !important; margin:0; }
+.hud-icon-style-row input[type="color"] { width:20px !important; height:20px !important; }
+.hud-label-row { display:flex !important; align-items:center; gap:7px !important; margin:0; padding:6px 8px; }
+.hud-label-row span:last-child { font-size:10px !important; line-height:1.25; }
+.hud-influence-radius-row { display:grid !important; grid-template-columns:24px minmax(0,1fr) 44px; align-items:center; gap:7px !important; margin:0 0 6px; }
+.hud-influence-radius-row input[type="range"] { min-width:0; width:100%; margin:0; }
+.hud-influence-radius-row .slider-value { text-align:right; }
+.hud-influence-style-row { display:grid !important; grid-template-columns:22px minmax(0,1fr) minmax(0,1fr); align-items:center; gap:8px !important; margin:0; padding:6px 8px; }
+.hud-influence-style-row input[type="color"] { width:20px !important; height:20px !important; }
+.hud-influence-style-row input[type="range"] { width:100%; min-width:0; margin:0; }
+#sec-radio-captura input[type="range"], #sec-circulo input[type="range"] { accent-color:#38bdf8; }
+@media (max-width:360px) {
+ .hud-radius-row { gap:5px !important; padding:5px; }
+ .hud-icon-style-row { grid-template-columns:14px minmax(35px,1fr) 28px 20px 28px 28px; gap:4px !important; }
+}
+</style>
 </head>
 <body>
 
@@ -432,6 +514,31 @@
                 <span>📍 Mostrar pin de ubicación del proyecto</span>
             </label>
         </div>
+
+        <button id="btn-trazado-manual" style="background:#1e293b; color:#7dd3fc; border:1px solid #38bdf8; font-size:11px; padding:10px; font-weight:700; width:100%; margin-bottom:10px; border-radius:6px; cursor:pointer;" onclick="activarModoTrazadoManual()">✏️ TRAZAR RUTA MANUAL A UN SERVICIO</button>
+        <div id="banner-trazado-manual" style="display:none; background:#0c4a6e; border:1px solid #38bdf8; color:#e0f2fe; font-size:11.5px; padding:10px; border-radius:6px; margin-bottom:12px; line-height:1.5;">
+            <b>Modo trazado activo:</b> haz clic en el mapa siguiendo la calle real, punto por punto, desde tu dirección. Termina haciendo clic directo sobre el ícono del servicio correcto.
+            <div style="margin-top:8px; display:flex; gap:6px;">
+                <button style="flex:1; background:#dc2626; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="cancelarTrazadoManual()">Cancelar</button>
+                <button style="flex:1; background:#334155; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="deshacerUltimoPuntoTrazado()">Deshacer último punto</button>
+            </div>
+        </div>
+        
+        <div class="collapsible-header" onclick="toggleSection('sec-capas-kmz', 'arrow-kmz-capas')">
+            <span>🗺️ Capas Planificación (.kml / .kmz)</span>
+            <span id="arrow-kmz-capas">▼</span>
+        </div>
+        <div id="sec-capas-kmz" class="collapsible-content">
+            <input type="file" id="kmz-file" accept=".kml,.kmz" multiple onchange="procesarArchivosKMZMasivos(this)" style="margin-bottom: 10px;">
+            
+            <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+                <input type="text" id="kmz-search-input" placeholder="🔍 Buscar KMZ por nombre..." oninput="filtrarListaKMZLocalmente(this.value)" style="flex-grow: 1; padding: 6px 10px; font-size: 11.5px;">
+                <button class="btn-danger-hud" onclick="eliminarAbsolutamenteTodosLosKMZ()" style="width: auto; margin-bottom: 0; padding: 6px 10px; font-size: 11px;">🗑️ Borrar Todos</button>
+            </div>
+
+            <div id="kmz-history-list"></div>
+        </div>
+
 
         <div class="acciones-principales-compactas">
             <button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br>STUDY URBANO</button>
@@ -508,36 +615,12 @@
         </div>
         <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
 
-        <button id="btn-trazado-manual" style="background:#1e293b; color:#7dd3fc; border:1px solid #38bdf8; font-size:11px; padding:10px; font-weight:700; width:100%; margin-bottom:10px; border-radius:6px; cursor:pointer;" onclick="activarModoTrazadoManual()">✏️ TRAZAR RUTA MANUAL A UN SERVICIO</button>
-        <div id="banner-trazado-manual" style="display:none; background:#0c4a6e; border:1px solid #38bdf8; color:#e0f2fe; font-size:11.5px; padding:10px; border-radius:6px; margin-bottom:12px; line-height:1.5;">
-            <b>Modo trazado activo:</b> haz clic en el mapa siguiendo la calle real, punto por punto, desde tu dirección. Termina haciendo clic directo sobre el ícono del servicio correcto.
-            <div style="margin-top:8px; display:flex; gap:6px;">
-                <button style="flex:1; background:#dc2626; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="cancelarTrazadoManual()">Cancelar</button>
-                <button style="flex:1; background:#334155; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="deshacerUltimoPuntoTrazado()">Deshacer último punto</button>
-            </div>
-        </div>
-        
-        <div class="collapsible-header" onclick="toggleSection('sec-capas-kmz', 'arrow-kmz-capas')">
-            <span>🗺️ Capas Planificación (.kml / .kmz)</span>
-            <span id="arrow-kmz-capas">▼</span>
-        </div>
-        <div id="sec-capas-kmz" class="collapsible-content">
-            <input type="file" id="kmz-file" accept=".kml,.kmz" multiple onchange="procesarArchivosKMZMasivos(this)" style="margin-bottom: 10px;">
-            
-            <div style="display: flex; gap: 6px; margin-bottom: 10px;">
-                <input type="text" id="kmz-search-input" placeholder="🔍 Buscar KMZ por nombre..." oninput="filtrarListaKMZLocalmente(this.value)" style="flex-grow: 1; padding: 6px 10px; font-size: 11.5px;">
-                <button class="btn-danger-hud" onclick="eliminarAbsolutamenteTodosLosKMZ()" style="width: auto; margin-bottom: 0; padding: 6px 10px; font-size: 11px;">🗑️ Borrar Todos</button>
-            </div>
-
-            <div id="kmz-history-list"></div>
-        </div>
-
         <div class="collapsible-header" onclick="toggleSection('sec-radio-captura', 'arrow-radio-captura')">
             <span>📏 Radios de Corte y Análisis</span>
             <span id="arrow-radio-captura">▼</span>
         </div>
         <div id="sec-radio-captura" class="collapsible-content" style="padding:8px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <div class="hud-analysis-row hud-radius-row">
                 <label class="switch" style="flex-shrink:0;" title="Habilitar Radio Línea Recta">
                     <input type="checkbox" id="toggle-lineal-filter" checked onchange="conmutarFiltroLinealCirculo(this.checked); persistirConfiguracionGlobalEnStorage();">
                     <span class="slider-switch"></span>
@@ -547,7 +630,7 @@
                 <span id="radius-val-display" class="slider-value" style="flex-shrink:0; font-size:10px;">1500 m</span>
             </div>
 
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+            <div class="hud-analysis-row hud-radius-row">
                 <label class="switch" style="flex-shrink:0;" title="Habilitar Corte Real Walk">
                     <input type="checkbox" id="toggle-walk-filter" checked onchange="persistirConfiguracionGlobalEnStorage();">
                     <span class="slider-switch"></span>
@@ -557,7 +640,7 @@
                 <span id="walk-radius-val-display" class="slider-value" style="flex-shrink:0; font-size:10px; color:#38bdf8;">1200 m</span>
             </div>
 
-            <div style="display:flex; align-items:center; gap:6px; background:#1e2430; border-radius:6px; padding:6px 8px;">
+            <div class="hud-analysis-row hud-icon-style-row">
                 <span style="font-size:12px; flex-shrink:0;" title="Tamaño de íconos">🔎</span>
                 <input type="range" id="global-icon-size-slider" min="16" max="64" step="2" value="30" style="flex-grow:1; min-width:30px;" title="Tamaño de íconos" oninput="document.getElementById('global-icon-size-display').innerText = this.value + 'px'; reescalarIconosSimultaneamente(this.value); persistirConfiguracionGlobalEnStorage();">
                 <span id="global-icon-size-display" style="font-size:9.5px; flex-shrink:0; width:26px;">30px</span>
@@ -566,7 +649,7 @@
                 <input type="range" id="capture-border-opacity" min="0.1" max="1" step="0.1" value="1" style="width:36px; flex-shrink:0;" title="Opacidad de línea" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
             </div>
 
-            <div style="display:flex; align-items:center; gap:8px; background:#1e2430; border-radius:6px; padding:6px 8px; margin-top:6px;">
+            <div class="hud-analysis-row hud-label-row">
                 <label class="switch" style="flex-shrink:0;" title="Mostrar nombre de cada servicio en el mapa">
                     <input type="checkbox" id="toggle-nombres-servicios" checked onchange="conmutarNombresIconosMapa(this.checked); persistirConfiguracionGlobalEnStorage();">
                     <span class="slider-switch"></span>
@@ -580,7 +663,7 @@
             <span id="arrow-2">▼</span>
         </div>
         <div id="sec-circulo" class="collapsible-content" style="padding:8px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <div class="hud-analysis-row hud-influence-radius-row">
                 <label class="switch" style="flex-shrink:0;" title="Mostrar Área Visual">
                     <input type="checkbox" id="circle-toggle-visibility" checked onchange="conmutarVisibilidadAreaVisual(this.checked); persistirConfiguracionGlobalEnStorage();">
                     <span class="slider-switch"></span>
@@ -588,7 +671,7 @@
                 <input type="range" id="circle-size-slider" min="50" max="2000" step="25" value="250" style="flex-grow:1;" title="Tamaño (radio en metros)" oninput="document.getElementById('circle-size-display').innerText = this.value + ' m'; refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
                 <span id="circle-size-display" class="slider-value" style="flex-shrink:0; font-size:10px;">250 m</span>
             </div>
-            <div style="display:flex; align-items:center; gap:6px; background:#1e2430; border-radius:6px; padding:6px 8px;">
+            <div class="hud-analysis-row hud-influence-style-row">
                 <input type="color" id="circle-color-picker" value="#2563eb" style="width:20px; height:20px; padding:0; border:none; flex-shrink:0; cursor:pointer;" title="Color de fondo/borde" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
                 <input type="range" id="circle-weight-slider" min="0" max="8" step="1" value="1" style="flex-grow:1;" title="Grosor de borde" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
                 <input type="range" id="circle-opacity-slider" min="0" max="1" step="0.05" value="0.15" style="flex-grow:1;" title="Opacidad de fondo" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
