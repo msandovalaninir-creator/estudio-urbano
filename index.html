@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analizador Urbano Profesional HUD - Ultimate Pro Interactivo</title>
+    <title>Analizador Urbano Profesional HUD - Ultimate Pro Interactivo v51</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
@@ -331,6 +331,86 @@
 @media(max-width:360px){.metro-radios-grid{gap:4px}.metro-radio-control{padding:4px}.metro-radio-control label{font-size:8px!important}}
 </style>
 
+
+<style id="metro-selector-diseno-horizontal-v51">
+/* Selector Metro reorganizado: líneas a la izquierda y acciones en columna derecha */
+.metro-selector-compacto {
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) 104px !important;
+  grid-template-rows:auto auto auto !important;
+  column-gap:8px !important; row-gap:5px !important;
+  align-items:start !important; padding:7px !important;
+}
+.metro-selector-compacto > .metro-selector-head {
+  grid-column:1 / -1 !important; grid-row:1 !important;
+  margin:0 0 2px !important; font-size:10px !important;
+}
+.metro-selector-compacto > .metro-linea-grid {
+  grid-column:1 !important; grid-row:2 !important;
+  grid-template-columns:minmax(0,1fr) 24px 24px !important;
+  gap:2px 4px !important; width:100% !important;
+}
+.metro-selector-compacto > .metro-selector-actions {
+  grid-column:2 !important; grid-row:2 !important;
+  display:flex !important; flex-direction:column !important;
+  gap:6px !important; margin:0 !important; width:100% !important;
+  align-self:start !important;
+}
+.metro-selector-compacto .metro-selector-actions button {
+  width:100% !important; min-height:29px !important;
+  margin:0 !important; padding:5px 3px !important;
+  font-size:9px !important; line-height:1.15 !important;
+  white-space:normal !important;
+}
+.metro-selector-compacto .metro-linea-row > span {
+  min-height:24px !important; font-size:10px !important; gap:6px !important;
+}
+.metro-selector-compacto .metro-linea-row i { width:16px !important; height:4px !important; }
+.metro-selector-compacto .metro-linea-row input { width:14px !important; height:14px !important; }
+.metro-selector-compacto #metro-selector-estado {
+  grid-column:1 / -1 !important; grid-row:3 !important;
+  margin-top:1px !important; font-size:9px !important;
+}
+@media (max-width:360px) {
+  .metro-selector-compacto { grid-template-columns:minmax(0,1fr) 88px !important; column-gap:5px !important; }
+  .metro-selector-compacto .metro-selector-actions button { font-size:8px !important; }
+}
+
+        /* Acciones principales en una sola fila para ahorrar espacio vertical */
+        .acciones-principales-compactas {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+            width: 100%;
+            margin: 8px 0 10px;
+            align-items: stretch;
+        }
+        .acciones-principales-compactas button {
+            width: 100%; min-width: 0; min-height: 42px; height: auto;
+            margin: 0; padding: 7px 3px; border-radius: 8px;
+            font-size: 9px; line-height: 1.25; letter-spacing: 0;
+            font-weight: 800; white-space: normal; overflow-wrap: anywhere;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+        }
+        .acciones-principales-compactas #btn-analizar {
+            margin: 0; padding: 7px 3px; font-size: 9px; letter-spacing: 0;
+            border-radius: 8px; box-shadow: 0 3px 9px rgba(37,99,235,.18);
+        }
+        .acciones-principales-compactas #btn-sugerir-servicios {
+            background: #1e293b; color: #fbbf24; border: 1px solid #f59e0b;
+        }
+        .acciones-principales-compactas #btn-futuras-lineas-metro {
+            background: #1e293b; color: #f43f5e; border: 1px solid #f43f5e;
+        }
+        .acciones-principales-compactas button:hover { filter: brightness(1.12); }
+        @media (max-width: 340px) {
+            .acciones-principales-compactas { gap: 4px; }
+            .acciones-principales-compactas button,
+            .acciones-principales-compactas #btn-analizar { font-size: 8px; padding: 6px 2px; }
+        }
+
+</style>
+
 </head>
 <body>
 
@@ -353,12 +433,12 @@
             </label>
         </div>
 
-        <button id="btn-analizar">🎯 GENERAR STUDY URBANO</button>
+        <div class="acciones-principales-compactas">
+            <button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br>STUDY URBANO</button>
+            <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" title="Sugerir servicios cercanos que falten">💡 SUGERIR<br>SERVICIOS</button>
+            <button id="btn-futuras-lineas-metro" onclick="conmutarFuturasLineasMetro()" title="Mostrar futuras líneas de Metro (L7, L8, L9 y extensiones)">🚇 FUTURAS<br>LÍNEAS METRO</button>
+        </div>
         <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
-
-        <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" style="width:100%; background:#1e293b; color:#fbbf24; border:1px solid #f59e0b; font-size:11px; font-weight:700; padding:9px; border-radius:6px; margin-top:8px; margin-bottom:10px; cursor:pointer;">💡 Sugerir servicios cercanos que me falten</button>
-
-        <button id="btn-futuras-lineas-metro" onclick="conmutarFuturasLineasMetro()" style="width:100%; background:#1e293b; color:#f43f5e; border:1px solid #f43f5e; font-size:11px; font-weight:700; padding:9px; border-radius:6px; margin-bottom:10px; cursor:pointer;">🚇 Mostrar futuras líneas de Metro (L7, L8, L9, extensiones)</button>
         <div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
             <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
             <div class="metro-selector-compacto">
