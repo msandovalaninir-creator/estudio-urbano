@@ -297,6 +297,40 @@
 #toggle-mostrar-demas-servicios-con-metro { width:12px !important; height:12px !important; }
 </style>
 
+<style id="vias-compactas-v49">
+/* Infraestructura vial: dos controles por fila, compactos y con funciones independientes. */
+.vias-compact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:5px 0 8px}
+.via-compact-card{min-width:0;padding:6px 7px 5px;border:1px solid #334155;border-radius:7px;background:rgba(15,23,42,.62)}
+.via-toggle{display:flex!important;align-items:center;gap:5px;min-height:27px;margin:0 0 5px!important;font-size:9px!important;line-height:1.2!important;color:#e2e8f0!important;letter-spacing:0!important;cursor:pointer}
+.via-toggle input[type="checkbox"]{width:13px;height:13px;flex:none;margin:0;cursor:pointer}
+.via-toggle span:last-child{min-width:0}
+.via-color-line{font-size:12px;font-weight:900;flex:none}
+.via-troncal .via-color-line,.via-buffer-troncal .via-color-line{color:#f59e0b}
+.via-expresa .via-color-line,.via-buffer-expresa .via-color-line{color:#ef4444}
+.via-slider-label{display:flex!important;justify-content:space-between;align-items:center;gap:4px;margin:0 0 2px!important;font-size:8.5px!important;line-height:1.2!important;letter-spacing:0!important;text-transform:none!important;color:#b9c7da!important}
+.via-slider-label strong{font-size:9px;color:#e2e8f0;white-space:nowrap}
+.via-compact-card input[type="range"]{display:block;width:100%;height:11px;margin:0;cursor:pointer}
+.via-compact-card small{display:block;margin-top:2px;font-size:8px;line-height:1.2;color:#94a3b8}
+@media(max-width:420px){.vias-compact-grid{gap:4px}.via-compact-card{padding:5px}.via-toggle{font-size:8px!important;gap:3px}.via-slider-label{font-size:8px!important}}
+</style>
+
+<style id="metro-radios-compacto-v50">
+/* Controles de cobertura Metro en dos columnas, siguiendo el diseño compacto de infraestructura */
+.metro-radios-compacto{margin:6px 0 8px 10px!important;padding:6px!important;border:1px solid #0e7490!important;border-radius:7px!important;background:rgba(8,47,73,.38)!important;}
+.metro-radios-toggle{display:flex!important;align-items:center!important;gap:6px!important;margin:0 0 6px!important;font-size:10px!important;font-weight:700!important;color:#bae6fd!important;line-height:1.25!important;cursor:pointer;}
+.metro-radios-toggle input{width:13px!important;height:13px!important;margin:0!important;flex:none;}
+.metro-radios-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px;}
+.metro-radio-control{min-width:0;padding:5px 6px 4px;border:1px solid rgba(56,189,248,.2);border-radius:5px;background:rgba(15,23,42,.42);}
+.metro-radio-control label{display:flex!important;justify-content:space-between!important;align-items:flex-start!important;gap:4px!important;margin:0 0 4px!important;font-size:9px!important;line-height:1.25!important;color:#cbd5e1!important;text-transform:uppercase!important;}
+.metro-radio-control label strong{color:#38bdf8;white-space:nowrap;font-size:9px;}
+.metro-radio-control input[type=range]{display:block;width:100%;height:12px!important;margin:1px 0!important;accent-color:#38bdf8;}
+.metro-radio-scale{display:flex;justify-content:space-between;gap:3px;font-size:8px;color:#94a3b8;line-height:1.2;}
+.metro-radio-color{display:flex!important;justify-content:space-between!important;align-items:center!important;margin:6px 0 0!important;padding:4px 6px!important;border:1px solid rgba(56,189,248,.2);border-radius:5px;background:rgba(15,23,42,.42);font-size:9px!important;color:#cbd5e1!important;cursor:pointer;}
+.metro-radio-color input[type=color]{width:30px!important;height:19px!important;padding:1px!important;border:1px solid #475569!important;border-radius:4px!important;background:#0f172a!important;cursor:pointer;}
+.metro-radio-help{font-size:8px;color:#94a3b8;line-height:1.25;margin-top:5px;}
+@media(max-width:360px){.metro-radios-grid{gap:4px}.metro-radio-control{padding:4px}.metro-radio-control label{font-size:8px!important}}
+</style>
+
 </head>
 <body>
 
@@ -348,38 +382,47 @@
                 <div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;"><span>Fino</span><span>Grueso</span></div>
             </div>
             <input type="checkbox" id="toggle-todas-estaciones-metro-rm" onchange="conmutarTodasEstacionesMetroRM(this.checked)" style="display:none">
-            <div style="margin:7px 0 9px 22px;padding:8px;border:1px solid #0e7490;border-radius:7px;background:rgba(8,47,73,.45);">
-                <label style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#bae6fd;cursor:pointer;"><input type="checkbox" id="toggle-radios-metro" onchange="conmutarRadiosMetro(this.checked)" style="width:15px;height:15px;"> ◉ Círculos de distancia desde cada estación</label>
-                <label for="radio-distancia-metro" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:10px;color:#cbd5e1;">Radio de cobertura <strong id="radio-distancia-metro-valor" style="color:#38bdf8;">400 m</strong></label>
-                <input id="radio-distancia-metro" type="range" min="200" max="2000" step="200" value="400" oninput="actualizarRadioMetro(this.value)" style="width:100%;accent-color:#38bdf8;">
-                <div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;"><span>200 m</span><span>1.000 m</span><span>2.000 m</span></div>
-                <label for="opacidad-relleno-radio-metro" style="display:flex;justify-content:space-between;gap:8px;margin-top:8px;font-size:10px;color:#cbd5e1;">Opacidad del relleno <strong id="opacidad-relleno-radio-metro-valor" style="color:#38bdf8;">9%</strong></label>
-                <input id="opacidad-relleno-radio-metro" type="range" min="0" max="60" step="1" value="9" oninput="actualizarEstiloRadiosMetro()" style="width:100%;accent-color:#38bdf8;">
-                <label for="color-borde-radio-metro" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px;font-size:10px;color:#cbd5e1;">Color del borde <input id="color-borde-radio-metro" type="color" value="#38bdf8" oninput="actualizarEstiloRadiosMetro()" style="width:38px;height:25px;padding:1px;border:1px solid #475569;border-radius:4px;background:#0f172a;cursor:pointer;"></label>
-                <div style="font-size:9px;color:#94a3b8;margin-top:5px;line-height:1.4;">Dibuja un círculo medido en metros alrededor de cada estación existente para identificar servicios y terrenos cercanos.</div>
+            <div class="metro-radios-compacto">
+                <label class="metro-radios-toggle" for="toggle-radios-metro"><input type="checkbox" id="toggle-radios-metro" onchange="conmutarRadiosMetro(this.checked)"> <span>◉ Círculos de distancia desde cada estación</span></label>
+                <div class="metro-radios-grid">
+                    <div class="metro-radio-control">
+                        <label for="radio-distancia-metro">Radio de cobertura <strong id="radio-distancia-metro-valor">400 m</strong></label>
+                        <input id="radio-distancia-metro" type="range" min="200" max="2000" step="200" value="400" oninput="actualizarRadioMetro(this.value)">
+                        <div class="metro-radio-scale"><span>200 m</span><span>2.000 m</span></div>
+                    </div>
+                    <div class="metro-radio-control">
+                        <label for="opacidad-relleno-radio-metro">Opacidad del relleno <strong id="opacidad-relleno-radio-metro-valor">9%</strong></label>
+                        <input id="opacidad-relleno-radio-metro" type="range" min="0" max="60" step="1" value="9" oninput="actualizarEstiloRadiosMetro()">
+                        <div class="metro-radio-scale"><span>0%</span><span>60%</span></div>
+                    </div>
+                </div>
+                <label class="metro-radio-color" for="color-borde-radio-metro"><span>Color del borde</span><input id="color-borde-radio-metro" type="color" value="#38bdf8" oninput="actualizarEstiloRadiosMetro()"></label>
+                <div class="metro-radio-help">Círculos medidos en metros alrededor de cada estación para identificar servicios y terrenos cercanos.</div>
             </div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0 7px 22px;font-size:10px;color:#cbd5e1;cursor:pointer;"><input type="checkbox" id="toggle-mostrar-demas-servicios-con-metro" onchange="sincronizarVisibilidadServiciosConMetro()" style="width:14px;height:14px;"> Mostrar también los demás servicios</label>
-            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"> <span style="color:#f59e0b">━</span> Calles troncales</label>
-            <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
-                <label for="grosor-troncales" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Grosor de línea central <strong id="grosor-troncales-valor">5 px</strong></label>
-                <input type="range" id="grosor-troncales" min="1" max="14" step="1" value="5" oninput="actualizarEstiloVias('troncal',this.value)" style="width:100%;accent-color:#f59e0b;">
-            </div>
-            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-buffer-troncales" onchange="conmutarCapaInfraestructura('bufferTroncal',this.checked)"> <span style="color:#fbbf24">━━</span> Buffer de calles troncales</label>
-            <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
-                <label for="ancho-buffer-troncales" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Ancho total del buffer <strong id="ancho-buffer-troncales-valor">200 m</strong></label>
-                <input type="range" id="ancho-buffer-troncales" min="50" max="2000" step="50" value="200" oninput="actualizarAnchoBuffer('bufferTroncal',this.value)" style="width:100%;accent-color:#fbbf24;">
-                <div style="font-size:9px;color:#94a3b8;">100 m a cada lado del eje (200 m total)</div>
-            </div>
-            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-vias-expresas" onchange="conmutarCapaInfraestructura('expresa',this.checked)"> <span style="color:#ef4444">━</span> Calles expresas / autopistas</label>
-            <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
-                <label for="grosor-expresas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Grosor de línea central <strong id="grosor-expresas-valor">5 px</strong></label>
-                <input type="range" id="grosor-expresas" min="1" max="14" step="1" value="5" oninput="actualizarEstiloVias('expresa',this.value)" style="width:100%;accent-color:#ef4444;">
-            </div>
-            <label style="display:flex;align-items:center;gap:7px;margin:5px 0;font-size:11px;cursor:pointer;"><input type="checkbox" id="toggle-buffer-expresas" onchange="conmutarCapaInfraestructura('bufferExpresa',this.checked)"> <span style="color:#f87171">━━</span> Buffer de calles expresas</label>
-            <div style="margin:0 0 8px 22px;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.55);">
-                <label for="ancho-buffer-expresas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;">Ancho total del buffer <strong id="ancho-buffer-expresas-valor">400 m</strong></label>
-                <input type="range" id="ancho-buffer-expresas" min="50" max="3000" step="50" value="400" oninput="actualizarAnchoBuffer('bufferExpresa',this.value)" style="width:100%;accent-color:#f87171;">
-                <div style="font-size:9px;color:#94a3b8;">200 m a cada lado del eje (400 m total)</div>
+            <div class="vias-compact-grid">
+                <section class="via-compact-card via-troncal">
+                    <label class="via-toggle" for="toggle-vias-troncales"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"><span class="via-color-line">━</span><span>Calles troncales</span></label>
+                    <label class="via-slider-label" for="grosor-troncales"><span>Grosor línea</span><strong id="grosor-troncales-valor">5 px</strong></label>
+                    <input type="range" id="grosor-troncales" min="1" max="14" step="1" value="5" oninput="actualizarEstiloVias('troncal',this.value)">
+                </section>
+                <section class="via-compact-card via-buffer-troncal">
+                    <label class="via-toggle" for="toggle-buffer-troncales"><input type="checkbox" id="toggle-buffer-troncales" onchange="conmutarCapaInfraestructura('bufferTroncal',this.checked)"><span class="via-color-line">━━</span><span>Buffer troncal</span></label>
+                    <label class="via-slider-label" for="ancho-buffer-troncales"><span>Ancho total</span><strong id="ancho-buffer-troncales-valor">200 m</strong></label>
+                    <input type="range" id="ancho-buffer-troncales" min="50" max="2000" step="50" value="200" oninput="actualizarAnchoBuffer('bufferTroncal',this.value)">
+                    <small>100 m por lado</small>
+                </section>
+                <section class="via-compact-card via-expresa">
+                    <label class="via-toggle" for="toggle-vias-expresas"><input type="checkbox" id="toggle-vias-expresas" onchange="conmutarCapaInfraestructura('expresa',this.checked)"><span class="via-color-line">━</span><span>Calles expresas / autopistas</span></label>
+                    <label class="via-slider-label" for="grosor-expresas"><span>Grosor línea</span><strong id="grosor-expresas-valor">5 px</strong></label>
+                    <input type="range" id="grosor-expresas" min="1" max="14" step="1" value="5" oninput="actualizarEstiloVias('expresa',this.value)">
+                </section>
+                <section class="via-compact-card via-buffer-expresa">
+                    <label class="via-toggle" for="toggle-buffer-expresas"><input type="checkbox" id="toggle-buffer-expresas" onchange="conmutarCapaInfraestructura('bufferExpresa',this.checked)"><span class="via-color-line">━━</span><span>Buffer expreso</span></label>
+                    <label class="via-slider-label" for="ancho-buffer-expresas"><span>Ancho total</span><strong id="ancho-buffer-expresas-valor">400 m</strong></label>
+                    <input type="range" id="ancho-buffer-expresas" min="50" max="3000" step="50" value="400" oninput="actualizarAnchoBuffer('bufferExpresa',this.value)">
+                    <small>200 m por lado</small>
+                </section>
             </div>
             <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Las líneas de color siguen la geometría completa de cada vía consultada dentro del área visible. Troncales: vías primary/secondary; expresas: trunk/motorway según OpenStreetMap. Los buffers se miden en metros desde el eje de cada vía (mitad del ancho por lado); son franjas cartográficas referenciales, no áreas normativas oficiales.</div>
         </div>
