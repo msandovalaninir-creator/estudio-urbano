@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analizador Urbano Profesional HUD - Ultimate Pro Interactivo v51</title>
+    <title>Analizador Urbano Profesional HUD - Ultimate Pro Interactivo v58</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
@@ -3717,6 +3717,44 @@
             }
         }
 
+        // Asocia cada estación de Metro de Santiago con todas las líneas a las que da acceso.
+        // Se usa tanto en la vista previa como en el texto copiado/exportado del reporte.
+        const LINEAS_METRO_REPORTE = {
+            '1': ['san pablo','neptuno','pajaritos','las rejas','ecuador','san alberto hurtado','universidad de santiago','estacion central','union latinoamericana','republica','los heroes','la moneda','universidad de chile','santa lucia','universidad catolica','baquedano','salvador','manuel montt','pedro de valdivia','los leones','el golf','alcantara','escuela militar','manquehue','hernando de magallanes','los dominicos'],
+            '2': ['vespucio norte','zapadores','dorsal','einstein','cementerios','cerro blanco','patronato','puente cal y canto','puente calicanto','santa ana','los heroes','toesca','parque ohiggins','rondizzoni','franklin','el llano','san miguel','lo vial','departamental','ciudad del nino','lo ovalle','el parron','la cisterna','el bosque'],
+            '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irrarazaval','monseñor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco'],
+            '4': ['tobalaba','cristobal colon','francisco bilbao','principe de gales','simon bolivar','plaza egaña','los orientales','grecia','los presidentes','quilin','las torres','macul','vicuna mackenna','bellavista de la florida','rojas magallanes','trinidad','san jose de la estrella','los quillayes','elisa correa','hospital sotero del rio','protectora de la infancia','las mercedes','plaza de puente alto'],
+            '4A': ['la cisterna','san ramon','santa rosa','la granja','santa julia','vicuna mackenna'],
+            '5': ['plaza de maipu','santiago bueras','del sol','monte tabor','las parcelas','laguna sur','barrancas','pudahuel','san pablo','lo prado','blanqueado','gruta de lourdes','quinta normal','cumming','santa ana','plaza de armas','bellas artes','baquedano','parque bustamante','santa isabel','irrarazaval','nuble','rodrigo de araya','camino agricola','san joaquin','pedrero','mirador','bellavista de la florida'],
+            '6': ['cerrillos','lo valledor','presidente pedro aguirre cerda','franklin','bio bio','nuble','estadio nacional','nunoa','ines de suarez','los leones']
+        };
+        function normalizarNombreMetroReporte(valor) {
+            return String(valor || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+                .replace(/^metro\s+/,'').replace(/^estacion\s+(de\s+)?metro\s+/,'')
+                .replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+        }
+        function nombreMetroConLineasReporte(nombre) {
+            const normalizado = normalizarNombreMetroReporte(nombre);
+            if (!normalizado || normalizado === 'estacion de metro' || normalizado.startsWith('acceso ')) return nombre;
+            const lineas = Object.keys(LINEAS_METRO_REPORTE).filter(linea =>
+                LINEAS_METRO_REPORTE[linea].some(estacion => {
+                    const n = normalizarNombreMetroReporte(estacion);
+                    return normalizado === n || normalizado.endsWith(' ' + n) || normalizado.startsWith(n + ' ');
+                })
+            );
+            if (!lineas.length) return nombre;
+            return `METRO ${String(nombre).replace(/^metro\s+/i,'').trim()} LINEA ${lineas.join('-')}`;
+        }
+
+        // Estandariza el nombre de los supermercados SOLO en los reportes,
+        // manteniendo intacto el nombre original usado en el mapa y en las búsquedas.
+        function nombreSupermercadoReporte(nombre) {
+            const limpio = String(nombre || '').trim();
+            if (!limpio) return limpio;
+            const sinPrefijo = limpio.replace(/^supermercado\s+/i, '').trim();
+            return `SUPERMERCADO ${sinPrefijo}`.toLocaleUpperCase('es-CL');
+        }
+
         // Prepara los datos del reporte SIN modificar los datos originales del análisis.
         // Cada servicio usa la medida que corresponda: trazado manual si existe; si no,
         // distancia en línea recta y tiempo estimado con la misma velocidad de referencia (5 km/h).
@@ -3734,6 +3772,13 @@
                         : Math.round(Number(distanciaReporte || 0) / 1.39);
                     return {
                         ...item,
+                        // El nombre enriquecido se refleja idénticamente en la vista previa,
+                        // el portapapeles y la lámina/exportación del reporte.
+                        name: item.catId === 'metro'
+                            ? nombreMetroConLineasReporte(item.name || item.nombre || '')
+                            : (['supermercado', 'supermercados'].includes(String(item.catId || '').toLowerCase())
+                                ? nombreSupermercadoReporte(item.name || item.nombre || '')
+                                : (item.name || item.nombre || '')),
                         distance: distanciaReporte,
                         tiempo: tiempoReporte,
                         tipoTrayecto: usaTrazadoManual ? 'TRAZADO MANUAL' : 'LÍNEA RECTA',
