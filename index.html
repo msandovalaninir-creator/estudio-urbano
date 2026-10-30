@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analizador Urbano Profesional HUD - Ultimate Pro Interactivo v58</title>
+    <title>Analizador Urbano Profesional HUD - Ultimate Pro Interactivo v59</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
@@ -247,6 +247,19 @@
         ::selection { background: rgba(56,189,248,.28); color: #fff; }
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; } }
 
+
+        /* Ventana emergente de categorías: mantiene el panel principal compacto. */
+        .hud-modal-overlay { position:fixed; inset:0; z-index:6000; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(2,6,15,.78); backdrop-filter:blur(5px); }
+        .hud-modal-card { width:min(680px, 96vw); max-height:min(86vh, 820px); display:flex; flex-direction:column; overflow:hidden; background:linear-gradient(160deg,#111b2b,#0b1220); border:1px solid rgba(79,172,254,.55); border-radius:14px; box-shadow:0 22px 70px rgba(0,0,0,.65); }
+        .hud-modal-header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid #29384d; background:rgba(30,41,59,.55); }
+        .hud-modal-header strong { color:#eaf4ff; font-size:13px; }
+        .hud-modal-subtitle { margin-top:4px; color:#94a3b8; font-size:10px; }
+        .hud-modal-close { width:30px; height:30px; flex:0 0 30px; margin:0; padding:0; font-size:15px; border-color:#475569; }
+        .hud-modal-list { padding:12px; overflow-y:auto; overscroll-behavior:contain; }
+        .hud-modal-list .servicio-container-block { background:rgba(30,41,59,.62); border:1px solid rgba(71,85,105,.55); border-radius:8px; }
+        .hud-modal-footer { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-top:1px solid #29384d; color:#94a3b8; font-size:10px; }
+        body.hud-modal-open { overflow:hidden; }
+        @media (max-width:520px) { .hud-modal-overlay { padding:8px; } .hud-modal-card { width:100%; max-height:90vh; } .hud-modal-header { padding:11px; } .hud-modal-list { padding:8px; } .hud-modal-list .servicio-container-block { overflow-x:auto; } .hud-modal-list .servicio-container-block > div { min-width:420px; } }
     </style>
 <style>
         .metro-selector-compacto{margin:4px 0 8px;padding:7px;border:1px solid #334155;border-radius:7px;background:rgba(2,6,23,.55);font-size:10px}
@@ -711,11 +724,26 @@
                 <button type="button" class="btn-success" onclick="conmutarTodosLosServiciosCheckbox(true)">☑️ Marcar Todos</button>
             </div>
 
-            <div class="collapsible-header" style="margin-top:0; background:#161a24;" onclick="toggleSection('dynamic-services-container', 'arrow-lista-servicios')">
+            <button type="button" class="btn-secondary" style="margin-top:0; width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;" onclick="abrirModalCategoriasServicios()">
                 <span>📋 Ver todas las categorías (<span id="contador-categorias">0</span>)</span>
-                <span id="arrow-lista-servicios">▼</span>
+                <span aria-hidden="true">↗</span>
+            </button>
+            <div id="modal-categorias-servicios" class="hud-modal-overlay" style="display:none;" onclick="if(event.target===this) cerrarModalCategoriasServicios();" aria-hidden="true">
+                <section class="hud-modal-card" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-categorias">
+                    <header class="hud-modal-header">
+                        <div>
+                            <strong id="titulo-modal-categorias">📋 Categorías de servicios</strong>
+                            <div class="hud-modal-subtitle">Activa, desactiva, reordena o personaliza cada categoría.</div>
+                        </div>
+                        <button type="button" class="hud-modal-close" onclick="cerrarModalCategoriasServicios()" aria-label="Cerrar">✕</button>
+                    </header>
+                    <div id="dynamic-services-container" class="hud-modal-list"></div>
+                    <footer class="hud-modal-footer">
+                        <span id="resumen-categorias-modal">Administra tus categorías de búsqueda</span>
+                        <button type="button" class="btn-secondary" style="width:auto; margin:0;" onclick="cerrarModalCategoriasServicios()">Listo</button>
+                    </footer>
+                </section>
             </div>
-            <div id="dynamic-services-container" class="collapsible-content"></div>
             
             <div style="border-top: 1px solid #2e3545; padding-top: 10px; margin-top: 10px;">
                 <label style="color: #4facfe; margin-bottom: 6px; display:block; font-size:11px;">➕ AGREGAR SERVICIO PERSONALIZADO</label>
@@ -2274,6 +2302,30 @@
             renderizarListaGruposServicios();
         }
 
+        function abrirModalCategoriasServicios() {
+            const modal = document.getElementById('modal-categorias-servicios');
+            if (!modal) return;
+            modal.style.display = 'flex';
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('hud-modal-open');
+            const cerrar = modal.querySelector('.hud-modal-close');
+            if (cerrar) cerrar.focus();
+            const resumen = document.getElementById('resumen-categorias-modal');
+            if (resumen) resumen.textContent = `${CONFIG_SERVICIOS_PREDEFINIDOS.length} categorías disponibles · Los cambios se guardan automáticamente`;
+        }
+
+        function cerrarModalCategoriasServicios() {
+            const modal = document.getElementById('modal-categorias-servicios');
+            if (!modal) return;
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('hud-modal-open');
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') cerrarModalCategoriasServicios();
+        });
+
         function renderizarEstructuraServiciosFijos() {
             const container = document.getElementById('dynamic-services-container');
             container.innerHTML = "";
@@ -3142,19 +3194,20 @@
         // Arma el ícono de un marcador (imagen personalizada o emoji) al tamaño indicado — se usa
         // tanto al crear el marcador la primera vez como al cambiarle el ícono después desde la
         // vista previa, para que ambos casos generen exactamente el mismo resultado visual.
-        function construirIconoServicio(img, em, tamano) {
+        function construirIconoServicio(img, em, tamano, nombreServicio = "") {
+            let tituloHover = nombreServicio ? ` title="${escaparHTML(nombreServicio)}" aria-label="${escaparHTML(nombreServicio)}"` : "";
             let mitad = Math.floor(tamano / 2);
             if (img) {
                 return L.divIcon({
                     className: 'custom-hud-icon',
-                    html: `<img src="${img}">`,
+                    html: `<img src="${img}"${tituloHover}>`,
                     iconSize: [tamano, tamano],
                     iconAnchor: [mitad, mitad]
                 });
             }
             return L.divIcon({
                 className: 'custom-hud-icon',
-                html: `<span style="font-size:${Math.floor(tamano * 0.48)}px;">${em}</span>`,
+                html: `<span${tituloHover} style="font-size:${Math.floor(tamano * 0.48)}px;">${em}</span>`,
                 iconSize: [tamano, tamano],
                 iconAnchor: [mitad, mitad]
             });
@@ -3268,13 +3321,13 @@
                     itemsLimitados.forEach(r => {
                         let uid = "s_" + Date.now() + "_" + Math.floor(Math.random()*10000);
                         let markerOptions = { draggable: true };
-                        markerOptions.icon = construirIconoServicio(r.img, r.em, sizeDinamico);
+                        markerOptions.icon = construirIconoServicio(r.img, r.em, sizeDinamico, r.nombre);
 
                         let m = L.marker([r.lat, r.lng], markerOptions).addTo(serviciosLayerGroup).bindPopup(
                             `<b>${escaparHTML(r.nombre)}</b><br>📐 ~${r.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel, o haz clic aquí mientras el modo trazado esté activo</small>`
                         );
                         m.bindTooltip(escaparHTML(r.nombre), { permanent: true, direction: 'bottom', offset: [0, 4], className: 'etiqueta-nombre-servicio' });
-                        m.on('mouseover', function() { if (m.getElement()) m.getElement().title = 'Clic para cambiar el ícono · Arrastra para ajustar la ubicación'; });
+                        m.on('mouseover', function() { if (m.getElement()) m.getElement().title = r.nombre || 'Servicio'; });
 
                         elementosMapeadosActivos[uid] = { 
                             uid: uid,
@@ -4091,7 +4144,7 @@
             // para que ambos queden siempre iguales.
             if (item.marker) {
                 let tamanoActual = parseInt(document.getElementById('global-icon-size-slider').value) || 30;
-                item.marker.setIcon(construirIconoServicio(img, em, tamanoActual));
+                item.marker.setIcon(construirIconoServicio(img, em, tamanoActual, item.name || item.nombre || ""));
             }
 
             document.getElementById('selector-icono-preview')?.remove();
