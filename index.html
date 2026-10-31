@@ -4457,7 +4457,7 @@
 
             let overlay = document.createElement('div');
             overlay.id = 'overlay-vista-previa-reporte';
-            overlay.style.cssText = 'position:fixed; top:80px; right:30px; z-index:9999; width:520px; height:520px; min-width:280px; min-height:200px;';
+            overlay.style.cssText = 'position:fixed; top:50%; left:50%; right:auto; transform:translate(-50%, -50%); z-index:9999; width:1031px; height:777px; min-width:280px; min-height:200px; box-sizing:border-box;';
             overlay.innerHTML = `
                 <div style="background:#0f1420; border:1px solid #2a313d; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,0.6); overflow:hidden; width:100%; height:100%; display:flex; flex-direction:column;">
                     <div id="cabecera-vista-previa-reporte" style="background:#1e293b; padding:10px 14px; cursor:move; display:flex; justify-content:space-between; align-items:center; user-select:none; flex-shrink:0;">
