@@ -3995,7 +3995,7 @@
                             <td style="border:none; padding:8px; text-align:center; vertical-align:middle;">${contenidoIcono}</td>
                             <td style="border:1px solid #333; padding:12px 16px; text-align:left; color:#1a56db; font-weight:600; font-size:17px;">${escaparHTML(item.name)}</td>
                             <td style="border:1px solid #333; padding:12px 16px; text-align:left; white-space:nowrap; color:#1a56db; font-weight:600; font-size:17px;">
-                                <img src="${ICONO_CAMINANTE}" style="width:24px;height:24px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)}
+                                <img src="${ICONO_CAMINANTE}" style="width:32px;height:32px;vertical-align:middle;object-fit:contain;"> ${formatoTiempoCaminando(item.tiempo)}
                             </td>
                             <td style="border:1px solid #333; padding:12px 16px; text-align:center; color:#1a56db; font-weight:600; font-size:17px;">${item.distance} m</td>
                         </tr>`;
@@ -4194,7 +4194,7 @@
                     </td>
                     <td style="border:1px solid #333; padding:9px 14px; text-align:left; color:#1a56db; font-weight:600;" class="celda-texto-preview" contenteditable="true" data-uid="${item.uid}" onblur="guardarNombreEditadoPreview(this)" title="Clic para corregir el nombre">${escaparHTML(item.name)}</td>
                     <td style="border:1px solid #333; padding:9px 14px; text-align:left; white-space:nowrap; color:#1a56db; font-weight:600;" class="celda-texto-preview">
-                        <img src="${ICONO_CAMINANTE}" style="width:22px;height:22px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)}
+                        <img src="${ICONO_CAMINANTE}" style="width:32px;height:32px;vertical-align:middle;object-fit:contain;"> ${formatoTiempoCaminando(item.tiempo)}
                     </td>
                     <td style="border:1px solid #333; padding:9px 14px; text-align:center; color:#1a56db; font-weight:600;" class="celda-texto-preview">${item.esDistanciaAproximada ? '~' : ''}${item.distance} m</td>
                     <td aria-hidden="true" style="border:none; width:28px; min-width:28px; padding:0; background:#fff;"></td>
