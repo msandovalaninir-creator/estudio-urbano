@@ -518,6 +518,43 @@
  .hud-icon-style-row { grid-template-columns:14px minmax(35px,1fr) 28px 20px 28px 28px; gap:4px !important; }
 }
 </style>
+
+<style id="barra-acciones-compacta-v70">
+/* Acciones siempre accesibles, pero en una sola franja compacta y sin panel decorativo. */
+#control-panel .barra-acciones-fija {
+  position: sticky;
+  top: 0;
+  z-index: 1200;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px !important;
+  margin: 4px 0 7px !important;
+  padding: 0 !important;
+  width: 100% !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.barra-acciones-fija .barra-acciones-titulo { display: none !important; }
+.barra-acciones-fija button {
+  min-width: 0 !important;
+  min-height: 32px !important;
+  height: 34px !important;
+  padding: 3px 2px !important;
+  margin: 0 !important;
+  border-radius: 6px !important;
+  font-size: 8px !important;
+  line-height: 1.05 !important;
+  letter-spacing: 0 !important;
+  white-space: normal !important;
+}
+@media (max-width: 340px) {
+  #control-panel .barra-acciones-fija { gap: 3px !important; }
+  .barra-acciones-fija button { font-size: 7px !important; height: 32px !important; }
+}
+</style>
+
 </head>
 <body>
 
@@ -549,6 +586,13 @@
             </div>
         </div>
         
+        <div class="acciones-principales-compactas barra-acciones-fija">
+            <div class="barra-acciones-titulo">ACCIONES DE BÚSQUEDA</div>
+            <button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br>STUDY URBANO</button>
+            <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" title="Sugerir servicios cercanos que falten">💡 SUGERIR<br>SERVICIOS</button>
+            <button id="btn-futuras-lineas-metro" onclick="conmutarFuturasLineasMetro()" title="Mostrar futuras líneas de Metro (L7, L8, L9 y extensiones)">🚇 FUTURAS<br>LÍNEAS METRO</button>
+        </div>
+
         <div class="collapsible-header" onclick="toggleSection('sec-capas-kmz', 'arrow-kmz-capas')">
             <span>🗺️ Capas Planificación (.kml / .kmz)</span>
             <span id="arrow-kmz-capas">▼</span>
@@ -638,11 +682,6 @@
 
 
 
-        <div class="acciones-principales-compactas">
-            <button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br>STUDY URBANO</button>
-            <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" title="Sugerir servicios cercanos que falten">💡 SUGERIR<br>SERVICIOS</button>
-            <button id="btn-futuras-lineas-metro" onclick="conmutarFuturasLineasMetro()" title="Mostrar futuras líneas de Metro (L7, L8, L9 y extensiones)">🚇 FUTURAS<br>LÍNEAS METRO</button>
-        </div>
         <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
         <div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
             <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
