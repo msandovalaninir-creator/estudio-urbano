@@ -1814,7 +1814,7 @@
                     icon: L.divIcon({ className: 'control-vertice-ruta-editable', html: '<div style="width:13px;height:13px;border-radius:50%;background:#facc15;border:2px solid #111827;box-shadow:0 0 0 2px #fff;"></div>', iconSize:[17,17], iconAnchor:[8,8] }),
                     zIndexOffset: 1200
                 }).addTo(map);
-                handle.bindTooltip('Arrastra para ajustar la ruta');
+                handle.bindTooltip('Arrastra para ajustar la ruta · Haz clic en la línea para agregar otro punto');
                 handle.on('drag', ev => {
                     const pos = ev.target.getLatLng();
                     item.trazadoAjustadoPuntos[idx + 1] = L.latLng(pos.lat, pos.lng);
@@ -1833,10 +1833,32 @@
             const weight = parseInt(document.getElementById('route-line-weight-slider')?.value) || 4;
             const color = targetColorInput(item.catId);
             item.lineaRectaEditable = L.polyline(item.trazadoAjustadoPuntos, { color, weight: visible ? weight : 0, opacity: visible ? 0.9 : 0, dashArray: obtenerDashArrayPorEstiloHUD(document.getElementById('route-line-style-select')?.value || 'continua') }).addTo(serviciosLayerGroup);
+            // Un clic sobre cualquier tramo agrega un nuevo punto de control justo donde
+            // se necesita doblar la ruta. El punto aparece como un tirador amarillo arrastrable.
+            // Esto permite ajustar también la aproximación y la llegada al servicio, sin activar
+            // el modo de trazado manual ni reemplazar el recorrido completo.
+            item.lineaRectaEditable.on('click', ev => {
+                L.DomEvent.stop(ev);
+                const pts = item.trazadoAjustadoPuntos;
+                let bestIndex = 0, bestDistance = Infinity;
+                for (let i = 0; i < pts.length - 1; i++) {
+                    const a = map.latLngToLayerPoint(pts[i]), b = map.latLngToLayerPoint(pts[i+1]), q = map.latLngToLayerPoint(ev.latlng);
+                    const dx=b.x-a.x, dy=b.y-a.y, len=dx*dx+dy*dy;
+                    const t=len ? Math.max(0,Math.min(1,((q.x-a.x)*dx+(q.y-a.y)*dy)/len)) : 0;
+                    const d=Math.hypot(q.x-(a.x+t*dx),q.y-(a.y+t*dy));
+                    if(d<bestDistance){bestDistance=d;bestIndex=i;}
+                }
+                pts.splice(bestIndex+1,0,L.latLng(ev.latlng.lat,ev.latlng.lng));
+                redibujarRutaEditable(item);
+                actualizarMedidaRutaEditable(item);
+                if (item.lineaRectaEditable && item.lineaRectaEditable.getElement()) {
+                    item.lineaRectaEditable.getElement().title = 'Punto agregado: arrastra el círculo amarillo para ajustar el recorrido';
+                }
+            });
+            // Se conserva el doble clic como alternativa rápida para insertar puntos adicionales.
             item.lineaRectaEditable.on('dblclick', ev => {
                 L.DomEvent.stop(ev);
                 const pts = item.trazadoAjustadoPuntos;
-                // Insertar el nuevo vértice en el segmento más cercano al clic.
                 let bestIndex = 0, bestDistance = Infinity;
                 for (let i = 0; i < pts.length - 1; i++) {
                     const a = map.latLngToLayerPoint(pts[i]), b = map.latLngToLayerPoint(pts[i+1]), q = map.latLngToLayerPoint(ev.latlng);
