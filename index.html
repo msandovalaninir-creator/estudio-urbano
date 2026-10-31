@@ -4347,13 +4347,24 @@
                 const escalaY = canvasCompleto.height / tablaRect.height;
                 const anchoRecorte = Math.min(canvasCompleto.width, Math.ceil((limiteRect.right - tablaRect.left) * escalaX));
                 const altoRecorte = canvasCompleto.height;
+                // El PNG final siempre tendrá 750 x 550 px para que PowerPoint
+                // lo inserte con un tamaño inicial uniforme, independiente del monitor.
+                const ANCHO_SALIDA = 750;
+                const ALTO_SALIDA = 550;
                 const canvasRecorte = document.createElement('canvas');
-                canvasRecorte.width = anchoRecorte;
-                canvasRecorte.height = altoRecorte;
+                canvasRecorte.width = ANCHO_SALIDA;
+                canvasRecorte.height = ALTO_SALIDA;
                 const ctxRecorte = canvasRecorte.getContext('2d');
                 ctxRecorte.fillStyle = '#ffffff';
-                ctxRecorte.fillRect(0, 0, anchoRecorte, altoRecorte);
-                ctxRecorte.drawImage(canvasCompleto, 0, 0, anchoRecorte, altoRecorte, 0, 0, anchoRecorte, altoRecorte);
+                ctxRecorte.fillRect(0, 0, ANCHO_SALIDA, ALTO_SALIDA);
+                // Ajustar proporcionalmente dentro del lienzo, sin deformar la tabla.
+                const escalaSalida = Math.min(ANCHO_SALIDA / anchoRecorte, ALTO_SALIDA / altoRecorte);
+                const anchoFinal = anchoRecorte * escalaSalida;
+                const altoFinal = altoRecorte * escalaSalida;
+                const destinoX = (ANCHO_SALIDA - anchoFinal) / 2;
+                const destinoY = (ALTO_SALIDA - altoFinal) / 2;
+                ctxRecorte.drawImage(canvasCompleto, 0, 0, anchoRecorte, altoRecorte,
+                    destinoX, destinoY, anchoFinal, altoFinal);
 
                 const blob = await new Promise((resolve, reject) => canvasRecorte.toBlob(b => b ? resolve(b) : reject(new Error('No se pudo generar la imagen.')), 'image/png'));
                 // En Chrome seguro permite pegar directamente con Ctrl+V en PowerPoint.
