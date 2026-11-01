@@ -276,10 +276,10 @@
         @media (max-width:700px) { #dynamic-services-container { grid-template-columns:minmax(0,1fr); } }
         @media (max-width:520px) { .hud-modal-overlay { padding:8px; } .hud-modal-card { width:100%; height:90vh; max-width:100%; max-height:90vh; } .hud-modal-header { padding:11px; } .hud-modal-list { padding:8px; } .hud-modal-list .servicio-container-block { overflow-x:auto; } .hud-modal-list .servicio-container-block > div { min-width:420px; } }
     
-        /* Aclara únicamente las imágenes satelitales Esri para acercarlas a la luminosidad de Google.
-           Los marcadores, rutas, polígonos y capas vectoriales conservan sus colores originales. */
-        .leaflet-tile.hud-satellite-bright {
-            filter: brightness(1.27) contrast(1.06) saturate(1.10);
+        /* Mejora visible de la imagen satelital Esri. Leaflet coloca className en
+           el contenedor .leaflet-layer, no en cada mosaico individual. */
+        .leaflet-layer.hud-satellite-bright .leaflet-tile {
+            filter: brightness(1.46) contrast(1.08) saturate(1.16) !important;
         }
 </style>
 <style>
