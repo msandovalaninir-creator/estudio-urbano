@@ -293,11 +293,6 @@
         .leaflet-control.hud-satellite-tuner-wrap{border:0;background:transparent;box-shadow:none}
         @media(max-width:600px){.hud-satellite-tuner{min-width:195px;padding:8px}.hud-satellite-tuner .tuner-row{grid-template-columns:68px 1fr 38px}}
 
-
-        .custom-hud-icon{position:relative}
-        .custom-hud-icon .hud-brand-logo{position:absolute;right:-2px;top:-3px;width:48%;height:48%;min-width:12px;min-height:12px;max-width:19px;max-height:19px;background:#fff;border:1.5px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.65);z-index:5}
-        .custom-hud-icon .hud-brand-logo img{width:82%;height:82%;object-fit:contain;display:block}
-
 </style>
 <style>
         .metro-selector-compacto{margin:4px 0 8px;padding:7px;border:1px solid #334155;border-radius:7px;background:rgba(2,6,23,.55);font-size:10px}
@@ -986,63 +981,40 @@
         }
 
         function conmutarVisibilidadLineasRuta(visible) {
-            esVisibleLineasRutaGlobal = !!visible;
-            const grosorEstilo = parseInt(document.getElementById('route-line-weight-slider')?.value) || 4;
-            const tipoEstilo = document.getElementById('route-line-style-select')?.value || 'continua';
-            const nuevoDash = obtenerDashArrayPorEstiloHUD(tipoEstilo);
+            esVisibleLineasRutaGlobal = visible;
+            let grosorEstilo = parseInt(document.getElementById('route-line-weight-slider').value) || 4;
+            let tipoEstilo = document.getElementById('route-line-style-select').value;
+            let nuevoDash = obtenerDashArrayPorEstiloHUD(tipoEstilo);
 
-            // La visibilidad de una ruta depende SIEMPRE de que su servicio siga visible.
-            // Así no quedan trazados huérfanos cuando se oculta/elimina un marcador.
-            Object.values(elementosMapeadosActivos).forEach(item => {
-                if (!item) return;
-                const servicioVisible = !!(item.marker && serviciosLayerGroup.hasLayer(item.marker));
-                const lineaVigente = item.trazadoManual && item.lineaManual
-                    ? item.lineaManual
-                    : item.lineaRectaEditable;
-
-                [item.lineaManual, item.lineaRectaEditable].forEach(linea => {
-                    if (linea && serviciosLayerGroup.hasLayer(linea)) serviciosLayerGroup.removeLayer(linea);
-                });
-                (item.manejadoresRutaEditable || []).forEach(m => {
-                    if (map.hasLayer(m)) map.removeLayer(m);
-                });
-
-                if (!visible || !servicioVisible || !lineaVigente) return;
-
-                // Corrige los extremos usando la posición ACTUAL del marcador y el origen
-                // vigente. No reutiliza endpoints antiguos de búsquedas anteriores.
-                if (!item.trazadoManual) {
-                    const destino = item.marker.getLatLng();
-                    const puntos = item.trazadoAjustadoPuntos;
-                    if (Array.isArray(puntos) && puntos.length >= 2) {
-                        puntos[0] = L.latLng(coordenadasOrigen.lat, coordenadasOrigen.lng);
-                        puntos[puntos.length - 1] = L.latLng(destino.lat, destino.lng);
-                        item.trazadoAjustadoPuntos = puntos;
-                        item.lineaRectaEditable.setLatLngs(puntos);
+            for (let uid in elementosMapeadosActivos) {
+                let item = elementosMapeadosActivos[uid];
+                if (item.lineaManual) {
+                    if (esVisibleLineasRutaGlobal) {
+                        item.lineaManual.setStyle({ opacity: 0.9, weight: grosorEstilo, dashArray: nuevoDash });
                     } else {
-                        item.trazadoAjustadoPuntos = [
-                            L.latLng(coordenadasOrigen.lat, coordenadasOrigen.lng),
-                            L.latLng(destino.lat, destino.lng)
-                        ];
-                        item.lineaRectaEditable.setLatLngs(item.trazadoAjustadoPuntos);
+                        item.lineaManual.setStyle({ opacity: 0, weight: 0 });
                     }
-                } else if (item.trazadoPuntos && item.trazadoPuntos.length >= 2) {
-                    const destino = item.marker.getLatLng();
-                    item.trazadoPuntos[item.trazadoPuntos.length - 1] = L.latLng(destino.lat, destino.lng);
-                    item.lineaManual.setLatLngs(item.trazadoPuntos);
                 }
-
-                lineaVigente.setStyle({ opacity: 0.9, weight: grosorEstilo, dashArray: nuevoDash });
-                serviciosLayerGroup.addLayer(lineaVigente);
-
-                if (!item.trazadoManual) {
-                    (item.manejadoresRutaEditable || []).forEach(m => m.addTo(map));
+                if (item.lineaRectaEditable) {
+                    if (esVisibleLineasRutaGlobal) {
+                        item.lineaRectaEditable.setStyle({ opacity: 0.9, weight: grosorEstilo, dashArray: nuevoDash });
+                        (item.manejadoresRutaEditable || []).forEach(m => { if (!map.hasLayer(m)) m.addTo(map); });
+                    } else {
+                        item.lineaRectaEditable.setStyle({ opacity: 0, weight: 0 });
+                        (item.manejadoresRutaEditable || []).forEach(m => map.removeLayer(m));
+                    }
                 }
-            });
+            }
 
+            // Los puntitos clickeables de los vértices (para continuar un trazado desde ahí)
+            // también deben ocultarse junto con las líneas — antes se quedaban visibles sueltos
+            // en el mapa aunque las líneas ya estuvieran apagadas.
             if (modoTrazadoManualActivo) {
-                if (visible) mostrarVerticesTrazadosExistentes();
-                else ocultarVerticesTrazadosExistentes();
+                if (esVisibleLineasRutaGlobal) {
+                    mostrarVerticesTrazadosExistentes();
+                } else {
+                    ocultarVerticesTrazadosExistentes();
+                }
             }
         }
 
@@ -1065,18 +1037,17 @@
         }
 
         function redibujarEstilosLineasExistentesActivas() {
-            if (!document.getElementById('toggle-rutas-visibles').checked || !esVisibleLineasRutaGlobal) return;
+            if (!document.getElementById('toggle-rutas-visibles').checked) return;
             let tipoEstilo = document.getElementById('route-line-style-select').value;
             let grosorEstilo = parseInt(document.getElementById('route-line-weight-slider').value) || 4;
             let nuevoDash = obtenerDashArrayPorEstiloHUD(tipoEstilo);
 
             for (let uid in elementosMapeadosActivos) {
                 let item = elementosMapeadosActivos[uid];
-                if (item.trazadoManual && item.lineaManual) {
+                if (item.lineaManual) {
                     item.lineaManual.setStyle({ weight: grosorEstilo, dashArray: nuevoDash, opacity: 0.9 });
-                } else if (item.lineaRectaEditable) {
-                    item.lineaRectaEditable.setStyle({ weight: grosorEstilo, dashArray: nuevoDash, opacity: 0.9 });
                 }
+                if (item.lineaRectaEditable) item.lineaRectaEditable.setStyle({ weight: grosorEstilo, dashArray: nuevoDash, opacity: 0.9 });
             }
         }
 
@@ -1927,8 +1898,7 @@
                     draggable: true,
                     icon: L.divIcon({ className: 'control-vertice-ruta-editable', html: '<div style="width:13px;height:13px;border-radius:50%;background:#facc15;border:2px solid #111827;box-shadow:0 0 0 2px #fff;"></div>', iconSize:[17,17], iconAnchor:[8,8] }),
                     zIndexOffset: 1200
-                });
-                if (esVisibleLineasRutaGlobal && document.getElementById('toggle-rutas-visibles')?.checked !== false) handle.addTo(map);
+                }).addTo(map);
                 handle.bindTooltip('Arrastra para ajustar la ruta · Haz clic en la línea para agregar otro punto');
                 handle.on('drag', ev => {
                     const pos = ev.target.getLatLng();
@@ -1942,14 +1912,12 @@
 
         function crearRutaRectaEditable(item) {
             if (!coordenadasOrigen || !item) return;
-            const destinoInicial = item.marker && item.marker.getLatLng ? item.marker.getLatLng() : L.latLng(item.lat, item.lng);
-            item.trazadoAjustadoPuntos = [L.latLng(coordenadasOrigen.lat, coordenadasOrigen.lng), L.latLng(destinoInicial.lat, destinoInicial.lng)];
+            item.trazadoAjustadoPuntos = [L.latLng(coordenadasOrigen.lat, coordenadasOrigen.lng), L.latLng(item.lat, item.lng)];
             item.manejadoresRutaEditable = [];
-            const visible = esVisibleLineasRutaGlobal && document.getElementById('toggle-rutas-visibles')?.checked !== false;
+            const visible = document.getElementById('toggle-rutas-visibles')?.checked !== false;
             const weight = parseInt(document.getElementById('route-line-weight-slider')?.value) || 4;
             const color = targetColorInput(item.catId);
-            item.lineaRectaEditable = L.polyline(item.trazadoAjustadoPuntos, { color, weight: weight, opacity: 0.9, dashArray: obtenerDashArrayPorEstiloHUD(document.getElementById('route-line-style-select')?.value || 'continua') });
-            if (visible && esVisibleLineasRutaGlobal) item.lineaRectaEditable.addTo(serviciosLayerGroup);
+            item.lineaRectaEditable = L.polyline(item.trazadoAjustadoPuntos, { color, weight: visible ? weight : 0, opacity: visible ? 0.9 : 0, dashArray: obtenerDashArrayPorEstiloHUD(document.getElementById('route-line-style-select')?.value || 'continua') }).addTo(serviciosLayerGroup);
             // Un clic sobre cualquier tramo agrega un nuevo punto de control justo donde
             // se necesita doblar la ruta. El punto aparece como un tirador amarillo arrastrable.
             // Esto permite ajustar también la aproximación y la llegada al servicio, sin activar
@@ -2249,11 +2217,7 @@
             let tiempoEstimado = Math.round(distanciaMedida / 1.39);
 
             // Si ya existía un trazado anterior para este mismo servicio, se reemplaza por el nuevo.
-            if (item.lineaManual) serviciosLayerGroup.removeLayer(item.lineaManual);
-            if (item.lineaRectaEditable) serviciosLayerGroup.removeLayer(item.lineaRectaEditable);
-            (item.manejadoresRutaEditable || []).forEach(m => map.removeLayer(m));
-            item.lineaRectaEditable = null;
-            item.manejadoresRutaEditable = [];
+            if (item.lineaManual) { serviciosLayerGroup.removeLayer(item.lineaManual); }
 
             let colorServicio = targetColorInput(item.catId);
             let grosorActual = parseInt(document.getElementById('route-line-weight-slider').value) || 4;
@@ -2262,8 +2226,7 @@
                 color: colorServicio,
                 weight: lineasVisiblesAhora ? grosorActual : 0,
                 opacity: lineasVisiblesAhora ? 0.9 : 0
-            });
-            if (lineasVisiblesAhora && esVisibleLineasRutaGlobal) lineaManualDefinitiva.addTo(serviciosLayerGroup);
+            }).addTo(serviciosLayerGroup);
 
             item.distance = distanciaMedida;
             item.tiempo = tiempoEstimado;
@@ -3509,112 +3472,26 @@
             });
         }
 
-
-        // Logos de marcas conocidas: se agregan como distintivo pequeño sobre el ícono
-        // de categoría, sin reemplazar el símbolo que identifica el tipo de servicio.
-        const MARCAS_CON_LOGO = [
-            { keys: ['mcdonald', "mc donald"], slug: 'mcdonalds', label: "McDonald's" },
-            { keys: ['starbucks'], slug: 'starbucks', label: 'Starbucks' },
-            { keys: ['burger king'], slug: 'burgerking', label: 'Burger King' },
-            { keys: ['kfc'], slug: 'kfc', label: 'KFC' },
-            { keys: ['subway'], slug: 'subway', label: 'Subway' },
-            { keys: ['pizza hut'], slug: 'pizzahut', label: 'Pizza Hut' },
-            { keys: ["domino's", 'dominos'], slug: 'dominos', label: "Domino's" },
-            { keys: ['walmart', 'lider'], slug: 'walmart', label: 'Lider / Walmart' },
-            { keys: ['carrefour'], slug: 'carrefour', label: 'Carrefour' },
-            { keys: ['ikea'], slug: 'ikea', label: 'IKEA' },
-            { keys: ['sodimac', 'homecenter'], slug: 'sodimac', label: 'Sodimac' },
-            { keys: ['decathlon'], slug: 'decathlon', label: 'Decathlon' },
-            { keys: ['adidas'], slug: 'adidas', label: 'Adidas' },
-            { keys: ['nike'], slug: 'nike', label: 'Nike' },
-            { keys: ['puma'], slug: 'puma', label: 'Puma' },
-            { keys: ['shell'], slug: 'shell', label: 'Shell' },
-            { keys: ['copec'], slug: 'copec', label: 'Copec' },
-            { keys: ['bp ', 'bp station'], slug: 'bp', label: 'BP' },
-            { keys: ['dhl'], slug: 'dhl', label: 'DHL' },
-            { keys: ['fedex'], slug: 'fedex', label: 'FedEx' },
-            { keys: ['ups'], slug: 'ups', label: 'UPS' },
-            { keys: ['amazon'], slug: 'amazon', label: 'Amazon' },
-            { keys: ['apple store', 'apple'], slug: 'apple', label: 'Apple' },
-            { keys: ['samsung'], slug: 'samsung', label: 'Samsung' },
-            { keys: ['santander'], slug: 'santander', label: 'Santander' },
-            { keys: ['scotiabank'], slug: 'scotiabank', label: 'Scotiabank' },
-            { keys: ['bbva'], slug: 'bbva', label: 'BBVA' },
-            { keys: ['hsbc'], slug: 'hsbc', label: 'HSBC' },
-            { keys: ['citibank', 'citi'], slug: 'citibank', label: 'Citi' },
-            { keys: ['hilton'], slug: 'hilton', label: 'Hilton' },
-            { keys: ['marriott'], slug: 'marriott', label: 'Marriott' },
-            { keys: ['uber eats', 'ubereats'], slug: 'ubereats', label: 'Uber Eats' },
-            { keys: ['uber'], slug: 'uber', label: 'Uber' }
-        ];
-
-        function detectarLogoMarca(tags, nombreServicio) {
-            const texto = [
-                tags?.brand, tags?.brand_wikidata, tags?.operator,
-                tags?.name, nombreServicio
-            ].filter(Boolean).join(' ').toLowerCase();
-            if (!texto) return null;
-            const marca = MARCAS_CON_LOGO.find(m => m.keys.some(k => texto.includes(k)));
-            return marca ? {
-                label: marca.label,
-                url: `https://cdn.simpleicons.org/${marca.slug}`
-            } : null;
-        }
-
         // Arma el ícono de un marcador (imagen personalizada o emoji) al tamaño indicado — se usa
         // tanto al crear el marcador la primera vez como al cambiarle el ícono después desde la
         // vista previa, para que ambos casos generen exactamente el mismo resultado visual.
-        function construirIconoServicio(img, em, tamano, nombreServicio = "", logoMarca = null) {
+        function construirIconoServicio(img, em, tamano, nombreServicio = "") {
             let tituloHover = nombreServicio ? ` title="${escaparHTML(nombreServicio)}" aria-label="${escaparHTML(nombreServicio)}"` : "";
             let mitad = Math.floor(tamano / 2);
-            const contenidoBase = img
-                ? `<img src="${img}" style="width:100%;height:100%;object-fit:cover;">`
-                : `<span style="font-size:${Math.floor(tamano * 0.48)}px;line-height:1;">${em}</span>`;
-            const selloMarca = logoMarca?.url
-                ? `<span class="hud-brand-logo" title="${escaparHTML(logoMarca.label)}"><img src="${logoMarca.url}" alt="${escaparHTML(logoMarca.label)}" onerror="this.parentElement.style.display='none'"></span>`
-                : '';
+            if (img) {
+                return L.divIcon({
+                    className: 'custom-hud-icon',
+                    html: `<img src="${img}"${tituloHover}>`,
+                    iconSize: [tamano, tamano],
+                    iconAnchor: [mitad, mitad]
+                });
+            }
             return L.divIcon({
                 className: 'custom-hud-icon',
-                html: `<span${tituloHover} style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;">${contenidoBase}${selloMarca}</span>`,
+                html: `<span${tituloHover} style="font-size:${Math.floor(tamano * 0.48)}px;">${em}</span>`,
                 iconSize: [tamano, tamano],
                 iconAnchor: [mitad, mitad]
             });
-        }
-
-
-        // Selecciona servicios cercanos pero repartidos alrededor del origen.
-        // Evita que el límite máximo por categoría se consuma solo con los primeros
-        // resultados de un cuadrante (por ejemplo, todos al sur).
-        function seleccionarServiciosDistribuidos(items, maximo) {
-            if (!Array.isArray(items) || maximo <= 0) return [];
-            const centro = coordenadasOrigen;
-            const sectores = Array.from({ length: 8 }, () => []);
-            items.forEach(item => {
-                const dLat = Number(item.lat) - Number(centro.lat);
-                const dLng = (Number(item.lng) - Number(centro.lng)) * Math.cos(Number(centro.lat) * Math.PI / 180);
-                let angulo = (Math.atan2(dLng, -dLat) * 180 / Math.PI + 360) % 360;
-                const sector = Math.floor((angulo + 22.5) / 45) % 8;
-                sectores[sector].push(item);
-            });
-            sectores.forEach(lista => lista.sort((a,b) => a.distanciaLinea - b.distanciaLinea));
-            const elegidos = [];
-            const usados = new Set();
-            // Primero toma el más cercano de cada dirección disponible.
-            const primeraVuelta = sectores
-                .map((lista, sector) => ({ sector, item: lista[0] }))
-                .filter(x => x.item)
-                .sort((a,b) => a.item.distanciaLinea - b.item.distanciaLinea);
-            for (const x of primeraVuelta) {
-                if (elegidos.length >= maximo) break;
-                elegidos.push(x.item);
-                usados.add(x.item);
-            }
-            // Completa los cupos con los siguientes servicios más cercanos, sin duplicar.
-            if (elegidos.length < maximo) {
-                const restantes = items.filter(x => !usados.has(x)).sort((a,b) => a.distanciaLinea - b.distanciaLinea);
-                elegidos.push(...restantes.slice(0, maximo - elegidos.length));
-            }
-            return elegidos.sort((a,b) => a.distanciaLinea - b.distanciaLinea);
         }
 
         function procesarElementosFiltrosVariables(elements, rMaxLineal, linealFiltroActivo, rMaxWalk, walkFiltroActivo) {
@@ -3680,7 +3557,7 @@
                 // panel de resultados — esto elimina por completo la espera de red en esta etapa,
                 // que era la causa principal de la lentitud. Por ahora se guarda solo la distancia
                 // en línea recta, como referencia inicial mientras no se ha trazado.
-                validos.push({ valid: true, catId: catAsignada.id, titleGrupo: catAsignada.title, nombre: nombreReal, esGenerico, lat, lng, distanciaLinea: dLineaRecta, color: targetColorInput(catAsignada.id), img: catAsignada.img, em: catAsignada.em, logoMarca: detectarLogoMarca(el.tags, nombreReal) });
+                validos.push({ valid: true, catId: catAsignada.id, titleGrupo: catAsignada.title, nombre: nombreReal, esGenerico, lat, lng, distanciaLinea: dLineaRecta, color: targetColorInput(catAsignada.id), img: catAsignada.img, em: catAsignada.em });
             });
 
             {
@@ -3714,9 +3591,7 @@
                     let yaVisibles = Object.values(elementosMapeadosActivos).filter(item => item.catId === s.id).length;
                     let cuposDisponibles = Math.max(0, maxDefinido - yaVisibles);
                     itemsDeCategoria.sort((a, b) => a.distanciaLinea - b.distanciaLinea);
-                    // Distribución geográfica: primero cubre sectores distintos del origen,
-                    // después completa con los servicios más próximos.
-                    itemsFinalesPorCategoria[s.id] = seleccionarServiciosDistribuidos(itemsDeCategoria, cuposDisponibles);
+                    itemsFinalesPorCategoria[s.id] = itemsDeCategoria.slice(0, cuposDisponibles);
                 });
 
                 // No limpiar serviciosLayerGroup ni reiniciar elementosMapeadosActivos aquí:
@@ -3727,7 +3602,7 @@
                     itemsLimitados.forEach(r => {
                         let uid = "s_" + Date.now() + "_" + Math.floor(Math.random()*10000);
                         let markerOptions = { draggable: true };
-                        markerOptions.icon = construirIconoServicio(r.img, r.em, sizeDinamico, r.nombre, r.logoMarca);
+                        markerOptions.icon = construirIconoServicio(r.img, r.em, sizeDinamico, r.nombre);
 
                         let m = L.marker([r.lat, r.lng], markerOptions).addTo(serviciosLayerGroup).bindPopup(
                             `<b>${escaparHTML(r.nombre)}</b><br>📐 ~${r.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel, o haz clic aquí mientras el modo trazado esté activo</small>`,
@@ -3755,8 +3630,7 @@
                             lat: r.lat, 
                             lng: r.lng, 
                             img: r.img, 
-                            em: r.em,
-                            logoMarca: r.logoMarca 
+                            em: r.em 
                         };
                         // Mostrar desde el inicio el trayecto recto editable entre el origen y el servicio.
                         crearRutaRectaEditable(elementosMapeadosActivos[uid]);
@@ -3799,22 +3673,6 @@
                             item.lng = nuevaPos.lng;
                             item.verificadoManual = true;
                             item.distanciaLinea = Math.round(map.distance([coordenadasOrigen.lat, coordenadasOrigen.lng], nuevaPos));
-                            if (item.trazadoAjustadoPuntos && item.trazadoAjustadoPuntos.length >= 2) {
-                                item.trazadoAjustadoPuntos[item.trazadoAjustadoPuntos.length - 1] = L.latLng(nuevaPos.lat, nuevaPos.lng);
-                                if (item.lineaRectaEditable) item.lineaRectaEditable.setLatLngs(item.trazadoAjustadoPuntos);
-                                redibujarRutaEditable(item);
-                                if (!esVisibleLineasRutaGlobal && item.lineaRectaEditable && serviciosLayerGroup.hasLayer(item.lineaRectaEditable)) serviciosLayerGroup.removeLayer(item.lineaRectaEditable);
-                                actualizarMedidaRutaEditable(item);
-                            }
-                            if (item.trazadoManual && item.trazadoPuntos && item.trazadoPuntos.length >= 2) {
-                                item.trazadoPuntos[item.trazadoPuntos.length - 1] = L.latLng(nuevaPos.lat, nuevaPos.lng);
-                                if (item.lineaManual) item.lineaManual.setLatLngs(item.trazadoPuntos);
-                                item.distance = sumarDistanciaDeTrazado(item.trazadoPuntos);
-                                item.tiempo = Math.round(item.distance / 1.39);
-                                if (!esVisibleLineasRutaGlobal && item.lineaManual && serviciosLayerGroup.hasLayer(item.lineaManual)) {
-                                    serviciosLayerGroup.removeLayer(item.lineaManual);
-                                }
-                            }
                             let etiqueta = item.trazadoManual
                                 ? `🛣️ ${item.distance} m · <img src="${ICONO_CAMINANTE}" style="width:14px;height:14px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)} <span style="color:#38bdf8;">📏 trazado manual</span>`
                                 : `📐 ~${item.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel</small>`;
@@ -3859,9 +3717,9 @@
                 if (item.marker) {
                     serviciosLayerGroup.removeLayer(item.marker);
                 }
-                if (item.lineaManual) serviciosLayerGroup.removeLayer(item.lineaManual);
-                if (item.lineaRectaEditable) serviciosLayerGroup.removeLayer(item.lineaRectaEditable);
-                (item.manejadoresRutaEditable || []).forEach(m => map.removeLayer(m));
+                if (item.lineaManual) {
+                    serviciosLayerGroup.removeLayer(item.lineaManual);
+                }
                 if (item.dedupeToken) serviciosExcluidosManualmente.add(item.dedupeToken);
                 else if (item.catId && item.name) serviciosExcluidosManualmente.add(`${item.catId}_${String(item.name).toLowerCase().trim()}`);
                 delete elementosMapeadosActivos[uid];
@@ -4579,7 +4437,7 @@
             // para que ambos queden siempre iguales.
             if (item.marker) {
                 let tamanoActual = parseInt(document.getElementById('global-icon-size-slider').value) || 30;
-                item.marker.setIcon(construirIconoServicio(img, em, tamanoActual, item.name || item.nombre || "", item.logoMarca));
+                item.marker.setIcon(construirIconoServicio(img, em, tamanoActual, item.name || item.nombre || ""));
             }
 
             document.getElementById('selector-icono-preview')?.remove();
