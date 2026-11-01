@@ -991,37 +991,58 @@
             const tipoEstilo = document.getElementById('route-line-style-select')?.value || 'continua';
             const nuevoDash = obtenerDashArrayPorEstiloHUD(tipoEstilo);
 
-            // Primero retira todos los objetos de ruta y controles antiguos.
-            // Luego, si se activa, vuelve a agregar exclusivamente los trazados vigentes
-            // asociados a servicios que siguen presentes en el mapa.
-            for (const uid in elementosMapeadosActivos) {
-                const item = elementosMapeadosActivos[uid];
+            // La visibilidad de una ruta depende SIEMPRE de que su servicio siga visible.
+            // Así no quedan trazados huérfanos cuando se oculta/elimina un marcador.
+            Object.values(elementosMapeadosActivos).forEach(item => {
+                if (!item) return;
+                const servicioVisible = !!(item.marker && serviciosLayerGroup.hasLayer(item.marker));
+                const lineaVigente = item.trazadoManual && item.lineaManual
+                    ? item.lineaManual
+                    : item.lineaRectaEditable;
+
                 [item.lineaManual, item.lineaRectaEditable].forEach(linea => {
                     if (linea && serviciosLayerGroup.hasLayer(linea)) serviciosLayerGroup.removeLayer(linea);
                 });
                 (item.manejadoresRutaEditable || []).forEach(m => {
                     if (map.hasLayer(m)) map.removeLayer(m);
                 });
-            }
 
-            if (visible) {
-                for (const uid in elementosMapeadosActivos) {
-                    const item = elementosMapeadosActivos[uid];
-                    // Una ruta manual reemplaza la recta; nunca se muestran ambas.
-                    const lineaVigente = item.trazadoManual && item.lineaManual
-                        ? item.lineaManual
-                        : item.lineaRectaEditable;
-                    if (lineaVigente) {
-                        lineaVigente.setStyle({ opacity: 0.9, weight: grosorEstilo, dashArray: nuevoDash });
-                        serviciosLayerGroup.addLayer(lineaVigente);
+                if (!visible || !servicioVisible || !lineaVigente) return;
+
+                // Corrige los extremos usando la posición ACTUAL del marcador y el origen
+                // vigente. No reutiliza endpoints antiguos de búsquedas anteriores.
+                if (!item.trazadoManual) {
+                    const destino = item.marker.getLatLng();
+                    const puntos = item.trazadoAjustadoPuntos;
+                    if (Array.isArray(puntos) && puntos.length >= 2) {
+                        puntos[0] = L.latLng(coordenadasOrigen.lat, coordenadasOrigen.lng);
+                        puntos[puntos.length - 1] = L.latLng(destino.lat, destino.lng);
+                        item.trazadoAjustadoPuntos = puntos;
+                        item.lineaRectaEditable.setLatLngs(puntos);
+                    } else {
+                        item.trazadoAjustadoPuntos = [
+                            L.latLng(coordenadasOrigen.lat, coordenadasOrigen.lng),
+                            L.latLng(destino.lat, destino.lng)
+                        ];
+                        item.lineaRectaEditable.setLatLngs(item.trazadoAjustadoPuntos);
                     }
-                    if (!(item.trazadoManual && item.lineaManual)) {
-                        (item.manejadoresRutaEditable || []).forEach(m => m.addTo(map));
-                    }
+                } else if (item.trazadoPuntos && item.trazadoPuntos.length >= 2) {
+                    const destino = item.marker.getLatLng();
+                    item.trazadoPuntos[item.trazadoPuntos.length - 1] = L.latLng(destino.lat, destino.lng);
+                    item.lineaManual.setLatLngs(item.trazadoPuntos);
                 }
-                if (modoTrazadoManualActivo) mostrarVerticesTrazadosExistentes();
-            } else if (modoTrazadoManualActivo) {
-                ocultarVerticesTrazadosExistentes();
+
+                lineaVigente.setStyle({ opacity: 0.9, weight: grosorEstilo, dashArray: nuevoDash });
+                serviciosLayerGroup.addLayer(lineaVigente);
+
+                if (!item.trazadoManual) {
+                    (item.manejadoresRutaEditable || []).forEach(m => m.addTo(map));
+                }
+            });
+
+            if (modoTrazadoManualActivo) {
+                if (visible) mostrarVerticesTrazadosExistentes();
+                else ocultarVerticesTrazadosExistentes();
             }
         }
 
@@ -1051,10 +1072,11 @@
 
             for (let uid in elementosMapeadosActivos) {
                 let item = elementosMapeadosActivos[uid];
-                if (item.lineaManual) {
+                if (item.trazadoManual && item.lineaManual) {
                     item.lineaManual.setStyle({ weight: grosorEstilo, dashArray: nuevoDash, opacity: 0.9 });
+                } else if (item.lineaRectaEditable) {
+                    item.lineaRectaEditable.setStyle({ weight: grosorEstilo, dashArray: nuevoDash, opacity: 0.9 });
                 }
-                if (item.lineaRectaEditable) item.lineaRectaEditable.setStyle({ weight: grosorEstilo, dashArray: nuevoDash, opacity: 0.9 });
             }
         }
 
@@ -1920,7 +1942,8 @@
 
         function crearRutaRectaEditable(item) {
             if (!coordenadasOrigen || !item) return;
-            item.trazadoAjustadoPuntos = [L.latLng(coordenadasOrigen.lat, coordenadasOrigen.lng), L.latLng(item.lat, item.lng)];
+            const destinoInicial = item.marker && item.marker.getLatLng ? item.marker.getLatLng() : L.latLng(item.lat, item.lng);
+            item.trazadoAjustadoPuntos = [L.latLng(coordenadasOrigen.lat, coordenadasOrigen.lng), L.latLng(destinoInicial.lat, destinoInicial.lng)];
             item.manejadoresRutaEditable = [];
             const visible = esVisibleLineasRutaGlobal && document.getElementById('toggle-rutas-visibles')?.checked !== false;
             const weight = parseInt(document.getElementById('route-line-weight-slider')?.value) || 4;
@@ -3780,6 +3803,7 @@
                                 item.trazadoAjustadoPuntos[item.trazadoAjustadoPuntos.length - 1] = L.latLng(nuevaPos.lat, nuevaPos.lng);
                                 if (item.lineaRectaEditable) item.lineaRectaEditable.setLatLngs(item.trazadoAjustadoPuntos);
                                 redibujarRutaEditable(item);
+                                if (!esVisibleLineasRutaGlobal && item.lineaRectaEditable && serviciosLayerGroup.hasLayer(item.lineaRectaEditable)) serviciosLayerGroup.removeLayer(item.lineaRectaEditable);
                                 actualizarMedidaRutaEditable(item);
                             }
                             if (item.trazadoManual && item.trazadoPuntos && item.trazadoPuntos.length >= 2) {
