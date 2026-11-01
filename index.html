@@ -261,7 +261,7 @@
 
 
         /* Ventana emergente de categorías: mantiene el panel principal compacto. */
-        .hud-modal-overlay { position:fixed; inset:0; z-index:6000; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(2,6,15,.78); backdrop-filter:blur(5px); }
+        .hud-modal-overlay { position:fixed; left:0; top:0; width:100vw; height:100vh; inset:0; z-index:6000; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(2,6,15,.78); backdrop-filter:blur(5px); }
         .hud-modal-card { width:1031px; height:777px; max-width:calc(100vw - 36px); max-height:calc(100vh - 36px); display:flex; flex-direction:column; overflow:hidden; background:linear-gradient(160deg,#111b2b,#0b1220); border:1px solid rgba(79,172,254,.55); border-radius:14px; box-shadow:0 22px 70px rgba(0,0,0,.65); box-sizing:border-box; }
         .hud-modal-header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 22px; border-bottom:1px solid #29384d; background:rgba(30,41,59,.55); }
         .hud-modal-header strong { color:#eaf4ff; font-size:16px; }
@@ -2385,42 +2385,75 @@
                 <div style="display:flex; align-items:center; gap:6px; background:${estaActivo ? '#0c3d24' : '#161a24'}; border:1px solid ${estaActivo ? '#22c55e' : 'transparent'}; border-radius:6px; padding:6px 8px; margin-bottom:5px;">
                     <span style="flex-grow:1; font-size:11px; color:#e2e8f0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escaparHTML(g.nombre)}: ${g.categoriaIds.length} categorías">${estaActivo ? '✓ ' : ''}${escaparHTML(g.nombre)}</span>
                     <button onclick="activarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 8px; font-size:10px; background:${estaActivo ? '#16a34a' : '#0369a1'}; font-weight:${estaActivo ? '700' : '400'};" title="${estaActivo ? 'Este grupo está activo — clic para desactivarlo' : 'Activar solo las categorías de este grupo'}">${estaActivo ? '✓ Activo' : '▶ Activar'}</button>
+                    <button onclick="editarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 7px; font-size:10px; background:#475569;" title="Modificar nombre y categorías">✏️</button>
                     <button onclick="eliminarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 6px; font-size:10px; background:#7f1d1d;" title="Eliminar grupo">❌</button>
                 </div>
             `;
             }).join('');
         }
 
-        function mostrarFormularioCrearGrupo() {
-            let form = document.getElementById('form-crear-grupo');
-            let yaVisible = form.style.display === 'block';
-            if (yaVisible) { form.style.display = 'none'; return; }
+        let grupoEnEdicionId = null;
 
-            let checklistHtml = CONFIG_SERVICIOS_PREDEFINIDOS.map(s => `
-                <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; padding:3px 0;">
-                    <input type="checkbox" class="chk-grupo-nuevo" value="${s.id}"> ${escaparHTML(s.title)}
+        function mostrarFormularioCrearGrupo() {
+            grupoEnEdicionId = null;
+            renderizarFormularioGrupo(null);
+        }
+
+        function editarGrupoServicios(id) {
+            const grupo = GRUPOS_SERVICIOS.find(g => g.id === id);
+            if (!grupo) return;
+            grupoEnEdicionId = id;
+            renderizarFormularioGrupo(grupo);
+        }
+
+        function renderizarFormularioGrupo(grupo) {
+            const form = document.getElementById('form-crear-grupo');
+            const esEdicion = !!grupo;
+            const seleccion = new Set(esEdicion ? grupo.categoriaIds : []);
+            const checklistHtml = CONFIG_SERVICIOS_PREDEFINIDOS.map(s => `
+                <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; padding:4px 0;">
+                    <input type="checkbox" class="chk-grupo-nuevo" value="${s.id}" ${seleccion.has(s.id) ? 'checked' : ''}> ${escaparHTML(s.title)}
                 </label>
             `).join('');
-
             form.innerHTML = `
-                <input type="text" id="nombre-grupo-nuevo" placeholder="Nombre del grupo (ej: Viviendas Sociales)" style="margin-bottom:8px;">
+                <div style="font-size:11px;color:#7dd3fc;font-weight:700;margin-bottom:6px;">${esEdicion ? '✏️ MODIFICAR GRUPO EXISTENTE' : '➕ NUEVO GRUPO'}</div>
+                <input type="text" id="nombre-grupo-nuevo" value="${esEdicion ? escaparHTML(grupo.nombre) : ''}" placeholder="Nombre del grupo (ej: Viviendas Sociales)" style="margin-bottom:8px;">
                 <div style="max-height:180px; overflow-y:auto; background:#0d1117; border-radius:6px; padding:6px 8px; margin-bottom:8px;">
                     ${checklistHtml}
                 </div>
-                <button onclick="guardarGrupoServiciosNuevo()" style="margin:0; background:#16a34a; font-size:11px; padding:8px;">💾 Guardar grupo</button>
+                <div style="display:flex;gap:6px;">
+                    <button onclick="guardarGrupoServiciosNuevo()" style="flex:1;margin:0;background:#16a34a;font-size:11px;padding:8px;">💾 ${esEdicion ? 'Guardar cambios' : 'Guardar grupo'}</button>
+                    <button onclick="document.getElementById('form-crear-grupo').style.display='none';grupoEnEdicionId=null;" style="width:auto;margin:0;background:#475569;font-size:11px;padding:8px;">Cancelar</button>
+                </div>
             `;
             form.style.display = 'block';
+            document.getElementById('nombre-grupo-nuevo').focus();
         }
 
         function guardarGrupoServiciosNuevo() {
-            let nombre = document.getElementById('nombre-grupo-nuevo').value.trim();
+            const nombreEl = document.getElementById('nombre-grupo-nuevo');
+            if (!nombreEl) return;
+            const nombre = nombreEl.value.trim();
             if (!nombre) return alert("Ponle un nombre al grupo (ej: Viviendas Sociales).");
-
-            let seleccionados = [...document.querySelectorAll('.chk-grupo-nuevo:checked')].map(el => el.value);
+            const seleccionados = [...document.querySelectorAll('.chk-grupo-nuevo:checked')].map(el => el.value);
             if (seleccionados.length === 0) return alert("Marca al menos una categoría para este grupo.");
 
-            let id = "grupo_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
-            GRUPOS_SERVICIOS.push({ id, nombre, categoriaIds: seleccionados });
+            if (grupoEnEdicionId) {
+                const grupo = GRUPOS_SERVICIOS.find(g => g.id === grupoEnEdicionId);
+                if (!grupo) return;
+                grupo.nombre = nombre;
+                grupo.categoriaIds = seleccionados;
+                if (grupoActivoId === grupo.id) {
+                    CONFIG_SERVICIOS_PREDEFINIDOS.forEach(s => {
+                        const chk = document.getElementById(`srv-${s.id}`);
+                        if (chk) chk.checked = seleccionados.includes(s.id);
+                    });
+                }
+            } else {
+                const id = "grupo_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
+                GRUPOS_SERVICIOS.push({ id, nombre, categoriaIds: seleccionados });
+            }
+            grupoEnEdicionId = null;
             persistirConfiguracionGlobalEnStorage();
             renderizarListaGruposServicios();
             document.getElementById('form-crear-grupo').style.display = 'none';
@@ -2463,6 +2496,14 @@
         function abrirModalCategoriasServicios() {
             const modal = document.getElementById('modal-categorias-servicios');
             if (!modal) return;
+            // El modal debe ser hijo directo de body: dentro del panel lateral, los transforms
+            // del contenedor alteran el centrado de position:fixed y lo dejan sobre la barra izquierda.
+            if (modal.parentElement !== document.body) document.body.appendChild(modal);
+            modal.style.position = 'fixed';
+            modal.style.inset = '0';
+            modal.style.width = '100vw';
+            modal.style.height = '100vh';
+            modal.style.zIndex = '100000';
             modal.style.display = 'flex';
             modal.setAttribute('aria-hidden', 'false');
             document.body.classList.add('hud-modal-open');
