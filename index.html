@@ -293,6 +293,11 @@
         .leaflet-control.hud-satellite-tuner-wrap{border:0;background:transparent;box-shadow:none}
         @media(max-width:600px){.hud-satellite-tuner{min-width:195px;padding:8px}.hud-satellite-tuner .tuner-row{grid-template-columns:68px 1fr 38px}}
 
+
+        .custom-hud-icon{position:relative}
+        .custom-hud-icon .hud-brand-logo{position:absolute;right:-2px;top:-3px;width:48%;height:48%;min-width:12px;min-height:12px;max-width:19px;max-height:19px;background:#fff;border:1.5px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.65);z-index:5}
+        .custom-hud-icon .hud-brand-logo img{width:82%;height:82%;object-fit:contain;display:block}
+
 </style>
 <style>
         .metro-selector-compacto{margin:4px 0 8px;padding:7px;border:1px solid #334155;border-radius:7px;background:rgba(2,6,23,.55);font-size:10px}
@@ -3472,23 +3477,73 @@
             });
         }
 
+
+        // Logos de marcas conocidas: se agregan como distintivo pequeño sobre el ícono
+        // de categoría, sin reemplazar el símbolo que identifica el tipo de servicio.
+        const MARCAS_CON_LOGO = [
+            { keys: ['mcdonald', "mc donald"], slug: 'mcdonalds', label: "McDonald's" },
+            { keys: ['starbucks'], slug: 'starbucks', label: 'Starbucks' },
+            { keys: ['burger king'], slug: 'burgerking', label: 'Burger King' },
+            { keys: ['kfc'], slug: 'kfc', label: 'KFC' },
+            { keys: ['subway'], slug: 'subway', label: 'Subway' },
+            { keys: ['pizza hut'], slug: 'pizzahut', label: 'Pizza Hut' },
+            { keys: ["domino's", 'dominos'], slug: 'dominos', label: "Domino's" },
+            { keys: ['walmart', 'lider'], slug: 'walmart', label: 'Lider / Walmart' },
+            { keys: ['carrefour'], slug: 'carrefour', label: 'Carrefour' },
+            { keys: ['ikea'], slug: 'ikea', label: 'IKEA' },
+            { keys: ['sodimac', 'homecenter'], slug: 'sodimac', label: 'Sodimac' },
+            { keys: ['decathlon'], slug: 'decathlon', label: 'Decathlon' },
+            { keys: ['adidas'], slug: 'adidas', label: 'Adidas' },
+            { keys: ['nike'], slug: 'nike', label: 'Nike' },
+            { keys: ['puma'], slug: 'puma', label: 'Puma' },
+            { keys: ['shell'], slug: 'shell', label: 'Shell' },
+            { keys: ['copec'], slug: 'copec', label: 'Copec' },
+            { keys: ['bp ', 'bp station'], slug: 'bp', label: 'BP' },
+            { keys: ['dhl'], slug: 'dhl', label: 'DHL' },
+            { keys: ['fedex'], slug: 'fedex', label: 'FedEx' },
+            { keys: ['ups'], slug: 'ups', label: 'UPS' },
+            { keys: ['amazon'], slug: 'amazon', label: 'Amazon' },
+            { keys: ['apple store', 'apple'], slug: 'apple', label: 'Apple' },
+            { keys: ['samsung'], slug: 'samsung', label: 'Samsung' },
+            { keys: ['santander'], slug: 'santander', label: 'Santander' },
+            { keys: ['scotiabank'], slug: 'scotiabank', label: 'Scotiabank' },
+            { keys: ['bbva'], slug: 'bbva', label: 'BBVA' },
+            { keys: ['hsbc'], slug: 'hsbc', label: 'HSBC' },
+            { keys: ['citibank', 'citi'], slug: 'citibank', label: 'Citi' },
+            { keys: ['hilton'], slug: 'hilton', label: 'Hilton' },
+            { keys: ['marriott'], slug: 'marriott', label: 'Marriott' },
+            { keys: ['uber eats', 'ubereats'], slug: 'ubereats', label: 'Uber Eats' },
+            { keys: ['uber'], slug: 'uber', label: 'Uber' }
+        ];
+
+        function detectarLogoMarca(tags, nombreServicio) {
+            const texto = [
+                tags?.brand, tags?.brand_wikidata, tags?.operator,
+                tags?.name, nombreServicio
+            ].filter(Boolean).join(' ').toLowerCase();
+            if (!texto) return null;
+            const marca = MARCAS_CON_LOGO.find(m => m.keys.some(k => texto.includes(k)));
+            return marca ? {
+                label: marca.label,
+                url: `https://cdn.simpleicons.org/${marca.slug}`
+            } : null;
+        }
+
         // Arma el ícono de un marcador (imagen personalizada o emoji) al tamaño indicado — se usa
         // tanto al crear el marcador la primera vez como al cambiarle el ícono después desde la
         // vista previa, para que ambos casos generen exactamente el mismo resultado visual.
-        function construirIconoServicio(img, em, tamano, nombreServicio = "") {
+        function construirIconoServicio(img, em, tamano, nombreServicio = "", logoMarca = null) {
             let tituloHover = nombreServicio ? ` title="${escaparHTML(nombreServicio)}" aria-label="${escaparHTML(nombreServicio)}"` : "";
             let mitad = Math.floor(tamano / 2);
-            if (img) {
-                return L.divIcon({
-                    className: 'custom-hud-icon',
-                    html: `<img src="${img}"${tituloHover}>`,
-                    iconSize: [tamano, tamano],
-                    iconAnchor: [mitad, mitad]
-                });
-            }
+            const contenidoBase = img
+                ? `<img src="${img}" style="width:100%;height:100%;object-fit:cover;">`
+                : `<span style="font-size:${Math.floor(tamano * 0.48)}px;line-height:1;">${em}</span>`;
+            const selloMarca = logoMarca?.url
+                ? `<span class="hud-brand-logo" title="${escaparHTML(logoMarca.label)}"><img src="${logoMarca.url}" alt="${escaparHTML(logoMarca.label)}" onerror="this.parentElement.style.display='none'"></span>`
+                : '';
             return L.divIcon({
                 className: 'custom-hud-icon',
-                html: `<span${tituloHover} style="font-size:${Math.floor(tamano * 0.48)}px;">${em}</span>`,
+                html: `<span${tituloHover} style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;">${contenidoBase}${selloMarca}</span>`,
                 iconSize: [tamano, tamano],
                 iconAnchor: [mitad, mitad]
             });
@@ -3557,7 +3612,7 @@
                 // panel de resultados — esto elimina por completo la espera de red en esta etapa,
                 // que era la causa principal de la lentitud. Por ahora se guarda solo la distancia
                 // en línea recta, como referencia inicial mientras no se ha trazado.
-                validos.push({ valid: true, catId: catAsignada.id, titleGrupo: catAsignada.title, nombre: nombreReal, esGenerico, lat, lng, distanciaLinea: dLineaRecta, color: targetColorInput(catAsignada.id), img: catAsignada.img, em: catAsignada.em });
+                validos.push({ valid: true, catId: catAsignada.id, titleGrupo: catAsignada.title, nombre: nombreReal, esGenerico, lat, lng, distanciaLinea: dLineaRecta, color: targetColorInput(catAsignada.id), img: catAsignada.img, em: catAsignada.em, logoMarca: detectarLogoMarca(el.tags, nombreReal) });
             });
 
             {
@@ -3602,7 +3657,7 @@
                     itemsLimitados.forEach(r => {
                         let uid = "s_" + Date.now() + "_" + Math.floor(Math.random()*10000);
                         let markerOptions = { draggable: true };
-                        markerOptions.icon = construirIconoServicio(r.img, r.em, sizeDinamico, r.nombre);
+                        markerOptions.icon = construirIconoServicio(r.img, r.em, sizeDinamico, r.nombre, r.logoMarca);
 
                         let m = L.marker([r.lat, r.lng], markerOptions).addTo(serviciosLayerGroup).bindPopup(
                             `<b>${escaparHTML(r.nombre)}</b><br>📐 ~${r.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel, o haz clic aquí mientras el modo trazado esté activo</small>`,
@@ -3630,7 +3685,8 @@
                             lat: r.lat, 
                             lng: r.lng, 
                             img: r.img, 
-                            em: r.em 
+                            em: r.em,
+                            logoMarca: r.logoMarca 
                         };
                         // Mostrar desde el inicio el trayecto recto editable entre el origen y el servicio.
                         crearRutaRectaEditable(elementosMapeadosActivos[uid]);
@@ -4437,7 +4493,7 @@
             // para que ambos queden siempre iguales.
             if (item.marker) {
                 let tamanoActual = parseInt(document.getElementById('global-icon-size-slider').value) || 30;
-                item.marker.setIcon(construirIconoServicio(img, em, tamanoActual, item.name || item.nombre || ""));
+                item.marker.setIcon(construirIconoServicio(img, em, tamanoActual, item.name || item.nombre || "", item.logoMarca));
             }
 
             document.getElementById('selector-icono-preview')?.remove();
