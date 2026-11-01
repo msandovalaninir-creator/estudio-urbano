@@ -275,7 +275,13 @@
         body.hud-modal-open { overflow:hidden; }
         @media (max-width:700px) { #dynamic-services-container { grid-template-columns:minmax(0,1fr); } }
         @media (max-width:520px) { .hud-modal-overlay { padding:8px; } .hud-modal-card { width:100%; height:90vh; max-width:100%; max-height:90vh; } .hud-modal-header { padding:11px; } .hud-modal-list { padding:8px; } .hud-modal-list .servicio-container-block { overflow-x:auto; } .hud-modal-list .servicio-container-block > div { min-width:420px; } }
-    </style>
+    
+        /* Aclara únicamente las imágenes satelitales Esri para acercarlas a la luminosidad de Google.
+           Los marcadores, rutas, polígonos y capas vectoriales conservan sus colores originales. */
+        .leaflet-tile.hud-satellite-bright {
+            filter: brightness(1.27) contrast(1.06) saturate(1.10);
+        }
+</style>
 <style>
         .metro-selector-compacto{margin:4px 0 8px;padding:7px;border:1px solid #334155;border-radius:7px;background:rgba(2,6,23,.55);font-size:10px}
         .metro-selector-head{display:flex;justify-content:space-between;align-items:center;gap:6px;color:#e2e8f0;font-weight:800;margin-bottom:5px}
@@ -1038,7 +1044,8 @@
             attribution: '© OpenStreetMap contributors', maxZoom: 19, updateWhenIdle: true, keepBuffer: 3
         });
         const capaSateliteEsri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Imagery © Esri', maxZoom: 19, updateWhenIdle: true, keepBuffer: 3
+            attribution: 'Imagery © Esri', maxZoom: 19, updateWhenIdle: true, keepBuffer: 3,
+            className: 'hud-satellite-bright'
         });
 
         const map = L.map('map', {
