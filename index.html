@@ -991,27 +991,37 @@
             const tipoEstilo = document.getElementById('route-line-style-select')?.value || 'continua';
             const nuevoDash = obtenerDashArrayPorEstiloHUD(tipoEstilo);
 
+            // Primero retira todos los objetos de ruta y controles antiguos.
+            // Luego, si se activa, vuelve a agregar exclusivamente los trazados vigentes
+            // asociados a servicios que siguen presentes en el mapa.
             for (const uid in elementosMapeadosActivos) {
                 const item = elementosMapeadosActivos[uid];
                 [item.lineaManual, item.lineaRectaEditable].forEach(linea => {
-                    if (!linea) return;
-                    if (visible) {
-                        if (!serviciosLayerGroup.hasLayer(linea)) serviciosLayerGroup.addLayer(linea);
-                        linea.setStyle({ opacity: 0.9, weight: grosorEstilo, dashArray: nuevoDash });
-                    } else {
-                        if (serviciosLayerGroup.hasLayer(linea)) serviciosLayerGroup.removeLayer(linea);
-                    }
+                    if (linea && serviciosLayerGroup.hasLayer(linea)) serviciosLayerGroup.removeLayer(linea);
                 });
-
                 (item.manejadoresRutaEditable || []).forEach(m => {
-                    if (visible) { if (!map.hasLayer(m)) m.addTo(map); }
-                    else if (map.hasLayer(m)) map.removeLayer(m);
+                    if (map.hasLayer(m)) map.removeLayer(m);
                 });
             }
 
-            if (modoTrazadoManualActivo) {
-                if (visible) mostrarVerticesTrazadosExistentes();
-                else ocultarVerticesTrazadosExistentes();
+            if (visible) {
+                for (const uid in elementosMapeadosActivos) {
+                    const item = elementosMapeadosActivos[uid];
+                    // Una ruta manual reemplaza la recta; nunca se muestran ambas.
+                    const lineaVigente = item.trazadoManual && item.lineaManual
+                        ? item.lineaManual
+                        : item.lineaRectaEditable;
+                    if (lineaVigente) {
+                        lineaVigente.setStyle({ opacity: 0.9, weight: grosorEstilo, dashArray: nuevoDash });
+                        serviciosLayerGroup.addLayer(lineaVigente);
+                    }
+                    if (!(item.trazadoManual && item.lineaManual)) {
+                        (item.manejadoresRutaEditable || []).forEach(m => m.addTo(map));
+                    }
+                }
+                if (modoTrazadoManualActivo) mostrarVerticesTrazadosExistentes();
+            } else if (modoTrazadoManualActivo) {
+                ocultarVerticesTrazadosExistentes();
             }
         }
 
@@ -1912,7 +1922,7 @@
             if (!coordenadasOrigen || !item) return;
             item.trazadoAjustadoPuntos = [L.latLng(coordenadasOrigen.lat, coordenadasOrigen.lng), L.latLng(item.lat, item.lng)];
             item.manejadoresRutaEditable = [];
-            const visible = document.getElementById('toggle-rutas-visibles')?.checked !== false;
+            const visible = esVisibleLineasRutaGlobal && document.getElementById('toggle-rutas-visibles')?.checked !== false;
             const weight = parseInt(document.getElementById('route-line-weight-slider')?.value) || 4;
             const color = targetColorInput(item.catId);
             item.lineaRectaEditable = L.polyline(item.trazadoAjustadoPuntos, { color, weight: weight, opacity: 0.9, dashArray: obtenerDashArrayPorEstiloHUD(document.getElementById('route-line-style-select')?.value || 'continua') });
@@ -3548,6 +3558,42 @@
             });
         }
 
+
+        // Selecciona servicios cercanos pero repartidos alrededor del origen.
+        // Evita que el límite máximo por categoría se consuma solo con los primeros
+        // resultados de un cuadrante (por ejemplo, todos al sur).
+        function seleccionarServiciosDistribuidos(items, maximo) {
+            if (!Array.isArray(items) || maximo <= 0) return [];
+            const centro = coordenadasOrigen;
+            const sectores = Array.from({ length: 8 }, () => []);
+            items.forEach(item => {
+                const dLat = Number(item.lat) - Number(centro.lat);
+                const dLng = (Number(item.lng) - Number(centro.lng)) * Math.cos(Number(centro.lat) * Math.PI / 180);
+                let angulo = (Math.atan2(dLng, -dLat) * 180 / Math.PI + 360) % 360;
+                const sector = Math.floor((angulo + 22.5) / 45) % 8;
+                sectores[sector].push(item);
+            });
+            sectores.forEach(lista => lista.sort((a,b) => a.distanciaLinea - b.distanciaLinea));
+            const elegidos = [];
+            const usados = new Set();
+            // Primero toma el más cercano de cada dirección disponible.
+            const primeraVuelta = sectores
+                .map((lista, sector) => ({ sector, item: lista[0] }))
+                .filter(x => x.item)
+                .sort((a,b) => a.item.distanciaLinea - b.item.distanciaLinea);
+            for (const x of primeraVuelta) {
+                if (elegidos.length >= maximo) break;
+                elegidos.push(x.item);
+                usados.add(x.item);
+            }
+            // Completa los cupos con los siguientes servicios más cercanos, sin duplicar.
+            if (elegidos.length < maximo) {
+                const restantes = items.filter(x => !usados.has(x)).sort((a,b) => a.distanciaLinea - b.distanciaLinea);
+                elegidos.push(...restantes.slice(0, maximo - elegidos.length));
+            }
+            return elegidos.sort((a,b) => a.distanciaLinea - b.distanciaLinea);
+        }
+
         function procesarElementosFiltrosVariables(elements, rMaxLineal, linealFiltroActivo, rMaxWalk, walkFiltroActivo) {
             let validos = [];
             let sizeDinamico = parseInt(document.getElementById('global-icon-size-slider').value) || 30;
@@ -3645,7 +3691,9 @@
                     let yaVisibles = Object.values(elementosMapeadosActivos).filter(item => item.catId === s.id).length;
                     let cuposDisponibles = Math.max(0, maxDefinido - yaVisibles);
                     itemsDeCategoria.sort((a, b) => a.distanciaLinea - b.distanciaLinea);
-                    itemsFinalesPorCategoria[s.id] = itemsDeCategoria.slice(0, cuposDisponibles);
+                    // Distribución geográfica: primero cubre sectores distintos del origen,
+                    // después completa con los servicios más próximos.
+                    itemsFinalesPorCategoria[s.id] = seleccionarServiciosDistribuidos(itemsDeCategoria, cuposDisponibles);
                 });
 
                 // No limpiar serviciosLayerGroup ni reiniciar elementosMapeadosActivos aquí:
@@ -3739,6 +3787,9 @@
                                 if (item.lineaManual) item.lineaManual.setLatLngs(item.trazadoPuntos);
                                 item.distance = sumarDistanciaDeTrazado(item.trazadoPuntos);
                                 item.tiempo = Math.round(item.distance / 1.39);
+                                if (!esVisibleLineasRutaGlobal && item.lineaManual && serviciosLayerGroup.hasLayer(item.lineaManual)) {
+                                    serviciosLayerGroup.removeLayer(item.lineaManual);
+                                }
                             }
                             let etiqueta = item.trazadoManual
                                 ? `🛣️ ${item.distance} m · <img src="${ICONO_CAMINANTE}" style="width:14px;height:14px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)} <span style="color:#38bdf8;">📏 trazado manual</span>`
