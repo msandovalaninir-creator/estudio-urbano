@@ -4100,6 +4100,15 @@
             return `SUPERMERCADO ${sinPrefijo}`.toLocaleUpperCase('es-CL');
         }
 
+        // Nombre de paraderos estandarizado solo en el reporte.
+        function nombreParaderoReporte(nombre) {
+            let limpio = String(nombre || '').trim()
+                .replace(/^\\s*\\(\\s*M\\s*\\)\\s*/i, '')
+                .replace(/^\\s*\\(\\s*BUS\\s*\\)\\s*/i, '')
+                .replace(/^\\s*paradero\\s+(de\\s+)?(micro|buses?)\\s*/i, '').trim();
+            return `Paradero de Buses${limpio ? ' ' + limpio : ''}`;
+        }
+
         // Prepara los datos del reporte SIN modificar los datos originales del análisis.
         // Cada servicio usa la medida que corresponda: trazado manual si existe; si no,
         // distancia en línea recta y tiempo estimado con la misma velocidad de referencia (5 km/h).
@@ -4107,8 +4116,10 @@
         function obtenerItemsReporte() {
             let ordenCategorias = CONFIG_SERVICIOS_PREDEFINIDOS.map(s => s.id);
             return Object.values(elementosMapeadosActivos)
-                .filter(item => item.trazadoManual && item.distance !== null && item.distance !== undefined
-                    || item.distanciaLinea !== null && item.distanciaLinea !== undefined)
+                .filter(item => !item.omitirReporte && (
+                    (item.trazadoManual && item.distance !== null && item.distance !== undefined)
+                    || (item.distanciaLinea !== null && item.distanciaLinea !== undefined)
+                ))
                 .map(item => {
                     let usaTrazadoManual = !!(item.trazadoManual && item.distance !== null && item.distance !== undefined);
                     let usaTrazadoAjustado = !!(item.distanciaAjustada && item.trazadoAjustadoPuntos && item.trazadoAjustadoPuntos.length > 2);
@@ -4124,7 +4135,9 @@
                             ? nombreMetroConLineasReporte(item.name || item.nombre || '')
                             : (['supermercado', 'supermercados'].includes(String(item.catId || '').toLowerCase())
                                 ? nombreSupermercadoReporte(item.name || item.nombre || '')
-                                : (item.name || item.nombre || '')),
+                                : (String(item.catId || '').toLowerCase().includes('paradero')
+                                    ? nombreParaderoReporte(item.name || item.nombre || '')
+                                    : (item.name || item.nombre || ''))),
                         distance: distanciaReporte,
                         tiempo: tiempoReporte,
                         tipoTrayecto: usaTrazadoManual ? 'TRAZADO MANUAL' : (usaTrazadoAjustado ? 'TRAZADO AJUSTADO' : 'LÍNEA RECTA'),
@@ -4538,7 +4551,7 @@
                     ? `<img src="${item.img}" style="width:40px;height:40px;object-fit:contain;" class="icono-servicio-preview">`
                     : `<span style="font-size:32px;" class="icono-servicio-preview">${item.em || '📍'}</span>`;
                 return `
-                <tr>
+                <tr data-reporte-uid="${item.uid}">
                     <td style="border:none; padding:6px; text-align:center; vertical-align:middle; cursor:pointer; position:relative;" onclick="abrirSelectorIconoPreview(event, '${item.uid}')" title="Clic para cambiar el ícono">
                         ${contenidoIcono}
                     </td>
@@ -4547,6 +4560,7 @@
                         <img src="${ICONO_CAMINANTE}" style="width:32px;height:32px;vertical-align:middle;object-fit:contain;"> ${formatoTiempoCaminando(item.tiempo)}
                     </td>
                     <td style="border:1px solid #333; padding:9px 14px; text-align:center; color:#1a56db; font-weight:600;" class="celda-texto-preview">${item.esDistanciaAproximada ? '~' : ''}${item.distance} m</td>
+                    <td style="border:none;padding:4px;text-align:center;width:30px;"><button title="Quitar del reporte; se conserva en el mapa" onclick="event.stopPropagation(); quitarServicioDelReporte('${item.uid}')" style="background:#991b1b;color:#fff;border:0;border-radius:5px;padding:5px 8px;cursor:pointer;font-weight:700;">✕</button></td>
                     <td aria-hidden="true" style="border:none; width:28px; min-width:28px; padding:0; background:#fff;"></td>
                     <td style="border:1px solid #333; padding:9px 10px; text-align:center; color:${item.esDistanciaAproximada ? '#92400e' : '#166534'}; font-size:11px; font-weight:700; white-space:nowrap;" class="celda-texto-preview">${item.tipoTrayecto}</td>
                 </tr>
@@ -4561,10 +4575,10 @@
                     #tabla-preview-reporte { border-collapse:separate !important; border-spacing:0 !important; border:0 !important; }
                     #tabla-preview-reporte tr > :first-child { border-left:4px solid #000 !important; }
                     #tabla-preview-reporte tr > :nth-child(4) { border-right:4px solid #000 !important; }
-                    #tabla-preview-reporte tr > :nth-child(6) { border-left:4px solid #000 !important; border-right:4px solid #000 !important; }
-                    #tabla-preview-reporte thead tr:first-child > :not(:nth-child(5)) { border-top:4px solid #000 !important; }
-                    #tabla-preview-reporte tbody tr:last-child > :not(:nth-child(5)) { border-bottom:4px solid #000 !important; }
-                    #tabla-preview-reporte tr > :nth-child(5) { border:0 !important; background:#fff !important; }
+                    #tabla-preview-reporte tr > :nth-child(7) { border-left:4px solid #000 !important; border-right:4px solid #000 !important; }
+                    #tabla-preview-reporte thead tr:first-child > :not(:nth-child(6)) { border-top:4px solid #000 !important; }
+                    #tabla-preview-reporte tbody tr:last-child > :not(:nth-child(6)) { border-bottom:4px solid #000 !important; }
+                    #tabla-preview-reporte tr > :nth-child(6) { border:0 !important; background:#fff !important; }
                 </style>
                 <table id="tabla-preview-reporte" style="border-collapse:separate; border-spacing:0; width:100%; background:#fff; font-family: Arial, sans-serif; font-size:14px; border:0;">
                     <thead>
@@ -4573,6 +4587,7 @@
                             <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">SERVICIO</th>
                             <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">TIEMPO</th>
                             <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">DISTANCIA</th>
+                            <th style="border:none;padding:4px;width:30px;"></th>
                             <th aria-hidden="true" style="border:none; width:28px; min-width:28px; padding:0; background:#fff;"></th>
                             <th style="border:1px solid #333; padding:10px 10px; text-align:center; color:#000; font-size:13px;" class="celda-header-preview">TIPO DE TRAYECTO</th>
                         </tr>
@@ -4605,7 +4620,8 @@
                     </div>
                     <div style="padding:36px 6.5% 42px; overflow-y:auto; flex-grow:1; background:#fff; box-sizing:border-box;">
                         ${contenidoTabla}
-                        <div style="display:flex; gap:8px; margin-top:16px;">
+                        <div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;">
+                            <button style="flex:1; background:#075985;color:#fff;border:0;padding:10px 8px;border-radius:6px;cursor:pointer;font-weight:700;" onclick="abrirAgregarServicioManualPreview()">＋ Agregar servicio manual</button>
                             <button style="flex:0.8; background:#334155; color:#fff; border:none; padding:10px 8px; border-radius:6px; cursor:pointer;" onclick="document.getElementById('overlay-vista-previa-reporte').remove()">Cerrar</button>
                             <button id="btn-recortar-tabla-reporte" style="flex:1; background:#0f766e; color:#fff; border:none; padding:10px 8px; border-radius:6px; cursor:pointer; font-weight:700;" onclick="recortarTablaReporte()">✂ Recortar tabla</button>
                             <button style="flex:1.2; background:#2563eb; color:#fff; border:none; padding:10px 8px; border-radius:6px; cursor:pointer; font-weight:700;" onclick="copiarReporteResultadosAlPortapapeles();">📋 Copiar al portapapeles</button>
@@ -4620,6 +4636,71 @@
             document.body.appendChild(overlay);
             habilitarArrastreVentanaFlotante(overlay, document.getElementById('cabecera-vista-previa-reporte'));
             habilitarRedimensionEsquinas(overlay);
+        }
+
+        function quitarServicioDelReporte(uid) {
+            const item = elementosMapeadosActivos[uid];
+            if (!item) return;
+            item.omitirReporte = true; // conserva marcador y trazados en el mapa.
+            mostrarVistaPreviaReporte();
+        }
+
+        function abrirAgregarServicioManualPreview() {
+            document.getElementById('modal-servicio-manual-preview')?.remove();
+            const c = map.getCenter();
+            const modal = document.createElement('div');
+            modal.id = 'modal-servicio-manual-preview';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.68);display:flex;align-items:center;justify-content:center;padding:18px;';
+            modal.innerHTML = `
+              <div style="width:min(440px,96vw);background:#111827;border:1px solid #475569;border-radius:12px;padding:18px;color:#e5e7eb;font:13px Arial;box-shadow:0 15px 45px #0009;">
+                <h3 style="margin:0 0 12px;font-size:16px;">＋ Agregar servicio manual</h3>
+                <label>Nombre del servicio</label><input id="manual-preview-nombre" placeholder="Ej.: Farmacia, Paradero de Buses..." style="width:100%;box-sizing:border-box;margin:5px 0 10px;padding:9px;">
+                <label>Ícono (emoji)</label><input id="manual-preview-icono" value="📍" maxlength="8" style="width:100%;box-sizing:border-box;margin:5px 0 10px;padding:9px;">
+                <label>Latitud</label><input id="manual-preview-lat" type="number" step="any" value="${c.lat.toFixed(6)}" style="width:100%;box-sizing:border-box;margin:5px 0 10px;padding:9px;">
+                <label>Longitud</label><input id="manual-preview-lng" type="number" step="any" value="${c.lng.toFixed(6)}" style="width:100%;box-sizing:border-box;margin:5px 0 10px;padding:9px;">
+                <p style="font-size:11px;color:#94a3b8;">Las coordenadas parten del centro actual del mapa; puedes ajustarlas para ubicar exactamente el servicio.</p>
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                  <button onclick="document.getElementById('modal-servicio-manual-preview').remove()" style="flex:1;padding:9px;background:#334155;color:white;border:0;border-radius:6px;">Cancelar</button>
+                  <button onclick="crearServicioManualDesdePreview()" style="flex:1;padding:9px;background:#0f766e;color:white;border:0;border-radius:6px;font-weight:bold;">Agregar al mapa y reporte</button>
+                </div>
+              </div>`;
+            document.body.appendChild(modal);
+            document.getElementById('manual-preview-nombre').focus();
+        }
+
+        function crearServicioManualDesdePreview() {
+            const nombre = document.getElementById('manual-preview-nombre')?.value.trim();
+            const em = document.getElementById('manual-preview-icono')?.value.trim() || '📍';
+            const lat = Number(document.getElementById('manual-preview-lat')?.value);
+            const lng = Number(document.getElementById('manual-preview-lng')?.value);
+            if (!nombre || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat)>90 || Math.abs(lng)>180) {
+                alert('Ingresa un nombre y coordenadas válidas.'); return;
+            }
+            if (!coordenadasOrigen) { alert('Primero debes definir el origen del análisis.'); return; }
+            const uid = 'manual_' + Date.now() + '_' + Math.floor(Math.random()*10000);
+            const distancia = Math.round(map.distance(L.latLng(coordenadasOrigen.lat,coordenadasOrigen.lng),L.latLng(lat,lng)));
+            const tam = parseInt(document.getElementById('global-icon-size-slider')?.value)||30;
+            const marker = L.marker([lat,lng],{draggable:true,icon:construirIconoServicio(null,em,tam,nombre)}).addTo(serviciosLayerGroup);
+            marker.bindPopup(`<b>${escaparHTML(nombre)}</b><br>📐 ~${distancia} m en línea recta`,{className:'popup-servicio-centrado',autoPan:false});
+            marker.bindTooltip(escaparHTML(nombre),{permanent:true,direction:'bottom',offset:[0,4],className:'etiqueta-nombre-servicio'});
+            const item={uid,marker,catId:'servicio_manual',grupo:'SERVICIOS MANUALES',name:nombre,dedupeToken:'manual:'+uid,
+                distanciaLinea:distancia,distance:null,tiempo:null,trazadoManual:false,verificadoManual:true,
+                lat,lng,img:null,em,esManual:true,omitirReporte:false};
+            elementosMapeadosActivos[uid]=item;
+            crearRutaRectaEditable(item);
+            marker.on('dragend',ev=>{
+                const p=ev.target.getLatLng(); item.lat=p.lat; item.lng=p.lng;
+                item.distanciaLinea=Math.round(map.distance(L.latLng(coordenadasOrigen.lat,coordenadasOrigen.lng),p));
+                if(item.trazadoAjustadoPuntos?.length>=2){
+                    item.trazadoAjustadoPuntos[item.trazadoAjustadoPuntos.length-1]=L.latLng(p.lat,p.lng);
+                    item.lineaRectaEditable?.setLatLngs(item.trazadoAjustadoPuntos);
+                    actualizarMedidaRutaEditable(item);
+                }
+            });
+            document.getElementById('modal-servicio-manual-preview')?.remove();
+            document.getElementById('overlay-vista-previa-reporte')?.remove();
+            mostrarVistaPreviaReporte();
+            if(typeof rebuildPanelResultadosAcumulado==='function') rebuildPanelResultadosAcumulado();
         }
 
         // Permite agrandar o achicar la ventana flotante desde cualquiera de sus 4 esquinas.
