@@ -4560,7 +4560,7 @@
                         <img src="${ICONO_CAMINANTE}" style="width:32px;height:32px;vertical-align:middle;object-fit:contain;"> ${formatoTiempoCaminando(item.tiempo)}
                     </td>
                     <td style="border:1px solid #333; padding:9px 14px; text-align:center; color:#1a56db; font-weight:600;" class="celda-texto-preview">${item.esDistanciaAproximada ? '~' : ''}${item.distance} m</td>
-                    <td style="border:none;padding:4px;text-align:center;width:30px;"><button title="Quitar del reporte; se conserva en el mapa" onclick="event.stopPropagation(); quitarServicioDelReporte('${item.uid}')" style="background:#991b1b;color:#fff;border:0;border-radius:5px;padding:5px 8px;cursor:pointer;font-weight:700;">✕</button></td>
+                    <td style="border:none !important;padding:4px;width:38px;min-width:38px;text-align:center;vertical-align:middle;border-top:0 !important;border-bottom:0 !important;"><div style="width:100%;display:flex;align-items:center;justify-content:center;"><button title="Quitar del reporte; se conserva en el mapa" onclick="event.stopPropagation(); quitarServicioDelReporte('${item.uid}')" style="display:flex;align-items:center;justify-content:center;background:#991b1b;color:#fff;border:0;border-radius:5px;width:30px;height:30px;padding:0;cursor:pointer;font-size:18px;font-weight:700;line-height:1;">✕</button></div></td>
                     <td aria-hidden="true" style="border:none; width:28px; min-width:28px; padding:0; background:#fff;"></td>
                     <td style="border:1px solid #333; padding:9px 10px; text-align:center; color:${item.esDistanciaAproximada ? '#92400e' : '#166534'}; font-size:11px; font-weight:700; white-space:nowrap;" class="celda-texto-preview">${item.tipoTrayecto}</td>
                 </tr>
@@ -4576,9 +4576,10 @@
                     #tabla-preview-reporte tr > :first-child { border-left:4px solid #000 !important; }
                     #tabla-preview-reporte tr > :nth-child(4) { border-right:4px solid #000 !important; }
                     #tabla-preview-reporte tr > :nth-child(7) { border-left:4px solid #000 !important; border-right:4px solid #000 !important; }
-                    #tabla-preview-reporte thead tr:first-child > :not(:nth-child(6)) { border-top:4px solid #000 !important; }
-                    #tabla-preview-reporte tbody tr:last-child > :not(:nth-child(6)) { border-bottom:4px solid #000 !important; }
-                    #tabla-preview-reporte tr > :nth-child(6) { border:0 !important; background:#fff !important; }
+                    #tabla-preview-reporte thead tr:first-child > :not(:nth-child(5)):not(:nth-child(6)) { border-top:4px solid #000 !important; }
+                    #tabla-preview-reporte tbody tr:last-child > :not(:nth-child(5)):not(:nth-child(6)) { border-bottom:4px solid #000 !important; }
+                    #tabla-preview-reporte tr > :nth-child(5),
+                    #tabla-preview-reporte tr > :nth-child(6) { border:0 !important; border-top:0 !important; border-bottom:0 !important; background:#fff !important; vertical-align:middle !important; }
                 </style>
                 <table id="tabla-preview-reporte" style="border-collapse:separate; border-spacing:0; width:100%; background:#fff; font-family: Arial, sans-serif; font-size:14px; border:0;">
                     <thead>
