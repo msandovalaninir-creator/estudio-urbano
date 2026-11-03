@@ -293,6 +293,22 @@
         .leaflet-control.hud-satellite-tuner-wrap{border:0;background:transparent;box-shadow:none}
         @media(max-width:600px){.hud-satellite-tuner{min-width:195px;padding:8px}.hud-satellite-tuner .tuner-row{grid-template-columns:68px 1fr 38px}}
 
+
+        .etiqueta-area-parque {
+            background: rgba(6, 35, 22, 0.90) !important;
+            border: 1px solid #4ade80 !important;
+            border-radius: 6px !important;
+            color: #f0fdf4 !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            line-height: 1.35 !important;
+            padding: 4px 7px !important;
+            text-align: center !important;
+            white-space: nowrap !important;
+            box-shadow: 0 1px 5px rgba(0,0,0,.35) !important;
+        }
+        .etiqueta-area-parque:before { display: none !important; }
+
 </style>
 <style>
         .metro-selector-compacto{margin:4px 0 8px;padding:7px;border:1px solid #334155;border-radius:7px;background:rgba(2,6,23,.55);font-size:10px}
@@ -3535,6 +3551,48 @@
             } catch (_) { return null; }
         }
 
+
+        // Dibuja y permite seleccionar el contorno exacto del parque/plaza cuya superficie se midió.
+        function crearDemarcacionAreaParque(item) {
+            try {
+                if (!item || item.catId !== 'parques' || !Array.isArray(item.geometriaArea) || item.geometriaArea.length < 4) return;
+                const puntos = item.geometriaArea
+                    .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon))
+                    .map(p => [p.lat, p.lon]);
+                if (puntos.length < 4) return;
+                const primero = puntos[0], ultimo = puntos[puntos.length - 1];
+                if (Math.abs(primero[0] - ultimo[0]) > 1e-7 || Math.abs(primero[1] - ultimo[1]) > 1e-7) return;
+
+                const textoArea = Number(item.areaM2) > 0
+                    ? `${Number(item.areaM2).toLocaleString('es-CL')} m²`
+                    : 'Superficie no disponible';
+                const poligono = L.polygon(puntos, {
+                    color: '#16a34a', weight: 2.5, opacity: 0.95,
+                    fillColor: '#22c55e', fillOpacity: 0.20,
+                    interactive: true, bubblingMouseEvents: false
+                }).addTo(serviciosLayerGroup);
+                poligono.bindTooltip(
+                    `<strong>${escaparHTML(item.name || 'Parque o Plaza')}</strong><br>${escaparHTML(textoArea)}`,
+                    { permanent: true, direction: 'center', className: 'etiqueta-area-parque', opacity: 0.95 }
+                );
+                poligono.bindPopup(
+                    `<b>${escaparHTML(item.name || 'Parque o Plaza')}</b><br>📐 Superficie medida: <b>${escaparHTML(textoArea)}</b><br><small>Contorno demarcado según geometría disponible de OpenStreetMap.</small>`,
+                    { className: 'popup-servicio-centrado', autoPan: false }
+                );
+                poligono.on('click', function(ev) {
+                    L.DomEvent.stopPropagation(ev);
+                    poligono.setStyle({ color: '#f59e0b', weight: 4, fillColor: '#facc15', fillOpacity: 0.30 });
+                    if (poligono._popup) poligono.openPopup(ev.latlng);
+                });
+                poligono.on('popupclose', function() {
+                    poligono.setStyle({ color: '#16a34a', weight: 2.5, fillColor: '#22c55e', fillOpacity: 0.20 });
+                });
+                item.poligonoArea = poligono;
+            } catch (err) {
+                console.warn('No se pudo demarcar el área del parque/plaza:', err);
+            }
+        }
+
         function procesarElementosFiltrosVariables(elements, rMaxLineal, linealFiltroActivo, rMaxWalk, walkFiltroActivo) {
             let validos = [];
             let sizeDinamico = parseInt(document.getElementById('global-icon-size-slider').value) || 30;
@@ -3599,7 +3657,7 @@
                 // que era la causa principal de la lentitud. Por ahora se guarda solo la distancia
                 // en línea recta, como referencia inicial mientras no se ha trazado.
                 const areaM2 = catAsignada.id === 'parques' ? calcularAreaServicioM2(el) : null;
-                validos.push({ valid: true, catId: catAsignada.id, titleGrupo: catAsignada.title, nombre: nombreReal, esGenerico, lat, lng, distanciaLinea: dLineaRecta, areaM2, color: targetColorInput(catAsignada.id), img: catAsignada.img, em: catAsignada.em });
+                validos.push({ valid: true, catId: catAsignada.id, titleGrupo: catAsignada.title, nombre: nombreReal, esGenerico, lat, lng, distanciaLinea: dLineaRecta, areaM2, geometriaArea: catAsignada.id === 'parques' && Array.isArray(el.geometry) ? el.geometry.map(p => ({ lat: Number(p.lat), lon: Number(p.lon) })) : null, color: targetColorInput(catAsignada.id), img: catAsignada.img, em: catAsignada.em });
             });
 
             {
@@ -3647,7 +3705,7 @@
                         markerOptions.icon = construirIconoServicio(r.img, r.em, sizeDinamico, r.nombre);
 
                         let m = L.marker([r.lat, r.lng], markerOptions).addTo(serviciosLayerGroup).bindPopup(
-                            `<b>${escaparHTML(r.nombre)}</b><br>📐 ~${r.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel, o haz clic aquí mientras el modo trazado esté activo</small>`,
+                            `<b>${escaparHTML(r.nombre)}</b>${Number(r.areaM2) > 0 ? `<br>🌳 Superficie: <b>${Number(r.areaM2).toLocaleString('es-CL')} m²</b>` : ''}<br>📐 ~${r.distanciaLinea} m en línea recta<br><small>Sin trazar aún — usa "✏️ Trazar" en el panel, o haz clic aquí mientras el modo trazado esté activo</small>`,
                             { className: 'popup-servicio-centrado', autoPan: false }
                         );
                         m.bindTooltip(escaparHTML(r.nombre), { permanent: true, direction: 'bottom', offset: [0, 4], className: 'etiqueta-nombre-servicio' });
@@ -3666,6 +3724,8 @@
                             dedupeToken: tokenServicio(r), 
                             distanciaLinea: r.distanciaLinea,
                             areaM2: r.areaM2 ?? null,
+                            geometriaArea: r.geometriaArea ?? null,
+                            poligonoArea: null,
                             distance: null,
                             tiempo: null,
                             trazadoManual: false,
@@ -3677,6 +3737,8 @@
                         };
                         // Mostrar desde el inicio el trayecto recto editable entre el origen y el servicio.
                         crearRutaRectaEditable(elementosMapeadosActivos[uid]);
+                        // La superficie que se informa queda demarcada sobre el polígono medido.
+                        crearDemarcacionAreaParque(elementosMapeadosActivos[uid]);
 
                         // Si los radios están activos, incluir también esta estación Metro recién encontrada.
                         if (String(r.catId || '').toLowerCase() === 'metro' && document.getElementById('toggle-radios-metro')?.checked) reconstruirRadiosMetro();
