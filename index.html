@@ -842,6 +842,13 @@
             <span id="arrow-2">▼</span>
         </div>
         <div id="sec-circulo" class="collapsible-content" style="padding:8px;">
+            <div class="hud-analysis-row" style="gap:7px; margin-top:5px;">
+                <label class="switch" style="flex-shrink:0;" title="Mostrar u ocultar contornos de parques y plazas">
+                    <input type="checkbox" id="toggle-poligonos-parques" checked onchange="conmutarVisibilidadPoligonosParques(this.checked); persistirConfiguracionGlobalEnStorage();">
+                    <span class="slider-switch"></span>
+                </label>
+                <span style="font-size:10.5px; color:#94a3b8;">🌳 Mostrar / ocultar áreas de parques y plazas</span>
+            </div>
             <div class="hud-analysis-row hud-influence-radius-row">
                 <label class="switch" style="flex-shrink:0;" title="Mostrar Área Visual">
                     <input type="checkbox" id="circle-toggle-visibility" checked onchange="conmutarVisibilidadAreaVisual(this.checked); persistirConfiguracionGlobalEnStorage();">
@@ -3553,6 +3560,22 @@
 
 
         // Dibuja y permite seleccionar el contorno exacto del parque/plaza cuya superficie se midió.
+        function conmutarVisibilidadPoligonosParques(visible) {
+            const control = document.getElementById('toggle-poligonos-parques');
+            if (control) control.checked = !!visible;
+            Object.values(elementosMapeadosActivos || {}).forEach(item => {
+                const poligono = item && item.poligonoArea;
+                if (!poligono) return;
+                if (visible) {
+                    if (!serviciosLayerGroup.hasLayer(poligono)) poligono.addTo(serviciosLayerGroup);
+                } else {
+                    serviciosLayerGroup.removeLayer(poligono);
+                    if (poligono.closeTooltip) poligono.closeTooltip();
+                    if (poligono.closePopup) poligono.closePopup();
+                }
+            });
+        }
+
         function crearDemarcacionAreaParque(item) {
             try {
                 if (!item || item.catId !== 'parques' || !Array.isArray(item.geometriaArea) || item.geometriaArea.length < 4) return;
@@ -3570,10 +3593,13 @@
                     color: '#16a34a', weight: 2.5, opacity: 0.95,
                     fillColor: '#22c55e', fillOpacity: 0.20,
                     interactive: true, bubblingMouseEvents: false
-                }).addTo(serviciosLayerGroup);
+                });
+                if (document.getElementById('toggle-poligonos-parques')?.checked !== false) {
+                    poligono.addTo(serviciosLayerGroup);
+                }
                 poligono.bindTooltip(
                     `<strong>${escaparHTML(item.name || 'Parque o Plaza')}</strong><br>${escaparHTML(textoArea)}`,
-                    { permanent: true, direction: 'center', className: 'etiqueta-area-parque', opacity: 0.95 }
+                    { permanent: false, direction: 'top', sticky: true, className: 'etiqueta-area-parque', opacity: 0.98 }
                 );
                 poligono.bindPopup(
                     `<b>${escaparHTML(item.name || 'Parque o Plaza')}</b><br>📐 Superficie medida: <b>${escaparHTML(textoArea)}</b><br><small>Contorno demarcado según geometría disponible de OpenStreetMap.</small>`,
