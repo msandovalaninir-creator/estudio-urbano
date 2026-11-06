@@ -749,6 +749,23 @@
                 </div>
                 <div id="metro-selector-estado" role="status">Elige trazado y/o estaciones por separado.</div>
             </div>
+            <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin:9px 0 5px;">🚇 Infraestructura futura · trazados referenciales</div>
+            <div class="metro-selector-compacto" id="metro-futuro-selector">
+              <div class="metro-selector-head"><span>Seleccionar por línea futura</span><span class="metro-leyenda"><b>T</b> trazado <b>E</b> estaciones</span></div>
+              <div class="metro-selector-actions"><button type="button" onclick="seleccionarMetroFuturoRapido('todo')">Todas</button><button type="button" onclick="seleccionarMetroFuturoRapido('trazados')">Solo trazados</button><button type="button" onclick="seleccionarMetroFuturoRapido('estaciones')">Solo estaciones</button><button type="button" onclick="seleccionarMetroFuturoRapido('nada')">Limpiar</button></div>
+              <div class="metro-linea-grid">
+                <div class="metro-linea-titulos"><span>Línea</span><span>T</span><span>E</span></div>
+                <div class="metro-linea-row"><span><i style="background:#a855f7"></i>Línea 7</span><input id="metro-fut-trazo-7" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Trazado L7"><input id="metro-fut-est-7" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Estaciones L7"></div>
+                <div class="metro-linea-row"><span><i style="background:#f97316"></i>Línea 8</span><input id="metro-fut-trazo-8" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Trazado L8"><input id="metro-fut-est-8" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Estaciones L8"></div>
+                <div class="metro-linea-row"><span><i style="background:#ec4899"></i>Línea 9</span><input id="metro-fut-trazo-9" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Trazado L9"><input id="metro-fut-est-9" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Estaciones L9"></div>
+              </div>
+              <div id="metro-futuro-estado" role="status">Capas futuras independientes. Requieren datos geográficos verificables.</div>
+            </div>
+            <div style="padding:7px;border:1px solid #334155;border-radius:7px;margin-bottom:9px;font-size:10px;color:#cbd5e1;">
+              <label for="metro-futuro-geojson">Importar cartografía futura verificada (.geojson / .json)</label>
+              <input type="file" id="metro-futuro-geojson" accept=".geojson,.json,application/geo+json,application/json" onchange="importarMetroFuturoGeoJSON(this.files[0])" style="font-size:10px;">
+              <small style="display:block;margin-top:4px;color:#94a3b8">GeoJSON con propiedades linea/ref/name que identifiquen L7, L8 o L9. Se guarda localmente para carga inmediata.</small>
+            </div>
             <div style="margin:0 0 7px 0;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.7);">
                 <label for="metro-grosor-lineas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;margin-bottom:5px;">Grosor de líneas actuales y futuras <strong id="metro-grosor-valor" style="color:#38bdf8;">6 px</strong></label>
                 <input type="range" id="metro-grosor-lineas" min="2" max="14" step="1" value="6" oninput="actualizarGrosorLineasMetro(this.value)" style="width:100%;accent-color:#38bdf8;cursor:pointer;">
@@ -2964,6 +2981,74 @@
                 if (!futurasLineasMetroVisibles) btn.textContent = '🚇 FUTURAS LÍNEAS METRO';
             }
         }
+
+        // Selector futuro independiente: nunca modifica las capas del Metro operativo.
+        const FUTURO_LINEAS_UI=['7','8','9'];
+        const FUTURO_COLORES_UI={'7':'#a855f7','8':'#f97316','9':'#ec4899'};
+        const FUTURO_GEOJSON_KEY='hud_futuro_geojson_v99';
+        let futuroGeoJSON=null;
+        const capasFuturasT={},capasFuturasE={};
+        FUTURO_LINEAS_UI.forEach(l=>{capasFuturasT[l]=L.layerGroup();capasFuturasE[l]=L.layerGroup();});
+        function lineaFuturaPropiedades(props={}) {
+            const campos=[props.linea,props.LINEA,props.ref,props.REF,props.name,props.NOMBRE,props.nombre,props.route,props.description].filter(x=>x!=null);
+            for(const campo of campos){const m=String(campo).match(/(?:^|\b)(?:l(?:[íi]nea)?\s*[- ]*|metro\s*)?([789])(?:\b|$)/i);if(m)return m[1];}
+            return null;
+        }
+        function normalizarGeoJSONFuturo(obj){
+            if(!obj || !['FeatureCollection','Feature'].includes(obj.type))throw Error('El archivo no es GeoJSON válido');
+            const fs=obj.type==='Feature'?[obj]:obj.features;
+            if(!Array.isArray(fs))throw Error('GeoJSON sin lista de elementos');
+            const validos=fs.filter(f=>f && f.type==='Feature' && f.geometry && FUTURO_LINEAS_UI.includes(lineaFuturaPropiedades(f.properties||{})) && ['Point','MultiPoint','LineString','MultiLineString'].includes(f.geometry.type));
+            if(!validos.length)throw Error('No hay líneas 7, 8 o 9 identificables en el archivo');
+            return {type:'FeatureCollection',features:validos};
+        }
+        function reconstruirCapasMetroFuturo(){
+            FUTURO_LINEAS_UI.forEach(l=>{capasFuturasT[l].clearLayers();capasFuturasE[l].clearLayers();});
+            if(!futuroGeoJSON)return;
+            const config=CONFIG_SERVICIOS_PREDEFINIDOS.find(x=>x.id==='metro');
+            futuroGeoJSON.features.forEach(f=>{
+                const l=lineaFuturaPropiedades(f.properties||{});if(!l)return;
+                const nombre=String(f.properties?.name||f.properties?.NOMBRE||f.properties?.nombre||'Línea '+l+' (referencial)');
+                const geom=f.geometry.type;
+                if(geom==='LineString'||geom==='MultiLineString'){
+                    L.geoJSON(f,{style:{color:FUTURO_COLORES_UI[l],weight:grosorLineasMetro,opacity:.95,dashArray:'10,7'},onEachFeature:(_f,layer)=>layer.bindTooltip(escaparHTML(nombre+' · L'+l+' · Proyecto referencial'))}).addTo(capasFuturasT[l]);
+                }else{
+                    const tam=Math.max(16,Math.min(64,parseInt(document.getElementById('global-icon-size-slider')?.value,10)||30));
+                    L.geoJSON(f,{pointToLayer:(_f,latlng)=>L.marker(latlng,{icon:iconoEstacionMetro(config,tam,nombre)}),onEachFeature:(_f,layer)=>layer.bindTooltip(escaparHTML(nombre+' · L'+l+' · Estación proyectada'))}).addTo(capasFuturasE[l]);
+                }
+            });
+        }
+        function actualizarSeleccionMetroFuturo(){
+            const estado=document.getElementById('metro-futuro-estado');
+            FUTURO_LINEAS_UI.forEach(l=>{
+                const t=document.getElementById('metro-fut-trazo-'+l)?.checked;
+                const e=document.getElementById('metro-fut-est-'+l)?.checked;
+                if(t)capasFuturasT[l].addTo(map);else map.removeLayer(capasFuturasT[l]);
+                if(e)capasFuturasE[l].addTo(map);else map.removeLayer(capasFuturasE[l]);
+            });
+            const activos=FUTURO_LINEAS_UI.filter(l=>document.getElementById('metro-fut-trazo-'+l)?.checked||document.getElementById('metro-fut-est-'+l)?.checked);
+            if(estado)estado.textContent=!activos.length?'Sin capas futuras seleccionadas.':!futuroGeoJSON?'Falta importar cartografía GeoJSON de las líneas futuras; no se dibujan recorridos ficticios.':activos.map(l=>'L'+l+': '+capasFuturasT[l].getLayers().length+' trazados / '+capasFuturasE[l].getLayers().length+' estaciones disponibles').join(' · ');
+        }
+        function seleccionarMetroFuturoRapido(modo){
+            FUTURO_LINEAS_UI.forEach(l=>{
+                document.getElementById('metro-fut-trazo-'+l).checked=modo==='todo'||modo==='trazados';
+                document.getElementById('metro-fut-est-'+l).checked=modo==='todo'||modo==='estaciones';
+            });actualizarSeleccionMetroFuturo();
+        }
+        async function importarMetroFuturoGeoJSON(file){
+            if(!file)return;
+            try{
+                if(file.size>15*1024*1024)throw Error('Archivo mayor de 15 MB');
+                const geo=normalizarGeoJSONFuturo(JSON.parse(await file.text()));
+                futuroGeoJSON=geo;
+                try{localStorage.setItem(FUTURO_GEOJSON_KEY,JSON.stringify(geo));}catch(e){console.warn('No se pudo guardar cartografía localmente',e);}
+                reconstruirCapasMetroFuturo();actualizarSeleccionMetroFuturo();
+            }catch(e){document.getElementById('metro-futuro-estado').textContent='No se pudo importar: '+e.message;}
+        }
+        try{
+            const previo=localStorage.getItem(FUTURO_GEOJSON_KEY);
+            if(previo){futuroGeoJSON=normalizarGeoJSONFuturo(JSON.parse(previo));reconstruirCapasMetroFuturo();}
+        }catch(e){console.warn('Cartografía futura guardada no válida',e);}
 
         function sugerirServiciosCercanos() {
             let panel = document.getElementById('panel-sugerencias-servicios');
