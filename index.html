@@ -2884,8 +2884,49 @@
         let capaFuturasLineasMetro = null;
         let futurasLineasMetroVisibles = false;
 
+        // Caché persistente: tras la primera descarga correcta, la capa abre inmediatamente.
         let consultaFuturasMetroEnCurso = false;
         let futurasMetroCache = null;
+        const FUTURAS_METRO_CACHE_KEY = 'hud_metro_futuro_trazados_v98';
+        try {
+            const guardado = JSON.parse(localStorage.getItem(FUTURAS_METRO_CACHE_KEY) || 'null');
+            if (guardado && Array.isArray(guardado.elements)) futurasMetroCache = guardado.elements;
+        } catch (_) { /* modo privado / almacenamiento bloqueado */ }
+
+        function clasificarTramoMetroFuturo(el) {
+            const t = el.tags || {};
+            const descripcion = [t.name,t.ref,t.description,t['name:es'],t.route,t.note].filter(Boolean).join(' ');
+            const m = descripcion.match(/(?:línea|linea|line|metro|^|\s)[ -]*([789])(?:\b|\s)/i);
+            const tipo = [t.construction,t.proposed,t.railway,t.route].join(' ').toLowerCase();
+            // Evitar mezclar trenes de carga, líneas ferroviarias convencionales o tranvías.
+            if (!m && !/subway|metro/.test(tipo)) return null;
+            const linea = m ? 'L' + m[1] : null;
+            return { linea, nombre: t.name || (linea ? 'Línea ' + m[1] : 'Metro futuro sin línea identificada'),
+                estado: t.railway === 'construction' || t.construction ? 'En construcción / cartografía referencial' : 'Proyectado / cartografía referencial' };
+        }
+
+        function dibujarFuturasMetro(elements) {
+            const tramos = elements.filter(el => el.type === 'way' && Array.isArray(el.geometry) && el.geometry.length > 1)
+                .map(el => ({el, meta:clasificarTramoMetroFuturo(el)})).filter(x => x.meta);
+            if (!tramos.length) return false;
+            const nueva = L.layerGroup();
+            const colores = {L7:'#a855f7',L8:'#f97316',L9:'#ec4899'};
+            tramos.forEach(({el,meta}) => {
+                const color = colores[meta.linea] || '#94a3b8';
+                const puntos = el.geometry.map(p => [p.lat,p.lon]);
+                L.polyline(puntos, {color:'#0f172a',weight:grosorLineasMetro+3,opacity:.8,dashArray:'10,7',interactive:false}).addTo(nueva);
+                L.polyline(puntos, {color,weight:grosorLineasMetro,opacity:.95,dashArray:'10,7',lineCap:'round'})
+                    .bindPopup('<b>🚇 '+escaparHTML(meta.nombre)+'</b><br>'+escaparHTML(meta.estado)+'<br><small>OpenStreetMap · trazado indicativo, no definitivo</small>')
+                    .addTo(nueva);
+            });
+            if (capaFuturasLineasMetro) map.removeLayer(capaFuturasLineasMetro);
+            capaFuturasLineasMetro = nueva;
+            nueva.addTo(map);
+            futurasLineasMetroVisibles = true;
+            document.getElementById('btn-futuras-lineas-metro').textContent = '🚇 OCULTAR LÍNEAS FUTURAS';
+            return true;
+        }
+
         async function conmutarFuturasLineasMetro() {
             const btn = document.getElementById('btn-futuras-lineas-metro');
             if (consultaFuturasMetroEnCurso) return;
@@ -2895,67 +2936,28 @@
                 btn.textContent = '🚇 FUTURAS LÍNEAS METRO';
                 return;
             }
-            const dibujar = (elements) => {
-                const tramos = elements.filter(el => el.type === 'way' && Array.isArray(el.geometry) && el.geometry.length > 1);
-                if (!tramos.length) return false;
-                if (capaFuturasLineasMetro) map.removeLayer(capaFuturasLineasMetro);
-                capaFuturasLineasMetro = L.layerGroup();
-                tramos.forEach(el => {
-                    const tags = el.tags || {};
-                    const nombre = tags.name || tags.ref || 'Tramo ferroviario futuro (sin nombre)';
-                    const estado = tags.railway === 'construction' || tags.construction ? 'En construcción' : 'Proyectado';
-                    L.polyline(el.geometry.map(p => [p.lat, p.lon]), {
-                        color: obtenerColorLineaMetro(tags), weight: grosorLineasMetro,
-                        opacity: .92, dashArray: '12,8', lineCap: 'round', lineJoin: 'round'
-                    }).bindPopup(`<b>🚇 ${escaparHTML(nombre)}</b><br><small>${escaparHTML(estado)} · OpenStreetMap (referencial)</small>`)
-                      .addTo(capaFuturasLineasMetro);
-                });
-                capaFuturasLineasMetro.addTo(map);
-                futurasLineasMetroVisibles = true;
-                btn.textContent = '🚇 OCULTAR LÍNEAS FUTURAS';
-                return true;
-            };
-            if (futurasMetroCache && dibujar(futurasMetroCache)) return;
+            if (futurasMetroCache && dibujarFuturasMetro(futurasMetroCache)) return;
             consultaFuturasMetroEnCurso = true;
             btn.disabled = true;
-            btn.textContent = '⌛ BUSCANDO LÍNEAS FUTURAS...';
+            btn.textContent = '⌛ DESCARGANDO TRAZADOS (PRIMERA VEZ)...';
             try {
-                // Se restaura la búsqueda amplia de v91: los proyectos no siempre
-                // llevan la etiqueta adicional construction=subway o proposed=subway.
-                // Primero consultar Gran Santiago, luego el área RM original.
-                const regiones = [
-                    '(-33.75,-70.95,-33.25,-70.35)',
-                    '(-33.95,-71.95,-32.75,-69.65)'
-                ];
-                const endpoints = [...new Set(ENDPOINTS_OVERPASS)];
-                let huboRespuesta = false;
-                let resultado = null;
-                for (const bbox of regiones) {
-                    const query = `[out:json][timeout:28];(way["railway"="construction"]${bbox};way["railway"="proposed"]${bbox};way["construction"~"subway|railway",i]${bbox};way["proposed"~"subway|railway",i]${bbox};);out geom;`;
-                    // Se prueban servidores sucesivos para evitar que un fallo parcial
-                    // descarte la consulta completa. Una respuesta vacía no es error.
-                    for (const endpoint of endpoints) {
-                        try {
-                            const data = await fetchOverpassConTiempo(endpoint, query, 30000);
-                            if (!data || !Array.isArray(data.elements)) throw Error('Respuesta inválida');
-                            huboRespuesta = true;
-                            const elems = data.elements.filter(el => el.type === 'way' && el.geometry && el.geometry.length > 1);
-                            if (elems.length) { resultado = elems; break; }
-                        } catch (e) { console.warn('Servidor de futuras líneas no disponible:', endpoint, e); }
-                    }
-                    if (resultado) break;
-                }
-                if (resultado) {
-                    futurasMetroCache = resultado;
-                    dibujar(resultado);
-                } else if (huboRespuesta) {
-                    alert('La consulta respondió, pero no se encontraron trazados futuros etiquetados en OpenStreetMap. No significa que los proyectos no existan.');
-                } else {
-                    alert('No fue posible consultar los servidores cartográficos. Revisa la conexión o vuelve a intentarlo.');
-                }
-            } catch (e) {
-                console.warn('Error consultando futuras líneas:', e);
-                alert('No se pudo completar la consulta de futuras líneas de Metro.');
+                const bbox = '(-33.95,-71.05,-33.20,-70.30)';
+                // Solo geometrías subterráneas o proyectos explícitamente identificados como Metro.
+                const query = `[out:json][timeout:22];(way["railway"~"^(construction|proposed)$"]["construction"~"subway|metro",i]${bbox};way["railway"~"^(construction|proposed)$"]["proposed"~"subway|metro",i]${bbox};way["railway"~"^(construction|proposed)$"]["name"~"metro|línea [789]|linea [789]",i]${bbox};way["construction"="subway"]${bbox};way["proposed"="subway"]${bbox};);out geom;`;
+                const endpoints = [...new Set(ENDPOINTS_OVERPASS)].slice(0,3);
+                const promises = endpoints.map(endpoint => fetchOverpassConTiempo(endpoint,query,24000).then(data => {
+                    if (!data || !Array.isArray(data.elements)) throw Error('Respuesta no válida');
+                    if (!data.elements.some(el => clasificarTramoMetroFuturo(el) && el.geometry?.length > 1)) throw Error('Sin geometrías de Metro futuro');
+                    return data.elements;
+                }));
+                const elements = await Promise.any(promises);
+                futurasMetroCache = elements;
+                try { localStorage.setItem(FUTURAS_METRO_CACHE_KEY,JSON.stringify({elements,fecha:Date.now()})); }
+                catch(e) { console.warn('No se pudo persistir la capa de Metro futuro',e); }
+                dibujarFuturasMetro(elements);
+            } catch(e) {
+                console.warn('No se pudieron cargar trazados futuros',e);
+                alert('No se pudo descargar una capa verificable de futuras líneas. La primera carga necesita conexión; una vez descargada correctamente quedará guardada en este navegador.');
             } finally {
                 consultaFuturasMetroEnCurso = false;
                 btn.disabled = false;
