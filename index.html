@@ -759,12 +759,13 @@
                 <div class="metro-linea-row"><span><i style="background:#f97316"></i>Línea 8</span><input id="metro-fut-trazo-8" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Trazado L8"><input id="metro-fut-est-8" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Estaciones L8"></div>
                 <div class="metro-linea-row"><span><i style="background:#ec4899"></i>Línea 9</span><input id="metro-fut-trazo-9" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Trazado L9"><input id="metro-fut-est-9" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Estaciones L9"></div>
               </div>
-              <div id="metro-futuro-estado" role="status">Capas futuras independientes. Requieren datos geográficos verificables.</div>
+              <div id="metro-futuro-estado" role="status">Capas futuras listas para importar cartografía verificada. No se dibujan trazados sin coordenadas.</div>
             </div>
             <div style="padding:7px;border:1px solid #334155;border-radius:7px;margin-bottom:9px;font-size:10px;color:#cbd5e1;">
               <label for="metro-futuro-geojson">Importar cartografía futura verificada (.geojson / .json)</label>
               <input type="file" id="metro-futuro-geojson" accept=".geojson,.json,application/geo+json,application/json" onchange="importarMetroFuturoGeoJSON(this.files[0])" style="font-size:10px;">
               <small style="display:block;margin-top:4px;color:#94a3b8">GeoJSON con propiedades linea/ref/name que identifiquen L7, L8 o L9. Se guarda localmente para carga inmediata.</small>
+              <a href="https://majermi4.github.io/santiago-metro-map/" target="_blank" rel="noopener noreferrer" style="display:block;margin-top:8px;color:#7dd3fc;font-weight:700">Consultar cartografía referencial de L7, L8 y L9 ↗</a>
             </div>
             <div style="margin:0 0 7px 0;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.7);">
                 <label for="metro-grosor-lineas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;margin-bottom:5px;">Grosor de líneas actuales y futuras <strong id="metro-grosor-valor" style="color:#38bdf8;">6 px</strong></label>
@@ -2985,7 +2986,7 @@
         // Selector futuro independiente: nunca modifica las capas del Metro operativo.
         const FUTURO_LINEAS_UI=['7','8','9'];
         const FUTURO_COLORES_UI={'7':'#a855f7','8':'#f97316','9':'#ec4899'};
-        const FUTURO_GEOJSON_KEY='hud_futuro_geojson_v99';
+        const FUTURO_GEOJSON_KEY='hud_futuro_geojson_v99'; // Conserva datos importados en v99
         let futuroGeoJSON=null;
         const capasFuturasT={},capasFuturasE={};
         FUTURO_LINEAS_UI.forEach(l=>{capasFuturasT[l]=L.layerGroup();capasFuturasE[l]=L.layerGroup();});
