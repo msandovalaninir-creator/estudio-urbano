@@ -595,6 +595,10 @@
 .ds-report{padding:12px;margin:0 0 16px;border:1px solid #3b82f6;border-radius:11px;background:#101e32;color:#e2e8f0;font-size:11px;line-height:1.5}
 .ds-report>label{font-weight:800;color:#93c5fd;font-size:11px}.ds-report select{margin:7px 0 10px}.ds-report .ds-muted{color:#a9bdd2}.ds-report .ds-line{border-top:1px solid #334155;padding:8px 0}.ds-report .ds-ok{color:#6ee7b7;font-weight:800}.ds-report .ds-no{color:#fda4af;font-weight:800}.ds-report .ds-unknown{color:#fcd34d;font-weight:800}.ds-report strong{color:#f1f5f9}.ds-report button{margin-top:8px}.ds-report .ds-summary{font-size:12px;font-weight:800;margin:7px 0}.ds-report .ds-note{font-size:10px;color:#94a3b8;margin-top:9px}
 </style>
+<style id="metro-intercambios-v97">
+/* Anillo negro exterior que deja visible el borde blanco original. */
+.custom-hud-icon.metro-intercambio { box-shadow:0 0 0 3px #050505,0 2px 8px rgba(0,0,0,.55) !important; }
+</style>
 </head>
 <body>
 
@@ -1664,8 +1668,8 @@
                 // se asignan a ambas líneas cuando corresponde (por ejemplo, Los Héroes: L1 y L2).
                 const estacionesPorLineaNombre = {
                     '1': ['san pablo','neptuno','pajaritos','las rejas','ecuador','san alberto hurtado','universidad de santiago','estacion central','union latinoamericana','republica','los heroes','la moneda','universidad de chile','santa lucia','universidad catolica','baquedano','salvador','manuel montt','pedro de valdivia','los leones','el golf','alcantara','escuela militar','manquehue','hernando de magallanes','los dominicos'],
-                    '2': ['vespucio norte','zapadores','dorsal','einstein','cementerios','cerro blanco','patronato','puente cal y canto','puente calicanto','santa ana','los heroes','toesca','parque ohiggins','rondizzoni','franklin','el llano','san miguel','lo vial','departamental','ciudad del nino','lo ovalle','el parron','la cisterna'],
-                    '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irrarazaval','monseñor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco'],
+                    '2': ['vespucio norte','zapadores','dorsal','einstein','cementerios','cerro blanco','patronato','puente cal y canto','puente calicanto','santa ana','los heroes','toesca','parque ohiggins','rondizzoni','franklin','el llano','san miguel','lo vial','departamental','ciudad del nino','lo ovalle','el parron','la cisterna','el bosque','observatorio','copa lo martinez','hospital el pino'],
+                    '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irrarazaval','monseñor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco','ferrocarril','lo cruzat','plaza quilicura'],
                     '4': ['tobalaba','cristobal colon','francisco bilbao','principe de gales','simón bolívar','simón bolivar','plaza egaña','los orientales','grecia','los presidentes','quilín','quilin','las torres','macul','vicuna mackenna','vicuna mackenna','bellavista de la florida','rojas magallanes','trinidad','san jose de la estrella','los quillayes','elisa correa','hospital sotero del rio','protectora de la infancia','las mercedes','plaza de puente alto'],
                     '4A': ['la cisterna','san ramon','santa rosa','la granja','santa julia','vicuna mackenna'],
                     '5': ['plaza de maipu','santiago bueras','del sol','monte tabor','las parcelas','laguna sur','barrancas','pudahuel','san pablo','lo prado','blanqueado','gruta de lourdes','quinta normal','cumming','santa ana','plaza de armas','bellas artes','baquedano','parque bustamante','santa isabel','irrarazaval','nuble','rodrigo de araya','camino agricola','san joaquin','pedrero','mirador','bellavista de la florida'],
@@ -1693,15 +1697,26 @@
                 L.geoJSON(f,{style:{color,weight:grosorLineasMetro,opacity:.98,lineCap:'round',lineJoin:'round'},onEachFeature:(_feature,layer)=>layer.bindTooltip(escaparHTML(nombre),{sticky:true})}).addTo(capa);
             });
         }
+        // Intercambios de dos o más líneas operativas; la identificación se obtiene del catálogo,
+        // no de la mera proximidad entre puntos GIS.
+        function esCombinacionMetro(nombre) {
+            const n=String(nombre||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+            const cruces=['san pablo','los heroes','universidad de chile','baquedano','los leones','tobalaba','plaza egana','vicuna mackenna','la cisterna','santa ana','plaza de armas','puente cal y canto','franklin','nuble','nunoa','irrarazaval','bellavista de la florida'];
+            return cruces.some(c=>n===c);
+        }
+        function iconoEstacionMetro(config,tam,nombre) {
+            const base=construirIconoServicio(config?.img||null,config?.em||'🚇',tam,nombre);
+            if(esCombinacionMetro(nombre)) base.options.className += ' metro-intercambio';
+            return base;
+        }
         function dibujarEstacionesMetroLinea(linea) {
             const capa=capasEstacionesMetroPorLinea[linea]; if(capa.getLayers().length) return;
             const config=CONFIG_SERVICIOS_PREDEFINIDOS.find(servicio=>servicio.id==='metro');
             const tam=Math.max(16,Math.min(64,parseInt(document.getElementById('global-icon-size-slider')?.value,10)||30));
-            const icono=config?construirIconoServicio(config.img,config.em||'🚇',tam):construirIconoServicio(null,'🚇',tam);
             (datosEstacionesMetroPorLinea?.[linea]||[]).forEach(f=>{
                 const g=f.geometry, p=f.properties||{}; if(!g) return;
                 const nombre=String(p.NOMBRE||p.Nombre||p.name||'Estación de Metro');
-                const add=(xy)=>L.marker([xy[1],xy[0]],{icon:icono,keyboard:false}).bindTooltip(escaparHTML(nombre+' · Línea '+linea),{direction:'top',offset:[0,-7]}).addTo(capa);
+                const add=(xy)=>L.marker([xy[1],xy[0]],{icon:iconoEstacionMetro(config,tam,nombre),keyboard:false}).bindTooltip(escaparHTML(nombre+' · Línea '+linea+(esCombinacionMetro(nombre)?' · Combinación':'')),{direction:'top',offset:[0,-7]}).addTo(capa);
                 if(g.type==='Point')add(g.coordinates); else if(g.type==='MultiPoint')g.coordinates.forEach(add);
             });
         }
@@ -1769,9 +1784,7 @@
                 if (!Number.isFinite(lat) || !Number.isFinite(lon) || !nombre) return;
                 const configMetro = CONFIG_SERVICIOS_PREDEFINIDOS.find(servicio => servicio.id === 'metro');
                 const tamanoLogoMetro = Math.max(16, Math.min(64, parseInt(document.getElementById('global-icon-size-slider')?.value, 10) || 30));
-                const icono = configMetro
-                    ? construirIconoServicio(configMetro.img, configMetro.em || '🚇', tamanoLogoMetro)
-                    : construirIconoServicio(null, '🚇', tamanoLogoMetro);
+                const icono = iconoEstacionMetro(configMetro, tamanoLogoMetro, nombre);
                 L.marker([lat, lon], { icon: icono, keyboard: false })
                     .bindTooltip(escaparHTML(nombre), { direction: 'top', offset: [0, -7] })
                     .addTo(capaTodasEstacionesMetroRM);
@@ -4224,7 +4237,7 @@
         const LINEAS_METRO_REPORTE = {
             '1': ['san pablo','neptuno','pajaritos','las rejas','ecuador','san alberto hurtado','universidad de santiago','estacion central','union latinoamericana','republica','los heroes','la moneda','universidad de chile','santa lucia','universidad catolica','baquedano','salvador','manuel montt','pedro de valdivia','los leones','el golf','alcantara','escuela militar','manquehue','hernando de magallanes','los dominicos'],
             '2': ['vespucio norte','zapadores','dorsal','einstein','cementerios','cerro blanco','patronato','puente cal y canto','puente calicanto','santa ana','los heroes','toesca','parque ohiggins','rondizzoni','franklin','el llano','san miguel','lo vial','departamental','ciudad del nino','lo ovalle','el parron','la cisterna','el bosque'],
-            '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irrarazaval','monseñor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco'],
+            '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irrarazaval','monseñor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco','ferrocarril','lo cruzat','plaza quilicura'],
             '4': ['tobalaba','cristobal colon','francisco bilbao','principe de gales','simon bolivar','plaza egaña','los orientales','grecia','los presidentes','quilin','las torres','macul','vicuna mackenna','bellavista de la florida','rojas magallanes','trinidad','san jose de la estrella','los quillayes','elisa correa','hospital sotero del rio','protectora de la infancia','las mercedes','plaza de puente alto'],
             '4A': ['la cisterna','san ramon','santa rosa','la granja','santa julia','vicuna mackenna'],
             '5': ['plaza de maipu','santiago bueras','del sol','monte tabor','las parcelas','laguna sur','barrancas','pudahuel','san pablo','lo prado','blanqueado','gruta de lourdes','quinta normal','cumming','santa ana','plaza de armas','bellas artes','baquedano','parque bustamante','santa isabel','irrarazaval','nuble','rodrigo de araya','camino agricola','san joaquin','pedrero','mirador','bellavista de la florida'],
