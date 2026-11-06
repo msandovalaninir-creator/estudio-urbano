@@ -5022,41 +5022,71 @@ function dsArea(el){
  return turf.area(turf.polygon([ring]));}catch(e){return null;}
 }
 async function dsFetch(query){
- const endpoints=['https://overpass.kumi.systems/api/interpreter','https://overpass.nchc.org.tw/api/interpreter','https://overpass-api.de/api/interpreter'];
- let last;for(const url of endpoints){const ctl=new AbortController();const timeout=setTimeout(()=>ctl.abort(),24000);
- try{const res=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(query),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal});if(!res.ok)throw Error('HTTP '+res.status);const data=await res.json();if(!Array.isArray(data.elements))throw Error('Respuesta inválida');return data.elements;}catch(e){last=e;}finally{clearTimeout(timeout);}}throw last||Error('Sin conexión');
+ const endpoints=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.nchc.org.tw/api/interpreter','https://overpass.private.coffee/api/interpreter'];
+ const errors=[];
+ for(const url of endpoints){
+  const ctl=new AbortController(), timer=setTimeout(()=>ctl.abort(),14000);
+  try{
+   const res=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(query),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal});
+   if(!res.ok)throw Error('HTTP '+res.status);
+   const data=await res.json();if(!Array.isArray(data.elements))throw Error('Respuesta sin elementos válidos');
+   return data.elements;
+  }catch(e){errors.push(new URL(url).hostname+': '+(e.name==='AbortError'?'tiempo agotado':e.message));}
+  finally{clearTimeout(timer);}
+ }
+ throw Error(errors.join(' | '));
 }
 async function dsAnalizar(){
- const mode=document.getElementById('ds-mode');const output=document.getElementById('ds-content');if(!mode||!output)return;
+ const mode=document.getElementById('ds-mode'),output=document.getElementById('ds-content');if(!mode||!output)return;
  const active=mode.value==='DS19-DS49';document.getElementById('ds-refresh').style.display=active?'block':'none';document.getElementById('ds-copy').style.display='none';
  if(!active){output.textContent='Selecciona DS19-DS49 para activar el informe.';return;}
- const terreno=dsTerreno();const origen=typeof coordenadasOrigen!=='undefined'?coordenadasOrigen:null;const punto=terreno?{lat:terreno.center[1],lng:terreno.center[0]}:origen;
- if(!punto){output.textContent='Ingresa una dirección y pulsa Buscar Origen, o carga un KMZ/KML con geometría de terreno.';return;}
- const seq=++dsSeq;output.innerHTML='<span class="ds-muted">Consultando equipamientos cercanos y preparando informe…</span>';
- const radio=Math.min(12000,Math.ceil(2600+(terreno?terreno.diag/2:0)+300));
- const where=`(around:${radio},${punto.lat},${punto.lng})`;
- const blocks=DS_CRITERIOS.map(c=>c.filtro.split(';').map(q=>q+where+';').join('')).join('');
- const query=`[out:json][timeout:45];(${blocks});out center geom;`;
- try{const elements=await dsFetch(query);if(seq!==dsSeq)return;
- const resultado=DS_CRITERIOS.map(c=>{
- const matches=elements.filter(e=>{const t=e.tags||{};switch(c.id){case 'colegios':return t.amenity==='school';case 'cunas':return t.amenity==='kindergarten';case 'clinicas':return ['clinic','hospital'].includes(t.amenity)||t.healthcare==='clinic';case 'paraderos':return t.highway==='bus_stop';case 'comercio':return ['supermarket','mall','department_store'].includes(t.shop)||t.landuse==='retail';case 'parques':return ['park','garden'].includes(t.leisure)||t.landuse==='recreation_ground';}return false;});
- let sinArea=0;const validos=matches.filter(e=>{if(c.id!=='parques')return true;const area=dsArea(e);if(area===null){sinArea++;return false;}return area>5000;});
- const orden=validos.map(e=>({e,d:dsDistanciaElemento(e,terreno,origen)})).filter(x=>Number.isFinite(x.d)).sort((a,b)=>a.d-b.d);
- return {...c,masCerca:orden[0]||null,sinArea};});
- const ok=resultado.filter(r=>r.masCerca&&r.masCerca.d<=r.limite).length;const faltan=resultado.filter(r=>!r.masCerca||r.masCerca.d>r.limite).length;
- const encabezado=`INFORME PRELIMINAR DS19-DS49
-Ubicación: ${terreno?terreno.nombre:(typeof nombreUbicacionActual!=='undefined'?nombreUbicacionActual:'Dirección seleccionada')}
-Referencia: ${terreno?'Geometría del último KMZ/KML':'Punto de origen'}
-Distancias geodésicas aproximadas (línea recta).
-`;
- const filas=resultado.map(r=>{const x=r.masCerca;const status=x?(x.d<=r.limite?'CUMPLE':'NO CUMPLE EN DATOS CONSULTADOS'):'SIN DATOS VERIFICABLES';const nombre=x?(x.e.tags?.name||x.e.tags?.operator||'Equipamiento sin nombre'):'No se identificó equipamiento';return `${r.nombre} — máximo ${dsFmt(r.limite)} m: ${status}. ${nombre}${x?' a '+dsFmt(x.d)+' m':''}.${r.sinArea?' '+r.sinArea+' área(s) sin superficie comprobable, excluidas.':''}`;});
- dsTexto=encabezado+'\n'+filas.join('\n')+`
-
-Resultado orientativo: ${ok} de ${resultado.length} criterios con evidencia dentro del umbral.
-Fuente: OpenStreetMap / Overpass. No certifica cumplimiento normativo DS19 ni DS49; requiere validación oficial, distancias por recorrido y revisión de la vigencia de equipamientos.`;
- output.innerHTML=`<div class="ds-summary">${ok} / ${resultado.length} criterios con evidencia favorable</div><div class="ds-muted">${dsEsc(terreno?terreno.nombre:'Dirección seleccionada')} · Distancia en línea recta desde ${terreno?'el perímetro/trazado KMZ':'el origen'}.</div>`+resultado.map(r=>{const x=r.masCerca;const cumple=x&&x.d<=r.limite;const clase=!x?'ds-unknown':cumple?'ds-ok':'ds-no';const texto=!x?'SIN DATOS':cumple?'CUMPLE':'FUERA DE RANGO';const nombre=x?(x.e.tags?.name||x.e.tags?.operator||'Equipamiento sin nombre'):'No se encontró equipamiento verificable';return `<div class="ds-line"><strong>${dsEsc(r.nombre)}</strong><br><span class="${clase}">${texto}</span> · Límite ${dsFmt(r.limite)} m<br>${dsEsc(nombre)}${x?' · <strong>'+dsFmt(x.d)+' m</strong>':''}${r.sinArea?'<div class="ds-note">'+r.sinArea+' áreas sin superficie verificable excluidas.</div>':''}</div>`;}).join('')+`<div class="ds-note">Evaluación preliminar con datos OSM/Overpass. No encontrar un servicio no demuestra que no exista. Los parques sin polígono medible no se consideran. No sustituye certificación DS19/DS49 ni medición de recorridos reales.</div>`;
- document.getElementById('ds-copy').style.display='block';
- }catch(err){if(seq!==dsSeq)return;dsTexto='';output.innerHTML='<span class="ds-unknown">No fue posible verificar los datos. No se puede determinar cumplimiento.</span><div class="ds-note">'+dsEsc(err.message)+'</div>'; }
+ const terreno=dsTerreno(),origen=typeof coordenadasOrigen!=='undefined'?coordenadasOrigen:null;
+ const punto=terreno?{lat:terreno.center[1],lng:terreno.center[0]}:origen;
+ if(!punto||!Number.isFinite(Number(punto.lat))||!Number.isFinite(Number(punto.lng))){output.textContent='Ingresa una dirección y pulsa Buscar Origen, o carga un KMZ/KML con geometría de terreno.';return;}
+ const seq=++dsSeq;dsTexto='';
+ const radio=Math.min(12000,Math.ceil(3000+(terreno?terreno.diag/2:0)));
+ const where=`(around:${radio},${Number(punto.lat)},${Number(punto.lng)})`;
+ const resultados=[];
+ output.innerHTML='<div class="ds-muted">Iniciando consulta de las seis categorías…</div>';
+ for(let i=0;i<DS_CRITERIOS.length;i++){
+  if(seq!==dsSeq)return;
+  const c=DS_CRITERIOS[i];
+  output.innerHTML='<div class="ds-muted">Consultando '+dsEsc(c.nombre)+' ('+(i+1)+'/6)…</div>';
+  const blocks=c.filtro.split(';').map(q=>q+where+';').join('');
+  const query=`[out:json][timeout:25];(${blocks});out center geom;`;
+  try{
+   const elements=await dsFetch(query);if(seq!==dsSeq)return;
+   let sinArea=0;
+   const validos=elements.filter(e=>{if(c.id!=='parques')return true;const area=dsArea(e);if(area===null){sinArea++;return false;}return area>5000;});
+   const orden=validos.map(e=>({e,d:dsDistanciaElemento(e,terreno,origen)})).filter(x=>Number.isFinite(x.d)).sort((a,b)=>a.d-b.d);
+   resultados.push({...c,masCerca:orden[0]||null,sinArea,estado:'consultado',cantidad:elements.length});
+  }catch(err){if(seq!==dsSeq)return;resultados.push({...c,masCerca:null,estado:'error',error:err.message});}
+  dsMostrarResultados(resultados,terreno,true);
+ }
+ if(seq!==dsSeq)return;
+ dsMostrarResultados(resultados,terreno,false);
+}
+function dsMostrarResultados(resultado,terreno,procesando){
+ const output=document.getElementById('ds-content');if(!output)return;
+ const ok=resultado.filter(r=>r.estado==='consultado'&&r.masCerca&&r.masCerca.d<=r.limite).length;
+ const errores=resultado.filter(r=>r.estado==='error').length;
+ const pendientes=6-resultado.length;
+ const ubicacion=terreno?terreno.nombre:(document.getElementById('address-input')?.value||'Dirección seleccionada');
+ const filas=resultado.map(r=>{
+  const x=r.masCerca;
+  const status=r.estado==='error'?'NO VERIFICADO (error de conexión)':!x?'SIN EVIDENCIA EN LOS DATOS':x.d<=r.limite?'CUMPLE EL UMBRAL PRELIMINAR':'FUERA DEL UMBRAL PRELIMINAR';
+  const nombre=x?(x.e.tags?.name||x.e.tags?.operator||'Equipamiento sin nombre'):'No identificado';
+  return `${r.nombre} — límite ${dsFmt(r.limite)} m: ${status}. ${nombre}${x?' a '+dsFmt(x.d)+' m':''}.${r.error?' Detalle técnico: '+r.error:''}`;
+ });
+ dsTexto=`INFORME PRELIMINAR DE PROXIMIDAD DS19–DS49\nUbicación: ${ubicacion}\nReferencia: ${terreno?'Geometría del último KMZ/KML':'Punto de origen'}\nDistancias aproximadas en línea recta.\n\n`+filas.join('\n')+`\n\nResultado: ${ok} de ${resultado.length} categorías consultadas con evidencia favorable. ${errores} categorías con error de consulta.\nFuente: OpenStreetMap / Overpass. Evaluación preliminar; no certifica cumplimiento DS19 ni DS49. Verificar recorridos y fuentes oficiales.`;
+ output.innerHTML=`<div class="ds-summary">${ok} con evidencia favorable · ${errores} errores · ${pendientes} pendientes</div><div class="ds-muted">${dsEsc(ubicacion)} · Distancias en línea recta desde ${terreno?'el terreno':'el origen'}.</div>`+
+ resultado.map(r=>{const x=r.masCerca,fallo=r.estado==='error',cumple=x&&x.d<=r.limite;
+ const clase=fallo||!x?'ds-unknown':cumple?'ds-ok':'ds-no';
+ const texto=fallo?'ERROR DE CONSULTA':!x?'SIN EVIDENCIA':cumple?'CUMPLE UMBRAL':'FUERA DE RANGO';
+ const nombre=x?(x.e.tags?.name||x.e.tags?.operator||'Equipamiento sin nombre'):'No se encontró equipamiento verificable';
+ return `<div class="ds-line"><strong>${dsEsc(r.nombre)}</strong><br><span class="${clase}">${texto}</span> · Límite ${dsFmt(r.limite)} m<br>${dsEsc(nombre)}${x?' · <strong>'+dsFmt(x.d)+' m</strong>':''}${fallo?'<div class="ds-note">Problema de conexión con las fuentes cartográficas. '+dsEsc(r.error)+'</div>':''}${r.sinArea?'<div class="ds-note">'+r.sinArea+' áreas sin superficie verificable excluidas.</div>':''}</div>`;
+ }).join('')+(procesando?'<div class="ds-muted">Análisis en curso…</div>':'<div class="ds-note">La falta de datos no equivale a incumplimiento. El resultado es preliminar y no reemplaza verificación normativa ni distancias por recorrido.</div>');
+ document.getElementById('ds-copy').style.display=resultado.length?'block':'none';
 }
 function dsCopiar(){if(!dsTexto)return;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(dsTexto).catch(()=>dsCopiarFallback());else dsCopiarFallback();}
 function dsCopiarFallback(){const ta=document.createElement('textarea');ta.value=dsTexto;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
