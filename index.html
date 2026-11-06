@@ -3019,6 +3019,43 @@
                 }
             });
         }
+        // Cartografía externa real: ArcGIS DS27 "Lineas Metro nuevas" (referencial, 2024).
+        // La consulta no requiere nombres ni posiciones de estaciones.
+        const FUENTE_METRO_FUTURO_ARCGIS='https://services3.arcgis.com/cTnMkBRk4HWkUCRo/ArcGIS/rest/services/Mejoramiento_de_Vivienda_Barrios_entorno_DS27/FeatureServer/5/query';
+        let futuroCargando=false, futuroIntentado=false;
+        async function cargarTrazadosFuturosGIS(){
+            if(futuroCargando || futuroGeoJSON)return;
+            futuroCargando=true;
+            const estado=document.getElementById('metro-futuro-estado');
+            if(estado)estado.textContent='Consultando trazados geográficos de Metro futuro…';
+            try{
+                const params=new URLSearchParams({where:'1=1',outFields:'*',returnGeometry:'true',outSR:'4326',f:'geojson'});
+                const controller=new AbortController();
+                const timer=setTimeout(()=>controller.abort(),18000);
+                let respuesta;
+                try{respuesta=await fetch(FUENTE_METRO_FUTURO_ARCGIS+'?'+params,{signal:controller.signal});}
+                finally{clearTimeout(timer);}
+                if(!respuesta.ok)throw Error('Servidor cartográfico: HTTP '+respuesta.status);
+                const datos=await respuesta.json();
+                if(datos.error)throw Error(datos.error.message||'Error del servicio GIS');
+                if(!Array.isArray(datos.features))throw Error('La respuesta no contiene geometrías');
+                const candidatas=datos.features.filter(f=>f.geometry&&['LineString','MultiLineString'].includes(f.geometry.type));
+                const clasificadas=candidatas.map(f=>{
+                    const props=f.properties||{};
+                    const l=lineaFuturaPropiedades(props);
+                    return l?{...f,properties:{...props,linea:l,fuente:'ArcGIS DS27 · cartografía referencial'}}:null;
+                }).filter(Boolean);
+                if(!clasificadas.length)throw Error('La capa respondió, pero no identificó recorridos L7/L8/L9. No se asignarán líneas al azar.');
+                futuroGeoJSON=normalizarGeoJSONFuturo({type:'FeatureCollection',features:clasificadas});
+                reconstruirCapasMetroFuturo();
+                try{localStorage.setItem(FUTURO_GEOJSON_KEY,JSON.stringify(futuroGeoJSON));}catch(_e){}
+                actualizarSeleccionMetroFuturo();
+                if(estado)estado.textContent='Cartografía referencial cargada · '+clasificadas.length+' segmentos. Fuente: ArcGIS DS27 (2024). No usar como trazado definitivo.';
+            }catch(e){
+                console.warn('Metro futuro GIS',e);
+                if(estado)estado.textContent='No fue posible cargar el trazado desde ArcGIS: '+e.message+'. Puedes importar un GeoJSON o reintentar seleccionando las líneas.';
+            }finally{futuroCargando=false;}
+        }
         function actualizarSeleccionMetroFuturo(){
             const estado=document.getElementById('metro-futuro-estado');
             FUTURO_LINEAS_UI.forEach(l=>{
@@ -3028,7 +3065,8 @@
                 if(e)capasFuturasE[l].addTo(map);else map.removeLayer(capasFuturasE[l]);
             });
             const activos=FUTURO_LINEAS_UI.filter(l=>document.getElementById('metro-fut-trazo-'+l)?.checked||document.getElementById('metro-fut-est-'+l)?.checked);
-            if(estado)estado.textContent=!activos.length?'Sin capas futuras seleccionadas.':!futuroGeoJSON?'Falta importar cartografía GeoJSON de las líneas futuras; no se dibujan recorridos ficticios.':activos.map(l=>'L'+l+': '+capasFuturasT[l].getLayers().length+' trazados / '+capasFuturasE[l].getLayers().length+' estaciones disponibles').join(' · ');
+            if(activos.length&&!futuroGeoJSON&&!futuroCargando) cargarTrazadosFuturosGIS();
+            if(estado && !futuroCargando)estado.textContent=!activos.length?'Sin capas futuras seleccionadas.':!futuroGeoJSON?'Falta importar cartografía GeoJSON de las líneas futuras; no se dibujan recorridos ficticios.':activos.map(l=>'L'+l+': '+capasFuturasT[l].getLayers().length+' trazados / '+capasFuturasE[l].getLayers().length+' estaciones disponibles').join(' · ');
         }
         function seleccionarMetroFuturoRapido(modo){
             FUTURO_LINEAS_UI.forEach(l=>{
@@ -5207,27 +5245,6 @@ function dsCopiarFallback(){const ta=document.createElement('textarea');ta.value
 </script>
 
 
-<style id="visor-futuro-v101-css">
-#visor-metro-futuro-v101{position:fixed;inset:12px;z-index:9000;display:none;flex-direction:column;background:#0b1220;border:2px solid #38bdf8;border-radius:12px;box-shadow:0 0 0 100vmax rgba(0,0,0,.72);overflow:hidden}
-#visor-metro-futuro-v101 .cabecera{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 14px;background:#162238;color:#fff;font:600 13px Arial}
-#visor-metro-futuro-v101 .cabecera button{width:auto;margin:0;padding:7px 14px;background:#be123c;color:white}
-#visor-metro-futuro-v101 iframe{width:100%;flex:1;border:0;background:#fff}
-#visor-metro-futuro-v101 .pie{padding:7px 12px;font:11px Arial;color:#cbd5e1;background:#162238}
-</style>
-<div id="visor-metro-futuro-v101" role="dialog" aria-modal="true" aria-label="Mapa geográfico de Metro futuro">
-<div class="cabecera"><span>🚇 Metro futuro L7, L8 y L9 · Visor geográfico de referencia</span><button onclick="cerrarVisorMetroFuturo()">✕ Cerrar</button></div>
-<iframe id="iframe-metro-futuro-v101" title="Mapa de Metro futuro Santiago" loading="lazy" referrerpolicy="no-referrer"></iframe>
-<div class="pie">Fuente externa: majermi4.github.io/santiago-metro-map · trazados futuros indicativos, no definitivos · requiere Internet. Este visor no modifica las capas ni el análisis de tu mapa.</div>
-</div>
-<script>
-function abrirVisorMetroFuturo(){
-  const v=document.getElementById('visor-metro-futuro-v101');
-  const f=document.getElementById('iframe-metro-futuro-v101');
-  if(!f.getAttribute('src'))f.src='https://majermi4.github.io/santiago-metro-map/';
-  v.style.display='flex';
-}
-function cerrarVisorMetroFuturo(){document.getElementById('visor-metro-futuro-v101').style.display='none';}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')cerrarVisorMetroFuturo();});
-</script>
+
 </body>
 </html>
