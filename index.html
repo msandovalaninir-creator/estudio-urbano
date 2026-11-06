@@ -634,7 +634,7 @@
             <div class="barra-acciones-titulo">ACCIONES DE BÚSQUEDA</div>
             <button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br>STUDY URBANO</button>
             <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" title="Sugerir servicios cercanos que falten">💡 SUGERIR<br>SERVICIOS</button>
-            <button id="btn-futuras-lineas-metro" onclick="conmutarFuturasLineasMetro()" title="Mostrar futuras líneas de Metro (L7, L8, L9 y extensiones)">🚇 FUTURAS<br>LÍNEAS METRO</button>
+            <button id="btn-futuras-lineas-metro" onclick="abrirVisorMetroFuturo()" title="Abrir mapa geográfico de futuras líneas 7, 8 y 9 (fuente externa referencial)">🚇 FUTURAS<br>LÍNEAS METRO</button>
         </div>
 
         <div class="collapsible-header" onclick="toggleSection('sec-capas-kmz', 'arrow-kmz-capas')">
@@ -5206,5 +5206,28 @@ function dsCopiar(){if(!dsTexto)return;if(navigator.clipboard?.writeText)navigat
 function dsCopiarFallback(){const ta=document.createElement('textarea');ta.value=dsTexto;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
 </script>
 
+
+<style id="visor-futuro-v101-css">
+#visor-metro-futuro-v101{position:fixed;inset:12px;z-index:9000;display:none;flex-direction:column;background:#0b1220;border:2px solid #38bdf8;border-radius:12px;box-shadow:0 0 0 100vmax rgba(0,0,0,.72);overflow:hidden}
+#visor-metro-futuro-v101 .cabecera{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 14px;background:#162238;color:#fff;font:600 13px Arial}
+#visor-metro-futuro-v101 .cabecera button{width:auto;margin:0;padding:7px 14px;background:#be123c;color:white}
+#visor-metro-futuro-v101 iframe{width:100%;flex:1;border:0;background:#fff}
+#visor-metro-futuro-v101 .pie{padding:7px 12px;font:11px Arial;color:#cbd5e1;background:#162238}
+</style>
+<div id="visor-metro-futuro-v101" role="dialog" aria-modal="true" aria-label="Mapa geográfico de Metro futuro">
+<div class="cabecera"><span>🚇 Metro futuro L7, L8 y L9 · Visor geográfico de referencia</span><button onclick="cerrarVisorMetroFuturo()">✕ Cerrar</button></div>
+<iframe id="iframe-metro-futuro-v101" title="Mapa de Metro futuro Santiago" loading="lazy" referrerpolicy="no-referrer"></iframe>
+<div class="pie">Fuente externa: majermi4.github.io/santiago-metro-map · trazados futuros indicativos, no definitivos · requiere Internet. Este visor no modifica las capas ni el análisis de tu mapa.</div>
+</div>
+<script>
+function abrirVisorMetroFuturo(){
+  const v=document.getElementById('visor-metro-futuro-v101');
+  const f=document.getElementById('iframe-metro-futuro-v101');
+  if(!f.getAttribute('src'))f.src='https://majermi4.github.io/santiago-metro-map/';
+  v.style.display='flex';
+}
+function cerrarVisorMetroFuturo(){document.getElementById('visor-metro-futuro-v101').style.display='none';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')cerrarVisorMetroFuturo();});
+</script>
 </body>
 </html>
