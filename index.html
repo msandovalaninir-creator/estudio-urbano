@@ -791,6 +791,13 @@
                 <div class="metro-radio-help">Círculos medidos en metros alrededor de cada estación para identificar servicios y terrenos cercanos.</div>
             </div>
             <label style="display:flex;align-items:center;gap:7px;margin:5px 0 7px 22px;font-size:10px;color:#cbd5e1;cursor:pointer;"><input type="checkbox" id="toggle-mostrar-demas-servicios-con-metro" onchange="sincronizarVisibilidadServiciosConMetro()" style="width:14px;height:14px;"> Mostrar también los demás servicios</label>
+            <div class="metro-selector-actions" style="margin:6px 0 7px;grid-template-columns:repeat(4,minmax(0,1fr))">
+                <button onclick="seleccionarViasRapido('todas')">Todas</button>
+                <button onclick="seleccionarViasRapido('ejes')">Solo ejes</button>
+                <button onclick="seleccionarViasRapido('franjas')">Solo franjas</button>
+                <button onclick="seleccionarViasRapido('limpiar')">Limpiar</button>
+            </div>
+            <div style="font-size:9px;color:#93c5fd;margin:2px 0 5px">Troncales: 100 m a cada lado · Expresas: 200 m a cada lado</div>
             <div class="vias-compact-grid">
                 <section class="via-compact-card via-troncal">
                     <label class="via-toggle" for="toggle-vias-troncales"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"><span class="via-color-line">━</span><span>Calles troncales</span></label>
@@ -815,7 +822,7 @@
                     <small>200 m por lado</small>
                 </section>
             </div>
-            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Las líneas de color siguen la geometría completa de cada vía consultada dentro del área visible. Troncales: vías primary/secondary; expresas: trunk/motorway según OpenStreetMap. Los buffers se miden en metros desde el eje de cada vía (mitad del ancho por lado); son franjas cartográficas referenciales, no áreas normativas oficiales.</div>
+            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Clasificación referencial OSM/GIS: troncales primary/secondary y expresas motorway/trunk, sin superposición de categorías. No equivale a la clasificación oficial PRMS. Los buffers se miden en metros desde el eje de cada vía (mitad del ancho por lado); son franjas cartográficas referenciales, no áreas normativas oficiales.</div>
         </div>
         <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
 
@@ -1242,6 +1249,8 @@
         };
         const estadoCargaInfraestructura = {};
         const datosViasInfraestructura = { troncal: [], expresa: [] };
+        const cacheViasVista = new Map();
+        const solicitudesViasVista = new Map();
         const anchosBufferMetros = { bufferTroncal: 200, bufferExpresa: 400 };
         const grosoresViasPx = { troncal: 5, expresa: 5 };
         // Colores oficiales aproximados de las líneas de Metro de Santiago.
@@ -1291,10 +1300,10 @@
             metro: { titulo: 'líneas de Metro existentes', selector: 'way["railway"="subway"]', color: '#64748b', peso: 5, opacidad: .98 },
             // Aproximación cartográfica: OSM no siempre utiliza la clasificación normativa chilena.
             // Se consideran primary/secondary como ejes troncales y trunk/motorway como expresas.
-            troncal: { titulo: 'calles troncales (vías principales)', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified)$"]', color: '#f59e0b', peso: 5, opacidad: .98 },
-            bufferTroncal: { titulo: 'buffer visual de calles troncales', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified)$"]', color: '#fbbf24', peso: 20, opacidad: .24 },
-            expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link)$"]' , color: '#ef4444', peso: 5, opacidad: .98 },
-            bufferExpresa: { titulo: 'buffer visual de calles expresas', selector: 'way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link)$"]' , color: '#f87171', peso: 24, opacidad: .24 }
+            troncal: { titulo: 'calles troncales (vías principales)', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link)$"]', color: '#f59e0b', peso: 5, opacidad: .98 },
+            bufferTroncal: { titulo: 'buffer visual de calles troncales', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link)$"]', color: '#fbbf24', peso: 20, opacidad: .24 },
+            expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(motorway|motorway_link|trunk|trunk_link)$"]' , color: '#ef4444', peso: 5, opacidad: .98 },
+            bufferExpresa: { titulo: 'buffer visual de calles expresas', selector: 'way["highway"~"^(motorway|motorway_link|trunk|trunk_link)$"]' , color: '#f87171', peso: 24, opacidad: .24 }
         };
         function actualizarEstiloVias(tipo, valor) {
             const peso = Math.max(1, Math.min(14, Number(valor) || 5));
@@ -1439,8 +1448,8 @@
             const west = Math.max(-180, bounds.getWest() - padLon), south = Math.max(-90, bounds.getSouth() - padLat);
             const east = Math.min(180, bounds.getEast() + padLon), north = Math.min(90, bounds.getNorth() + padLat);
             const highway = tipoConsulta === 'troncal'
-                ? "'primary','primary_link','secondary','secondary_link','tertiary','tertiary_link','unclassified'"
-                : "'motorway','motorway_link','trunk','trunk_link','primary','primary_link','secondary','secondary_link'";
+                ? "'primary','primary_link','secondary','secondary_link'"
+                : "'motorway','motorway_link','trunk','trunk_link'";
             const url = 'https://services6.arcgis.com/Do88DoK2xjTUCXd1/ArcGIS/rest/services/OSM_SA_Highways/FeatureServer/0/query';
             const result = [], seen = new Set();
             const pageSize = 1500;
@@ -1484,6 +1493,41 @@
             } finally { clearTimeout(timer); }
         }
 
+        // Una única descarga GIS para el eje y la franja de cada categoría/vista.
+        // Reutiliza la promesa incluso cuando el usuario activa varios controles a la vez.
+        function claveVistaVial(tipo) {
+            const b = map.getBounds();
+            return tipo + ':' + [b.getSouth(),b.getWest(),b.getNorth(),b.getEast()].map(n => Math.round(n*1000)/1000).join(',');
+        }
+        async function obtenerViasGISCompartidas(tipo) {
+            const key = claveVistaVial(tipo);
+            if (cacheViasVista.has(key)) return cacheViasVista.get(key);
+            if (!solicitudesViasVista.has(key)) {
+                const promesa = consultarViasGIS(tipo).then(vias => {
+                    cacheViasVista.set(key, vias);
+                    if (cacheViasVista.size > 12) cacheViasVista.delete(cacheViasVista.keys().next().value);
+                    return vias;
+                }).finally(() => solicitudesViasVista.delete(key));
+                solicitudesViasVista.set(key, promesa);
+            }
+            return solicitudesViasVista.get(key);
+        }
+        // Acciones rápidas, iguales a la lógica de selección de Metro.
+        async function seleccionarViasRapido(modo) {
+            const pares = [['troncal','toggle-vias-troncales'],['expresa','toggle-vias-expresas'],
+                ['bufferTroncal','toggle-buffer-troncales'],['bufferExpresa','toggle-buffer-expresas']];
+            for (const [tipo,id] of pares) {
+                const visible = modo === 'todas' || (modo === 'ejes' && !tipo.startsWith('buffer')) ||
+                    (modo === 'franjas' && tipo.startsWith('buffer'));
+                const cb = document.getElementById(id);
+                if (cb) cb.checked = visible;
+                if (!visible) conmutarCapaInfraestructura(tipo,false);
+            }
+            if (modo === 'limpiar') return;
+            // Los pares se consultan simultáneamente, compartiendo la descarga GIS.
+            await Promise.all(pares.filter(([tipo,id]) => document.getElementById(id)?.checked)
+                .map(([tipo]) => conmutarCapaInfraestructura(tipo,true)));
+        }
         async function conmutarCapaInfraestructura(tipo, visible) {
             const capa = capasInfraestructura[tipo];
             const definicion = definicionesInfraestructura[tipo];
@@ -1515,10 +1559,11 @@
             // Antes se aceptaba cualquier resultado GIS no vacío y nunca se consultaba
             // Overpass; eso dejaba fuera calles que no estaban en el extracto GIS.
             if (!esMetro) {
-                try { lineas = await consultarViasGIS(tipoConsulta); }
+                try { lineas = await obtenerViasGISCompartidas(tipoConsulta); }
                 catch (errGIS) { errorFinal = errGIS; console.warn('GIS vial no disponible; se intentará Overpass:', errGIS); }
             }
-            // La consulta OSM de vías se ejecuta también como complemento, no solo como respaldo.
+            // Consulta OSM solamente si el GIS no responde: evita 26 segundos de espera
+            // en cada clic y conserva la misma cartografía en ejes y buffers.
             // Se usa un margen del 35% alrededor de la vista para cubrir bordes y continuidad.
             const boundsConsulta = map.getBounds();
             const padLatConsulta = Math.max((boundsConsulta.getNorth()-boundsConsulta.getSouth())*0.50,0.025);
@@ -1534,7 +1579,7 @@
                 const p2=Number(z.lat).toFixed(4)+','+Number(z.lon).toFixed(4);
                 return String(e.tags?.highway||'')+'|'+([p1,p2].sort().join('|'))+'|'+g.length;
             };
-            if (!esMetro) {
+            if (!esMetro && !lineas.length) {
                 let osmVias=[];
                 for (const endpoint of ENDPOINTS_OVERPASS) {
                     try {
@@ -1610,7 +1655,8 @@
                 });
             }
             estadoCargaInfraestructura[tipo] = 'lista';
-            capa.addTo(map);
+            const idToggle = {troncal:'toggle-vias-troncales',expresa:'toggle-vias-expresas',bufferTroncal:'toggle-buffer-troncales',bufferExpresa:'toggle-buffer-expresas'}[tipo];
+            if (!idToggle || document.getElementById(idToggle)?.checked) capa.addTo(map);
         }
 
         // Actualiza las capas viales cuando el usuario desplaza/escala el mapa. La consulta usa
