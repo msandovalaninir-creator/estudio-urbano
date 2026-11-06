@@ -795,9 +795,9 @@
                 <button onclick="seleccionarViasRapido('todas')">Todas</button>
                 <button onclick="seleccionarViasRapido('ejes')">Solo ejes</button>
                 <button onclick="seleccionarViasRapido('franjas')">Solo franjas</button>
-                <button onclick="seleccionarViasRapido('limpiar')">Limpiar</button>
+                <button onclick="seleccionarViasRapido('limpiar')">Limpiar</button><button type="button" onclick="actualizarCartografiaVial()" title="Actualizar las vías para la zona visible" style="grid-column:1/-1;background:#1e3a5f;color:#bae6fd;border:1px solid #38bdf8">↻ Actualizar vías en esta zona</button>
             </div>
-            <div style="font-size:9px;color:#93c5fd;margin:2px 0 5px">Troncales: 100 m a cada lado · Expresas: 200 m a cada lado</div>
+            <div style="font-size:9px;color:#93c5fd;margin:2px 0 5px">Troncales: 100 m/lado · Expresas: 200 m/lado · Actualiza al cambiar de zona</div>
             <div class="vias-compact-grid">
                 <section class="via-compact-card via-troncal">
                     <label class="via-toggle" for="toggle-vias-troncales"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"><span class="via-color-line">━</span><span>Vías troncales · azul/violeta</span></label>
@@ -1243,6 +1243,7 @@
 
         // Capas opcionales de infraestructura existente. Se consultan al activar y se reutilizan
         // durante la sesión; calles primero usan GIS y Overpass queda como respaldo.
+        const renderViasCanvas = L.canvas({padding:0.5});
         const capasInfraestructura = {
             metro: L.layerGroup(), troncal: L.layerGroup(), bufferTroncal: L.layerGroup(),
             expresa: L.layerGroup(), bufferExpresa: L.layerGroup()
@@ -1373,7 +1374,7 @@
 
         // Agrupa ejes por sectores antes de generar la franja: un buffer por
         // MultiLineString evita los círculos repetidos de cada tramo individual.
-        function dibujarBufferVias(tipo) {
+        async function dibujarBufferVias(tipo) {
             const capa = capasInfraestructura[tipo];
             if (!capa) return;
             capa.clearLayers();
@@ -1393,16 +1394,18 @@
                 if (!sectores.has(key)) sectores.set(key, []);
                 sectores.get(key).push(coords);
             }
+            let loteBuffer = 0;
             for (const grupos of sectores.values()) {
                 // Grupos de hasta 80 ejes: minimiza polígonos redundantes y evita
                 // bloquear el navegador cuando la vista abarca todo Santiago.
-                for (let i=0; i<grupos.length; i+=80) {
+                for (let i=0; i<grupos.length; i+=35) {
+                    if (++loteBuffer % 2 === 0) await new Promise(resolve => setTimeout(resolve, 0));
                     try {
-                        const grupo = grupos.slice(i,i+80);
+                        const grupo = grupos.slice(i,i+35);
                         const feature = turf.multiLineString(grupo);
                         const poligono = turf.buffer(feature, ancho/2000, {units:'kilometers',steps:8});
                         if (!poligono?.geometry) continue;
-                        L.geoJSON(poligono, {interactive:false,style:{
+                        L.geoJSON(poligono, {interactive:false,renderer:renderViasCanvas,style:{
                             color:definicionesInfraestructura[tipo].color,
                             weight:0.7,opacity:.35,
                             fillColor:definicionesInfraestructura[tipo].color,
@@ -1465,8 +1468,8 @@
             // Consultar un margen alrededor de la vista evita que las franjas/buffers queden
             // cortadas justo en los bordes del mapa. Al mover o acercar el mapa se recarga la vista.
             const bounds = map.getBounds();
-            const padLat = Math.max((bounds.getNorth() - bounds.getSouth()) * 1.00, 0.04);
-            const padLon = Math.max((bounds.getEast() - bounds.getWest()) * 1.00, 0.05);
+            const padLat = Math.max((bounds.getNorth() - bounds.getSouth()) * 0.35, 0.025);
+            const padLon = Math.max((bounds.getEast() - bounds.getWest()) * 0.35, 0.03);
             const west = Math.max(-180, bounds.getWest() - padLon), south = Math.max(-90, bounds.getSouth() - padLat);
             const east = Math.min(180, bounds.getEast() + padLon), north = Math.min(90, bounds.getNorth() + padLat);
             const highway = tipoConsulta === 'troncal'
@@ -1474,12 +1477,12 @@
                 : "'motorway','motorway_link','trunk','trunk_link'";
             const url = 'https://services6.arcgis.com/Do88DoK2xjTUCXd1/ArcGIS/rest/services/OSM_SA_Highways/FeatureServer/0/query';
             const result = [], seen = new Set();
-            const pageSize = 1500;
+            const pageSize = 1000;
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 30000);
             try {
                 // Paginación: el servicio puede devolver más vías que el límite de una sola consulta.
-                for (let offset = 0; offset < 12000; offset += pageSize) {
+                for (let offset = 0; offset < 5000; offset += pageSize) {
                     const params = new URLSearchParams({
                         where: 'highway IN (' + highway + ')',
                         outFields: 'OBJECTID,highway,name,ref',
@@ -1652,7 +1655,7 @@
 
             if (!esMetro && (tipoConsulta === 'troncal' || tipoConsulta === 'expresa')) {
                 const cantidadOriginal = lineas.length;
-                lineas = unirSegmentosViales(lineas, 2);
+                lineas = lineas.length <= 250 ? unirSegmentosViales(lineas, 2) : lineas;
                 console.info('Continuidad vial: segmentos conectados', {originales:cantidadOriginal, cadenasContinuas:lineas.length});
             }
             if (tipoConsulta === 'troncal' || tipoConsulta === 'expresa') {
@@ -1661,7 +1664,7 @@
             if (esBuffer) {
                 const base = tipo === 'bufferTroncal' ? 'troncal' : 'expresa';
                 datosViasInfraestructura[base] = lineas.map(e => ({id:e.id, geometry:e.geometry, tags:e.tags || {}}));
-                dibujarBufferVias(tipo);
+                await dibujarBufferVias(tipo);
             } else {
                 const definicionColor = esMetro ? null : definicion.color;
                 lineas.forEach(e => {
@@ -1672,7 +1675,7 @@
                     L.polyline(coords, {
                         color, weight: esMetro ? grosorLineasMetro : grosoresViasPx[tipoConsulta],
                         opacity: definicion.opacidad, lineCap:'round', lineJoin:'round',
-                        interactive:true, bubblingMouseEvents:false
+                        interactive:true, bubblingMouseEvents:false, renderer:esMetro ? undefined : renderViasCanvas
                     }).bindTooltip(escaparHTML(nombre), {sticky:true}).addTo(capa);
                 });
             }
@@ -1681,39 +1684,20 @@
             if (!idToggle || document.getElementById(idToggle)?.checked) capa.addTo(map);
         }
 
-        // Actualiza las capas viales cuando el usuario desplaza/escala el mapa. La consulta usa
-        // un margen y paginación, así que el mapa no queda limitado a la primera vista cargada.
-        let temporizadorRecargaVias = null;
-        let recargaViasEnCurso = false;
-        map.on('moveend', () => {
-            clearTimeout(temporizadorRecargaVias);
-            temporizadorRecargaVias = setTimeout(async () => {
-                if (recargaViasEnCurso) return;
-                const tipos = [
-                    ['troncal','toggle-vias-troncales'], ['expresa','toggle-vias-expresas'],
-                    ['bufferTroncal','toggle-buffer-troncales'], ['bufferExpresa','toggle-buffer-expresas']
-                ];
-                const activos = tipos.filter(([tipo,id]) => document.getElementById(id)?.checked);
-                if (!activos.length) return;
-                recargaViasEnCurso = true;
-                try {
-                    for (const [tipo] of activos) {
-                        if (map.hasLayer(capasInfraestructura[tipo])) map.removeLayer(capasInfraestructura[tipo]);
-                        capasInfraestructura[tipo].clearLayers();
-                        estadoCargaInfraestructura[tipo] = null;
-                    }
-                    datosViasInfraestructura.troncal = [];
-                    datosViasInfraestructura.expresa = [];
-                    // Primero cargar ejes, luego buffers, manteniendo el mismo flujo de activación.
-                    const orden = ['troncal','expresa','bufferTroncal','bufferExpresa'];
-                    for (const tipo of orden) {
-                        const entrada = activos.find(([t]) => t === tipo);
-                        if (entrada) await conmutarCapaInfraestructura(tipo, true);
-                    }
-                } catch (e) { console.warn('No se pudieron actualizar todas las capas viales tras mover el mapa:', e); }
-                finally { recargaViasEnCurso = false; }
-            }, 450);
-        });
+        // Rendimiento: las capas viales cargadas se conservan durante el desplazamiento.
+        // No volver a descargar ni recalcular cuatro capas al terminar cada gesto del mapa.
+        async function actualizarCartografiaVial() {
+            const pares = [['troncal','toggle-vias-troncales'],['expresa','toggle-vias-expresas'],
+                ['bufferTroncal','toggle-buffer-troncales'],['bufferExpresa','toggle-buffer-expresas']];
+            const activos = pares.filter(([tipo,id]) => document.getElementById(id)?.checked).map(([tipo])=>tipo);
+            if (!activos.length) return;
+            for (const tipo of activos) {
+                map.removeLayer(capasInfraestructura[tipo]);
+                capasInfraestructura[tipo].clearLayers();
+                estadoCargaInfraestructura[tipo] = null;
+            }
+            await Promise.all(activos.map(tipo => conmutarCapaInfraestructura(tipo,true)));
+        }
 
         // Selector independiente de trazados y estaciones por línea. Los datos GIS se cargan una sola vez.
         const METRO_LINEAS_UI = ['1','2','3','4','4A','5','6'];
