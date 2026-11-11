@@ -599,6 +599,18 @@
 /* Anillo negro exterior que deja visible el borde blanco original. */
 .custom-hud-icon.metro-intercambio { box-shadow:0 0 0 3px #050505,0 2px 8px rgba(0,0,0,.55) !important; }
 </style>
+<style id="estilos-identificacion-servicios">
+[data-identificar-servicio] { transition: background-color .12s ease, outline-color .12s ease; }
+[data-identificar-servicio]:hover, [data-identificar-servicio].servicio-identificado-activo {
+    background-color: #fff3ad !important;
+    outline: 2px solid #eab308;
+    outline-offset: -2px;
+}
+#tabla-preview-reporte tr[data-identificar-servicio]:hover td,
+#tabla-preview-reporte tr.servicio-identificado-activo td:not(:nth-child(5)):not(:nth-child(6)) {
+    background-color: #fff3ad !important;
+}
+</style>
 </head>
 <body>
 
@@ -4069,6 +4081,9 @@
                 if (item.dedupeToken) serviciosExcluidosManualmente.add(item.dedupeToken);
                 else if (item.catId && item.name) serviciosExcluidosManualmente.add(`${item.catId}_${String(item.name).toLowerCase().trim()}`);
                 delete elementosMapeadosActivos[uid];
+                if (servicioResaltadoHover === uid) servicioResaltadoHover = null;
+                if (servicioResaltadoFijo === uid) servicioResaltadoFijo = null;
+                identificarServicioEnMapa(servicioResaltadoHover);
                 rebuildPanelResultadosAcumulado();
             }
         }
@@ -4080,6 +4095,49 @@
             else categoriasColapsadas.add(catId);
             rebuildPanelResultadosAcumulado();
         }
+
+        // Resaltado cruzado panel / reporte HUD / mapa. No modifica datos ni rutas.
+        let servicioResaltadoHover = null;
+        let servicioResaltadoFijo = null;
+        let haloServicioIdentificado = null;
+        function identificarServicioEnMapa(uid, fijar = false) {
+            if (fijar) servicioResaltadoFijo = (servicioResaltadoFijo === uid ? null : uid);
+            else servicioResaltadoHover = uid || null;
+            const activo = servicioResaltadoHover || servicioResaltadoFijo;
+            if (haloServicioIdentificado) {
+                map.removeLayer(haloServicioIdentificado);
+                haloServicioIdentificado = null;
+            }
+            document.querySelectorAll('[data-identificar-servicio]').forEach(el => {
+                el.classList.toggle('servicio-identificado-activo', !!activo && el.dataset.identificarServicio === activo);
+            });
+            const item = activo && elementosMapeadosActivos[activo];
+            if (!item || !item.marker) return;
+            const posicion = item.marker.getLatLng();
+            haloServicioIdentificado = L.circleMarker(posicion, {
+                radius: 27, color: '#facc15', weight: 6, opacity: 1,
+                fillColor: '#facc15', fillOpacity: .30, interactive: false,
+                pane: 'markerPane'
+            }).addTo(map);
+            // Mantener visible el icono original encima del halo.
+            if (item.marker.bringToFront) item.marker.bringToFront();
+        }
+        function terminarIdentificacionServicio(uid) {
+            if (servicioResaltadoHover === uid) identificarServicioEnMapa(null);
+        }
+        document.addEventListener('mouseover', ev => {
+            const el = ev.target.closest && ev.target.closest('[data-identificar-servicio]');
+            if (el) identificarServicioEnMapa(el.dataset.identificarServicio);
+        });
+        document.addEventListener('mouseout', ev => {
+            const el = ev.target.closest && ev.target.closest('[data-identificar-servicio]');
+            if (el && !el.contains(ev.relatedTarget)) terminarIdentificacionServicio(el.dataset.identificarServicio);
+        });
+        document.addEventListener('click', ev => {
+            const el = ev.target.closest && ev.target.closest('[data-identificar-servicio]');
+            if (el && !ev.target.closest('button') && !el.isContentEditable)
+                identificarServicioEnMapa(el.dataset.identificarServicio, true);
+        });
 
         function rebuildPanelResultadosAcumulado() {
             if (typeof dsProgramar === "function") dsProgramar();
@@ -4152,7 +4210,7 @@
                     iDiv.style.alignItems = 'stretch';
                     iDiv.style.gap = '6px';
                     iDiv.innerHTML = `
-                        <div style="cursor:pointer;" onclick="map.panTo([${item.lat}, ${item.lng}]);">
+                        <div data-identificar-servicio="${item.uid}" style="cursor:pointer;" onclick="map.panTo([${item.lat}, ${item.lng}]);">
                             <span class="item-name">${idx + 1}. ${escaparHTML(item.name)}${marcaVerificado}</span>
                         </div>
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:5px;">
@@ -4807,6 +4865,62 @@
             mostrarVistaPreviaReporte(); // se reabre para reflejar el ícono nuevo, manteniendo los datos
         }
 
+        // Guarda la tabla completa tal como aparece en la vista previa, incluidas sus columnas.
+        // El selector nativo permite elegir carpeta y nombre cuando el navegador lo admite.
+        async function guardarVistaPreviaReportePNG() {
+            const tabla = document.getElementById('tabla-preview-reporte');
+            if (!tabla || !window.html2canvas) {
+                alert('No se encontró la vista previa o no está disponible el capturador de imagen.');
+                return;
+            }
+            const boton = document.getElementById('btn-guardar-preview-png');
+            const original = boton ? boton.textContent : '';
+            if (boton) { boton.disabled = true; boton.textContent = '⌛ Preparando PNG...'; }
+            try {
+                const canvas = await html2canvas(tabla, {
+                    backgroundColor: '#ffffff', scale: 2, useCORS: true,
+                    allowTaint: false, logging: false,
+                    scrollX: 0, scrollY: 0,
+                    windowWidth: Math.max(document.documentElement.clientWidth, tabla.scrollWidth)
+                });
+                const blob = await new Promise((resolve, reject) => canvas.toBlob(
+                    b => b ? resolve(b) : reject(new Error('No se pudo crear el archivo PNG.')), 'image/png'
+                ));
+                const nombreArchivo = '1.1.png';
+                if (typeof window.showSaveFilePicker === 'function') {
+                    try {
+                        const archivo = await window.showSaveFilePicker({
+                            suggestedName: nombreArchivo,
+                            types: [{ description: 'Imagen PNG', accept: { 'image/png': ['.png'] } }],
+                            excludeAcceptAllOption: true
+                        });
+                        const escritura = await archivo.createWritable();
+                        await escritura.write(blob);
+                        await escritura.close();
+                        return;
+                    } catch (error) {
+                        // Cancelar la selección no debe descargar un archivo por sorpresa.
+                        if (error && error.name === 'AbortError') return;
+                        console.warn('No se pudo usar el selector de carpeta; se intentará la descarga.', error);
+                    }
+                }
+                const url = URL.createObjectURL(blob);
+                const enlace = document.createElement('a');
+                enlace.href = url;
+                enlace.download = nombreArchivo;
+                document.body.appendChild(enlace);
+                enlace.click();
+                enlace.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+                // En navegadores sin selector, la carpeta la define el diálogo de descargas del navegador.
+            } catch (error) {
+                console.error('Error al guardar vista previa PNG:', error);
+                alert('No se pudo guardar el reporte como PNG: ' + (error.message || error));
+            } finally {
+                if (boton) { boton.disabled = false; boton.textContent = original; }
+            }
+        }
+
         // Recorta exclusivamente el bloque principal de la tabla (ícono + Servicio + Tiempo + Distancia).
         // El límite derecho se calcula desde la cuarta columna, por lo que el espacio y el bloque
         // independiente "Tipo de trayecto" nunca forman parte de la imagen.
@@ -4901,7 +5015,7 @@
                     ? `<img src="${item.img}" style="width:40px;height:40px;object-fit:contain;" class="icono-servicio-preview">`
                     : `<span style="font-size:32px;" class="icono-servicio-preview">${item.em || '📍'}</span>`;
                 return `
-                <tr data-reporte-uid="${item.uid}">
+                <tr data-reporte-uid="${item.uid}" data-identificar-servicio="${item.uid}" title="Pasa el cursor para identificar este servicio en el mapa">
                     <td style="border:none; padding:6px; text-align:center; vertical-align:middle; cursor:pointer; position:relative;" onclick="abrirSelectorIconoPreview(event, '${item.uid}')" title="Clic para cambiar el ícono">
                         ${contenidoIcono}
                     </td>
@@ -4974,6 +5088,7 @@
                         <div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;">
                             <button style="flex:1; background:#075985;color:#fff;border:0;padding:10px 8px;border-radius:6px;cursor:pointer;font-weight:700;" onclick="abrirAgregarServicioManualPreview()">＋ Agregar servicio manual</button>
                             <button style="flex:0.8; background:#334155; color:#fff; border:none; padding:10px 8px; border-radius:6px; cursor:pointer;" onclick="document.getElementById('overlay-vista-previa-reporte').remove()">Cerrar</button>
+                            <button id="btn-guardar-preview-png" style="flex:1; background:#166534; color:#fff; border:none; padding:10px 8px; border-radius:6px; cursor:pointer; font-weight:700;" onclick="guardarVistaPreviaReportePNG()">💾 Guardar PNG 1.1</button>
                             <button id="btn-recortar-tabla-reporte" style="flex:1; background:#0f766e; color:#fff; border:none; padding:10px 8px; border-radius:6px; cursor:pointer; font-weight:700;" onclick="recortarTablaReporte()">✂ Recortar tabla</button>
                             <button style="flex:1.2; background:#2563eb; color:#fff; border:none; padding:10px 8px; border-radius:6px; cursor:pointer; font-weight:700;" onclick="copiarReporteResultadosAlPortapapeles();">📋 Copiar al portapapeles</button>
                         </div>
