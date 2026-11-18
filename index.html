@@ -2433,6 +2433,20 @@
         let superficieTerrenoReporteM2 = null;
         let columnasExtrasReporte = [];
         let valoresExtrasReporte = {};
+        let superficieReporteDesdeKMZ = false;
+        function tomarSuperficieDeGeoJSONReporte(geojson) {
+            if (!geojson || !window.turf) return;
+            try {
+                const poligonos = (geojson.features || []).filter(f => f.geometry && /Polygon/.test(f.geometry.type));
+                if (!poligonos.length) return;
+                const area = poligonos.reduce((total, f) => total + turf.area(f), 0);
+                if (Number.isFinite(area) && area > 0) {
+                    superficieTerrenoReporteM2 = Math.round(area);
+                superficieReporteDesdeKMZ = true;
+                    superficieReporteDesdeKMZ = true;
+                }
+            } catch(e) { console.warn('No fue posible calcular superficie del KMZ', e); }
+        }
 
         map.on(L.Draw.Event.CREATED, function (e) {
             let layer = e.layer;
@@ -4259,6 +4273,7 @@
                 const parser = new DOMParser(); 
                 const kmlDom = parser.parseFromString(kmlTexto, 'text/xml');
                 let geojson = toGeoJSON.kml(kmlDom);
+                tomarSuperficieDeGeoJSONReporte(geojson);
                 
                 let id = "kmz_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
                 let estilo = { colorLinea: '#10b981', colorRelleno: '#10b981', opacidadRelleno: 0.25, achurado: false, grosorLinea: 3 };
@@ -4941,6 +4956,7 @@
             try {
                 // Captura la tabla completa para respetar exactamente sus tamaños, fuentes y bordes.
                 const canvasCompleto = await html2canvas(tabla, {
+                    onclone: doc => doc.querySelectorAll('.control-eliminar-reporte').forEach(el => el.remove()),
                     backgroundColor: '#ffffff',
                     scale: 2,
                     useCORS: true,
@@ -5031,12 +5047,13 @@
         function actualizarSuperficieReporte(input) {
             const n = Number(String(input.value).replace(/\./g,'').replace(',','.'));
             superficieTerrenoReporteM2 = Number.isFinite(n) && n > 0 ? n : null;
+            superficieReporteDesdeKMZ = false;
         }
         function htmlColumnasExtrasFila(uid) {
             return columnasExtrasReporte.map(c => `<td class="celda-texto-preview" contenteditable="true" data-uid="${uid}" data-col="${c.id}" oninput="guardarDatoColumnaReporte(this)" style="border:1px solid #333;padding:9px 12px;min-width:105px;color:#1a56db;vertical-align:middle;">${escaparHTML(valoresExtrasReporte[uid]?.[c.id] || '')}</td>`).join('');
         }
         function htmlColumnasExtrasCabecera() {
-            return columnasExtrasReporte.map(c => `<th style="border:1px solid #333;padding:8px 12px;min-width:105px;position:relative;color:#000;"><span contenteditable="true" data-col="${c.id}" oninput="guardarTituloColumnaReporte(this)">${escaparHTML(c.nombre)}</span><button title="Eliminar columna" onclick="quitarColumnaManualReporte('${c.id}')" style="position:absolute;right:0;top:-24px;background:#991b1b;color:white;border:0;border-radius:4px;cursor:pointer;">×</button></th>`).join('');
+            return columnasExtrasReporte.map(c => `<th style="border:1px solid #333;padding:8px 12px;min-width:105px;position:relative;color:#000;"><span contenteditable="true" data-col="${c.id}" oninput="guardarTituloColumnaReporte(this)">${escaparHTML(c.nombre)}</span><button title="Eliminar columna" onclick="quitarColumnaManualReporte('${c.id}')" class="control-eliminar-reporte" style="position:absolute;right:0;top:-24px;background:#991b1b;color:white;border:0;border-radius:4px;cursor:pointer;">×</button></th>`).join('');
         }
         function mostrarVistaPreviaReporte() {
             // Si ya había una vista previa abierta de antes, se saca primero — evita que se
@@ -5059,10 +5076,10 @@
                         <img src="${ICONO_CAMINANTE}" style="width:32px;height:32px;vertical-align:middle;object-fit:contain;"> ${formatoTiempoCaminando(item.tiempo)}
                     </td>
                     <td style="border:1px solid #333; padding:9px 14px; text-align:center; color:#1a56db; font-weight:600;" class="celda-texto-preview">${item.esDistanciaAproximada ? '~' : ''}${item.distance} m</td>
-                    <td style="border:none !important;padding:4px 18px 4px 32px;width:62px;min-width:62px;text-align:center;vertical-align:middle;border-top:0 !important;border-bottom:0 !important;"><div style="width:100%;display:flex;align-items:center;justify-content:center;"><button title="Quitar del reporte; se conserva en el mapa" onclick="event.stopPropagation(); quitarServicioDelReporte('${item.uid}')" style="display:flex;align-items:center;justify-content:center;background:#991b1b;color:#fff;border:0;border-radius:5px;width:30px;height:30px;padding:0;cursor:pointer;font-size:18px;font-weight:700;line-height:1;">✕</button></div></td>
-                    <td aria-hidden="true" style="border:none; width:28px; min-width:28px; padding:0; background:#fff;"></td>
-                    <td style="border:1px solid #333; padding:9px 10px; text-align:center; color:${item.esDistanciaAproximada ? '#92400e' : '#166534'}; font-size:11px; font-weight:700; white-space:nowrap;" class="celda-texto-preview">${item.tipoTrayecto}</td>
                     ${htmlColumnasExtrasFila(item.uid)}
+                    <td class="separador-reporte" style="border:none !important;padding:4px 18px 4px 32px;width:62px;min-width:62px;text-align:center;vertical-align:middle;border-top:0 !important;border-bottom:0 !important;"><div style="width:100%;display:flex;align-items:center;justify-content:center;"><button title="Quitar del reporte; se conserva en el mapa" onclick="event.stopPropagation(); quitarServicioDelReporte('${item.uid}')" class="control-eliminar-reporte" style="display:flex;align-items:center;justify-content:center;background:#991b1b;color:#fff;border:0;border-radius:5px;width:30px;height:30px;padding:0;cursor:pointer;font-size:18px;font-weight:700;line-height:1;">✕</button></div></td>
+                    <td class="separador-reporte" aria-hidden="true" style="border:none; width:28px; min-width:28px; padding:0; background:#fff;"></td>
+                    <td class="bloque-tipo-trayecto" style="border:1px solid #333; padding:9px 10px; text-align:center; color:${item.esDistanciaAproximada ? '#92400e' : '#166534'}; font-size:11px; font-weight:700; white-space:nowrap;" class="celda-texto-preview">${item.tipoTrayecto}</td>
                 </tr>
             `;
             }).join('');
@@ -5071,16 +5088,17 @@
                 ? `<p style="color:#333;">Aún no hay servicios para incluir en el reporte.</p>`
                 : `
                 <style>
-                    /* Marco separado para los dos bloques: el espacio central queda totalmente limpio. */
                     #tabla-preview-reporte { border-collapse:separate !important; border-spacing:0 !important; border:0 !important; }
                     #tabla-preview-reporte tr > :first-child { border-left:4px solid #000 !important; }
                     #tabla-preview-reporte tr > :nth-child(4) { border-right:4px solid #000 !important; }
-                    #tabla-preview-reporte tr > :nth-child(7) { border-left:4px solid #000 !important; }
-                    #tabla-preview-reporte tr > :last-child { border-right:4px solid #000 !important; }
-                    #tabla-preview-reporte thead tr:first-child > :not(:nth-child(5)):not(:nth-child(6)) { border-top:4px solid #000 !important; }
-                    #tabla-preview-reporte tbody tr:last-child > :not(:nth-child(5)):not(:nth-child(6)) { border-bottom:4px solid #000 !important; }
-                    #tabla-preview-reporte tr > :nth-child(5),
-                    #tabla-preview-reporte tr > :nth-child(6) { border:0 !important; border-top:0 !important; border-bottom:0 !important; background:#fff !important; vertical-align:middle !important; }
+                    #tabla-preview-reporte tr > .bloque-tipo-trayecto { border-left:4px solid #000 !important; border-right:4px solid #000 !important; }
+                    #tabla-preview-reporte thead tr:first-child > :not(.separador-reporte) { border-top:4px solid #000 !important; }
+                    #tabla-preview-reporte tbody tr:last-child > :not(.separador-reporte) { border-bottom:4px solid #000 !important; }
+                    #tabla-preview-reporte .separador-reporte { border:0 !important; background:#fff !important; }
+                    #tabla-preview-reporte .control-eliminar-reporte { opacity:0; visibility:hidden; transition:opacity .15s; }
+                    #tabla-preview-reporte tr:hover .control-eliminar-reporte,
+                    #tabla-preview-reporte th:hover .control-eliminar-reporte { opacity:1; visibility:visible; }
+                    .capturando-reporte .control-eliminar-reporte { display:none !important; }
                 </style>
                 <table id="tabla-preview-reporte" style="border-collapse:separate; border-spacing:0; width:100%; background:#fff; font-family: Arial, sans-serif; font-size:14px; border:0;">
                     <thead>
@@ -5089,10 +5107,10 @@
                             <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">SERVICIO</th>
                             <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">TIEMPO</th>
                             <th style="border:1px solid #333; padding:10px 14px; text-align:center; color:#000; font-size:16px;" class="celda-header-preview">DISTANCIA</th>
-                            <th style="border:none;padding:4px;width:30px;"></th>
-                            <th aria-hidden="true" style="border:none; width:28px; min-width:28px; padding:0; background:#fff;"></th>
-                            <th style="border:1px solid #333; padding:10px 10px; text-align:center; color:#000; font-size:13px;" class="celda-header-preview">TIPO DE TRAYECTO</th>
                             ${htmlColumnasExtrasCabecera()}
+                            <th class="separador-reporte" style="border:none;padding:4px;width:30px;"></th>
+                            <th class="separador-reporte" aria-hidden="true" style="border:none; width:28px; min-width:28px; padding:0; background:#fff;"></th>
+                            <th class="bloque-tipo-trayecto" style="border:1px solid #333; padding:10px 10px; text-align:center; color:#000; font-size:13px;" class="celda-header-preview">TIPO DE TRAYECTO</th>
                         </tr>
                     </thead>
                     <tbody>${filasHtml}</tbody>
@@ -5125,7 +5143,7 @@
                         <div id="area-captura-reporte" style="background:#fff;min-width:max-content;">
                             <div style="padding:0 4px 22px;display:flex;align-items:center;gap:12px;color:#0f172a;font-family:Arial,sans-serif;font-weight:700;font-size:19px;">
                                 <span>SUPERFICIE DEL TERRENO:</span>
-                                <input id="superficie-reporte-m2" type="text" value="${superficieTerrenoReporteM2 ? Number(superficieTerrenoReporteM2).toLocaleString('es-CL') : ''}" placeholder="Ingresar superficie" oninput="actualizarSuperficieReporte(this)" style="width:135px;border:0;border-bottom:1px dashed #94a3b8;background:#fff;color:#0f172a;font:700 19px Arial;text-align:right;outline:none;" aria-label="Superficie del terreno en metros cuadrados">
+                                <input id="superficie-reporte-m2" type="text" value="${superficieTerrenoReporteM2 ? Number(superficieTerrenoReporteM2).toLocaleString('es-CL') : ''}" placeholder="Ingresar superficie" oninput="actualizarSuperficieReporte(this)" ${superficieReporteDesdeKMZ ? 'readonly title="Superficie calculada desde el KMZ"' : ''} style="width:135px;border:0;border-bottom:1px dashed #94a3b8;background:#fff;color:#0f172a;font:700 19px Arial;text-align:right;outline:none;" aria-label="Superficie del terreno en metros cuadrados">
                                 <span>m²</span>
                             </div>
                             ${contenidoTabla}
