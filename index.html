@@ -953,18 +953,27 @@
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
 
     <script>
+
+        function esCentroSalud(tags) {
+            if (!tags) return false;
+            if (['hospital','clinic','doctors'].includes(tags.amenity) || ['hospital','clinic','centre','center','doctor','doctors','health_centre','health_center'].includes(tags.healthcare)) return true;
+            if (tags.shop || ['pharmacy','veterinary','school','kindergarten'].includes(tags.amenity) || ['pharmacy','veterinary'].includes(tags.healthcare) || tags.highway || tags.public_transport) return false;
+            const n = [tags.name,tags.official_name,tags.alt_name].filter(Boolean).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+            return /\b(cecosf|cecof|cesfam|sapu|sar|cosam)\b|centro (?:comunitario )?(?:de )?salud|posta (?:de salud )?rural|consultorio|centro medico/.test(n);
+        }
+
         let CONFIG_SERVICIOS_PREDEFINIDOS = [
             { id: 'metro', title: 'Estaciones de Metro', em: '🚇', col: '#e11d48', query: 'nwr["station"="subway"]{{GEO}};nwr["railway"="station"]["station"!="subway"]{{GEO}};', max: 10, img: null },
             { id: 'supermercado', title: 'Supermercados', em: '🛒', col: '#2563eb', query: 'nwr["shop"="supermarket"]{{GEO}};', max: 10, img: null },
             { id: 'mall', title: 'Centros Comerciales / Malls', em: '🏢', col: '#3b82f6', query: 'nwr["shop"="mall"]{{GEO}};', max: 5, img: null },
             { id: 'colegios', title: 'Colegios y Liceos', em: '🎓', col: '#a855f7', query: 'nwr["amenity"="school"]{{GEO}};', max: 10, img: null },
             { id: 'universidades', title: 'Universidades e Institutos', em: '🏛️', col: '#6366f1', query: 'nwr["amenity"="university"]{{GEO}};', max: 5, img: null },
-            { id: 'jardin_infantil', title: 'Jardines Infantiles / Sala Cuna', em: '🧸', col: '#ec4899', query: 'nwr["amenity"="kindergarten"]{{GEO}};', max: 8, img: null },
-            { id: 'salud', title: 'Salud y Clínicas', em: '🏥', col: '#06b6d4', query: 'nwr["amenity"="hospital"]{{GEO}};nwr["amenity"="clinic"]{{GEO}};nwr["amenity"="pharmacy"]{{GEO}};nwr["amenity"="doctors"]{{GEO}};nwr["healthcare"="centre"]{{GEO}};', max: 15, img: null },
+            { id: 'jardin_infantil', title: 'Jardines Infantiles / Sala Cuna', em: '🧸', col: '#ec4899', query: 'nwr["amenity"="kindergarten"]{{GEO}};nwr["amenity"="childcare"]{{GEO}};', max: 8, img: null },
+            { id: 'salud', title: 'Salud y Clínicas', em: '🏥', col: '#06b6d4', query: 'nwr["amenity"~"^(hospital|clinic|doctors)$"]{{GEO}};nwr["healthcare"~"^(hospital|clinic|centre|center|doctor|doctors|health_centre|health_center)$"]{{GEO}};nwr["name"~"(^|[^[:alnum:]])(CECOSF|CECOF|CESFAM|SAPU|SAR|COSAM)([^[:alnum:]]|$)|centro (comunitario )?(de )?salud|posta (de salud )?rural|consultorio|centro m[eé]dico",i]{{GEO}};nwr["official_name"~"(^|[^[:alnum:]])(CECOSF|CECOF|CESFAM|SAPU|SAR|COSAM)([^[:alnum:]]|$)|centro (comunitario )?(de )?salud|posta (de salud )?rural|consultorio|centro m[eé]dico",i]{{GEO}};nwr["alt_name"~"(^|[^[:alnum:]])(CECOSF|CECOF|CESFAM|SAPU|SAR|COSAM)([^[:alnum:]]|$)|centro (comunitario )?(de )?salud|posta (de salud )?rural|consultorio|centro m[eé]dico",i]{{GEO}};nwr["amenity"="pharmacy"]{{GEO}};', max: 15, img: null },
             { id: 'seguridad', title: 'Seguridad y Policía', em: '🚓', col: '#ef4444', query: 'nwr["amenity"="police"]{{GEO}};', max: 5, img: null },
             { id: 'bomberos', title: 'Bomberos', em: '🚒', col: '#f43f5e', query: 'nwr["amenity"="fire_station"]{{GEO}};', max: 4, img: null },
             { id: 'cultura', title: 'Cine, Teatro y Museos', em: '🎭', col: '#eab308', query: 'nwr["amenity"="cinema"]{{GEO}};nwr["amenity"="theatre"]{{GEO}};nwr["tourism"="museum"]{{GEO}};', max: 8, img: null },
-            { id: 'paraderos', title: 'Paraderos de Micro / Buses', em: '🚏', col: '#64748b', query: 'nwr["highway"="bus_stop"]{{GEO}};', max: 20, img: null },
+            { id: 'paraderos', title: 'Paraderos de Micro / Buses', em: '🚏', col: '#64748b', query: 'nwr["highway"="bus_stop"]{{GEO}};nwr["public_transport"="platform"]["bus"="yes"]{{GEO}};', max: 20, img: null },
             { id: 'finanzas', title: 'Bancos y Notarías', em: '🏦', col: '#10b981', query: 'nwr["amenity"="bank"]{{GEO}};nwr["amenity"="atm"]{{GEO}};', max: 10, img: null },
             { id: 'deporte', title: 'Centros Deportivos', em: '🏋️', col: '#f97316', query: 'nwr["leisure"="sports_centre"]{{GEO}};nwr["leisure"="fitness_centre"]{{GEO}};', max: 10, img: null },
             { id: 'parques', title: 'Parques y Plazas', em: '🌳', col: '#10b981', query: 'nwr["leisure"="park"]{{GEO}};', max: 10, img: null }
@@ -3875,12 +3884,13 @@
                 let lat = puntoElegido.lat;
                 let lng = puntoElegido.lng;
 
-                let nombreReal = el.tags.name || el.tags.brand || el.tags.operator || "";
+                let nombreReal = el.tags.name || el.tags.official_name || el.tags.alt_name || el.tags.brand || el.tags.operator || "";
                 let esGenerico = !nombreReal; // true = el nombre viene de un valor por defecto, no de OSM
                 if(!nombreReal) {
                     if(el.tags.railway === 'subway_entrance') nombreReal = el.tags.ref ? `Acceso Metro (${el.tags.ref})` : "Acceso de Metro";
                     else if(el.tags.station === 'subway' || el.tags.railway === 'station') nombreReal = el.tags.u_name || "Estación de Metro";
-                    else if(el.tags.highway === 'bus_stop') nombreReal = el.tags.local_ref || el.tags.ref || "Paradero de Micro Red";
+                    else if(el.tags.highway === 'bus_stop' || (el.tags.public_transport === 'platform' && el.tags.bus === 'yes')) nombreReal = el.tags.local_ref || el.tags.ref || "Paradero de Micro Red";
+                    else if(esCentroSalud(el.tags)) nombreReal = "Centro de salud (sin nombre registrado)";
                     else return;
                 }
 
@@ -3900,12 +3910,12 @@
                     else if(el.tags.shop === 'mall') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'mall');
                     else if(el.tags.amenity === 'school') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'colegios');
                     else if(el.tags.amenity === 'university') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'universidades');
-                    else if(el.tags.amenity === 'kindergarten') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'jardin_infantil');
-                    else if(el.tags.amenity === 'hospital' || el.tags.amenity === 'clinic' || el.tags.amenity === 'pharmacy') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'salud');
+                    else if(['kindergarten','childcare'].includes(el.tags.amenity)) catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'jardin_infantil');
+                    else if(esCentroSalud(el.tags) || el.tags.amenity === 'pharmacy') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'salud');
                     else if(el.tags.amenity === 'police') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'seguridad');
                     else if(el.tags.amenity === 'fire_station') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'bomberos');
                     else if(el.tags.amenity === 'cinema' || el.tags.amenity === 'theatre' || el.tags.tourism === 'museum') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'cultura');
-                    else if(el.tags.highway === 'bus_stop') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'paraderos');
+                    else if(el.tags.highway === 'bus_stop' || (el.tags.public_transport === 'platform' && el.tags.bus === 'yes')) catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'paraderos');
                     else if(el.tags.amenity === 'bank' || el.tags.atm === 'atm' || el.tags.amenity === 'atm') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'finanzas');
                     else if(el.tags.leisure === 'sports_centre' || el.tags.leisure === 'fitness_centre') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'deporte');
                     else if(el.tags.leisure === 'park' || el.tags.leisure === 'playground') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'parques');
@@ -5358,9 +5368,9 @@
 /* Evaluación preliminar de accesibilidad, independiente de los filtros visuales del HUD. */
 const DS_CRITERIOS = [
  {id:'colegios',nombre:'Colegios',limite:1000,filtro:'nwr["amenity"="school"]'},
- {id:'cunas',nombre:'Salas cuna / jardines infantiles',limite:1000,filtro:'nwr["amenity"="kindergarten"]'},
- {id:'clinicas',nombre:'Clínicas / centros de salud',limite:2500,filtro:'nwr["amenity"="clinic"];nwr["healthcare"="clinic"];nwr["amenity"="hospital"]'},
- {id:'paraderos',nombre:'Paraderos de micro',limite:400,filtro:'nwr["highway"="bus_stop"]'},
+ {id:'cunas',nombre:'Salas cuna / jardines infantiles',limite:1000,filtro:'nwr["amenity"="kindergarten"];nwr["amenity"="childcare"]'},
+ {id:'clinicas',nombre:'Clínicas / centros de salud',limite:2500,filtro:'nwr["amenity"~"^(hospital|clinic|doctors)$"];nwr["healthcare"~"^(hospital|clinic|centre|center|doctor|doctors|health_centre|health_center)$"];nwr["name"~"(^|[^[:alnum:]])(CECOSF|CECOF|CESFAM|SAPU|SAR|COSAM)([^[:alnum:]]|$)|centro (comunitario )?(de )?salud|posta (de salud )?rural|consultorio|centro m[eé]dico",i];nwr["official_name"~"(^|[^[:alnum:]])(CECOSF|CECOF|CESFAM|SAPU|SAR|COSAM)([^[:alnum:]]|$)|centro (comunitario )?(de )?salud|posta (de salud )?rural|consultorio|centro m[eé]dico",i];nwr["alt_name"~"(^|[^[:alnum:]])(CECOSF|CECOF|CESFAM|SAPU|SAR|COSAM)([^[:alnum:]]|$)|centro (comunitario )?(de )?salud|posta (de salud )?rural|consultorio|centro m[eé]dico",i]'},
+ {id:'paraderos',nombre:'Paraderos de micro',limite:400,filtro:'nwr["highway"="bus_stop"];nwr["public_transport"="platform"]["bus"="yes"]'},
  {id:'comercio',nombre:'Supermercados / strip centers',limite:2000,filtro:'nwr["shop"="supermarket"];nwr["shop"="mall"];nwr["shop"="department_store"];nwr["landuse"="retail"]'},
  {id:'parques',nombre:'Plazas y parques mayores de 5.000 m²',limite:1000,filtro:'nwr["leisure"="park"];nwr["leisure"="garden"];nwr["landuse"="recreation_ground"]'}
 ];
@@ -5440,7 +5450,7 @@ async function dsAnalizar(){
   try{
    const elements=await dsFetch(query);if(seq!==dsSeq)return;
    let sinArea=0;
-   const validos=elements.filter(e=>{if(c.id!=='parques')return true;const area=dsArea(e);if(area===null){sinArea++;return false;}return area>5000;});
+   const validos=elements.filter(e=>{if(c.id==='clinicas')return esCentroSalud(e.tags);if(c.id!=='parques')return true;const area=dsArea(e);if(area===null){sinArea++;return false;}return area>5000;});
    const orden=validos.map(e=>({e,d:dsDistanciaElemento(e,terreno,origen)})).filter(x=>Number.isFinite(x.d)).sort((a,b)=>a.d-b.d);
    resultados.push({...c,masCerca:orden[0]||null,sinArea,estado:'consultado',cantidad:elements.length});
   }catch(err){if(seq!==dsSeq)return;resultados.push({...c,masCerca:null,estado:'error',error:err.message});}
