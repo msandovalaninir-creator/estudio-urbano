@@ -836,7 +836,7 @@
                     <small>200 m por lado</small>
                 </section>
             </div>
-            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Clasificación referencial OSM/GIS: troncales primary/secondary y expresas motorway/trunk, sin superposición de categorías. No equivale a la clasificación oficial PRMS. Los buffers se miden en metros desde el eje de cada vía (mitad del ancho por lado); son franjas cartográficas referenciales, no áreas normativas oficiales.</div>
+            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Clasificación referencial OSM/GIS (no validada por PRMS): troncales primary/secondary y expresas motorway/trunk, sin superposición de categorías. No equivale a la clasificación oficial PRMS. Los buffers se miden en metros desde el eje de cada vía (mitad del ancho por lado); son franjas cartográficas referenciales, no áreas normativas oficiales.</div>
         </div>
         <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
 
@@ -1375,8 +1375,8 @@ function sincronizarGrupos114(){
             metro: { titulo: 'líneas de Metro existentes', selector: 'way["railway"="subway"]', color: '#64748b', peso: 5, opacidad: .98 },
             // Aproximación cartográfica: OSM no siempre utiliza la clasificación normativa chilena.
             // Se consideran primary/secondary como ejes troncales y trunk/motorway como expresas.
-            troncal: { titulo: 'calles troncales (vías principales)', selector: 'way["highway"~"^(primary|primary_link)$"]', color: '#7137d6', peso: 5, opacidad: .98 },
-            bufferTroncal: { titulo: 'buffer visual de calles troncales', selector: 'way["highway"~"^(primary|primary_link)$"]', color: '#7943d9', peso: 20, opacidad: .24 },
+            troncal: { titulo: 'calles troncales (vías principales)', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link)$"]', color: '#7137d6', peso: 5, opacidad: .98 },
+            bufferTroncal: { titulo: 'buffer visual de calles troncales', selector: 'way["highway"~"^(primary|primary_link|secondary|secondary_link)$"]', color: '#7943d9', peso: 20, opacidad: .24 },
             expresa: { titulo: 'calles expresas y autopistas', selector: 'way["highway"~"^(motorway|motorway_link|trunk|trunk_link)$"]' , color: '#ef4444', peso: 5, opacidad: .98 },
             bufferExpresa: { titulo: 'buffer visual de calles expresas', selector: 'way["highway"~"^(motorway|motorway_link|trunk|trunk_link)$"]' , color: '#f87171', peso: 24, opacidad: .24 }
         };
@@ -1448,54 +1448,45 @@ function sincronizarGrupos114(){
 
         // Agrupa ejes por sectores antes de generar la franja: un buffer por
         // MultiLineString evita los círculos repetidos de cada tramo individual.
+        const revisionBufferVial = {};
         async function dibujarBufferVias(tipo) {
             const capa = capasInfraestructura[tipo];
             if (!capa) return;
-            capa.clearLayers();
+            const revision = (revisionBufferVial[tipo] || 0) + 1;
+            revisionBufferVial[tipo] = revision;
             const base = tipo === 'bufferTroncal' ? 'troncal' : 'expresa';
             const ancho = anchosBufferMetros[tipo];
             if (!window.turf || !datosViasInfraestructura[base]?.length) return;
-            const vias = datosViasInfraestructura[base];
-            // Dividir por cuadrantes evita operaciones gigantes en Turf y conserva
-            // la continuidad entre segmentos dentro de cada sector.
-            const sectores = new Map();
-            for (const via of vias) {
-                const coords = (via.geometry || []).map(pt => [Number(pt.lon), Number(pt.lat)])
-                    .filter(pt => Number.isFinite(pt[0]) && Number.isFinite(pt[1]));
-                if (coords.length < 2) continue;
-                const p = coords[Math.floor(coords.length/2)];
-                const key = Math.floor(p[0]*20) + ':' + Math.floor(p[1]*20);
-                if (!sectores.has(key)) sectores.set(key, []);
-                sectores.get(key).push(coords);
-            }
-            let loteBuffer = 0;
-            for (const grupos of sectores.values()) {
-                // Grupos de hasta 80 ejes: minimiza polígonos redundantes y evita
-                // bloquear el navegador cuando la vista abarca todo Santiago.
-                for (let i=0; i<grupos.length; i+=35) {
-                    if (++loteBuffer % 2 === 0) await new Promise(resolve => setTimeout(resolve, 0));
-                    try {
-                        const grupo = grupos.slice(i,i+35);
-                        const feature = turf.multiLineString(grupo);
-                        const poligono = turf.buffer(feature, ancho/2000, {units:'kilometers',steps:8});
-                        if (!poligono?.geometry) continue;
-                        L.geoJSON(poligono, {interactive:false,renderer:renderViasCanvas,style:{
-                            color:definicionesInfraestructura[tipo].color,
-                            weight:0.7,opacity:.35,
-                            fillColor:definicionesInfraestructura[tipo].color,
-                            fillOpacity:base==='troncal'?.22:.25,
-                            lineJoin:'round'
-                        }}).addTo(capa);
-                    } catch (e) { console.warn('Franja vial omitida:',e); }
+            const grupos = datosViasInfraestructura[base].map(v => (v.geometry || []).map(p => [Number(p.lon),Number(p.lat)]).filter(p => p.every(Number.isFinite))).filter(g => g.length > 1);
+            const piezas = [];
+            try {
+                for(let i=0;i<grupos.length;i+=35) {
+                    await new Promise(r=>setTimeout(r,0));
+                    if(revisionBufferVial[tipo]!==revision) return;
+                    const p=turf.buffer(turf.multiLineString(grupos.slice(i,i+35)),ancho/2000,{units:'kilometers',steps:8});
+                    if(p?.geometry) piezas.push(p);
                 }
-            }
+                // Union jerárquica: elimina bordes interiores y solapamientos entre lotes.
+                while(piezas.length>1) {
+                    const siguiente=[];
+                    for(let i=0;i<piezas.length;i+=2) {
+                        await new Promise(r=>setTimeout(r,0));
+                        if(revisionBufferVial[tipo]!==revision) return;
+                        siguiente.push(i+1<piezas.length ? turf.union(piezas[i],piezas[i+1]) : piezas[i]);
+                    }
+                    piezas.splice(0,piezas.length,...siguiente.filter(Boolean));
+                }
+                if(revisionBufferVial[tipo]!==revision) return;
+                capa.clearLayers();
+                if(piezas[0]) L.geoJSON(piezas[0],{interactive:false,renderer:renderViasCanvas,style:{stroke:false,fillColor:definicionesInfraestructura[tipo].color,fillOpacity:base==='troncal'?.22:.25}}).addTo(capa);
+            } catch(e) { console.error('No se pudo generar la franja vial continua',e); alert('No fue posible generar la franja continua. Reduce el área visible y actualiza las vías.'); }
         }
         function actualizarAnchoBuffer(tipo, valor) {
             const ancho = Math.max(50, Math.min(tipo === 'bufferTroncal' ? 2000 : 3000, Number(valor) || 400));
             anchosBufferMetros[tipo] = ancho;
             const etiqueta = document.getElementById('ancho-' + (tipo === 'bufferTroncal' ? 'buffer-troncales' : 'buffer-expresas') + '-valor');
             if (etiqueta) etiqueta.textContent = ancho + ' m';
-            const nota = document.querySelector('#' + (tipo === 'bufferTroncal' ? 'ancho-buffer-troncales' : 'ancho-buffer-expresas')).parentElement.querySelector('div');
+            const nota = document.querySelector('#' + (tipo === 'bufferTroncal' ? 'ancho-buffer-troncales' : 'ancho-buffer-expresas')).parentElement.querySelector('small');
             if (nota) nota.textContent = (ancho / 2).toLocaleString('es-CL') + ' m a cada lado del eje';
             dibujarBufferVias(tipo);
         }
@@ -1547,7 +1538,7 @@ function sincronizarGrupos114(){
             const west = Math.max(-180, bounds.getWest() - padLon), south = Math.max(-90, bounds.getSouth() - padLat);
             const east = Math.min(180, bounds.getEast() + padLon), north = Math.min(90, bounds.getNorth() + padLat);
             const highway = tipoConsulta === 'troncal'
-                ? "'primary','primary_link'"
+                ? "'primary','primary_link','secondary','secondary_link'"
                 : "'motorway','motorway_link','trunk','trunk_link'";
             const url = 'https://services6.arcgis.com/Do88DoK2xjTUCXd1/ArcGIS/rest/services/OSM_SA_Highways/FeatureServer/0/query';
             const result = [], seen = new Set();
@@ -1556,7 +1547,7 @@ function sincronizarGrupos114(){
             const timer = setTimeout(() => controller.abort(), 30000);
             try {
                 // Paginación: el servicio puede devolver más vías que el límite de una sola consulta.
-                for (let offset = 0; offset < 5000; offset += pageSize) {
+                for (let offset = 0; offset < 50000; offset += pageSize) {
                     const params = new URLSearchParams({
                         where: 'highway IN (' + highway + ')',
                         outFields: 'OBJECTID,highway,name,ref',
@@ -1729,7 +1720,7 @@ function sincronizarGrupos114(){
 
             if (!esMetro && (tipoConsulta === 'troncal' || tipoConsulta === 'expresa')) {
                 const cantidadOriginal = lineas.length;
-                lineas = lineas.length <= 250 ? unirSegmentosViales(lineas, 2) : lineas;
+                // Se conserva la geometría original, sin conectar extremos artificialmente.
                 console.info('Continuidad vial: segmentos conectados', {originales:cantidadOriginal, cadenasContinuas:lineas.length});
             }
             if (tipoConsulta === 'troncal' || tipoConsulta === 'expresa') {
