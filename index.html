@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analizador Urbano Profesional HUD - Ultimate Pro Interactivo v59</title>
+    <title>Analizador Urbano Profesional HUD - V114 - Categorías y grupos por rubro</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
@@ -988,6 +988,48 @@
             { id: 'parques', title: 'Parques y Plazas', em: '🌳', col: '#10b981', query: 'nwr["leisure"="park"]{{GEO}};', max: 10, img: null }
         ];
 
+        const RUBROS114 = [["metro", "Estaciones de Metro", {"station": "subway", "railway": "subway_entrance"}, "^estaci[oó]n de metro"], ["supermercado", "Supermercados", {"shop": "supermarket"}, "^supermercado"], ["mall", "Centros Comerciales / Malls", {"shop": "mall|department_store"}, "^mall|^centro comercial|^strip ?center"], ["colegios", "Colegios, Escuelas y Liceos", {"amenity": "school"}, "^colegio|^escuela|^liceo"], ["universidades", "Universidades e Institutos", {"amenity": "university|college"}, "^universidad|^instituto profesional|^centro de formaci[oó]n t[eé]cnica"], ["jardin_infantil", "Sala Cuna / Jardín Infantil", {"amenity": "kindergarten|childcare"}, "jard[ií]n infantil|sala cuna"], ["salud", "Salud / Centros asistenciales", {"amenity": "hospital|clinic|doctors", "healthcare": "hospital|clinic|centre|center|doctor|doctors|health_centre|health_center"}, "(^|[^a-zA-Z])(CECOSF|CECOF|CESFAM|SAPU|SAR|COSAM)([^a-zA-Z]|$)|centro (comunitario )?(de )?salud|^posta|^consultorio|^centro m[eé]dico|^hospital|^cl[ií]nica"], ["seguridad", "Carabineros / Policía / Seguridad", {"amenity": "police"}, "^comisar[ií]a|^subcomisar[ií]a|^ret[eé]n|^carabineros|^polic[ií]a de investigaciones"], ["bomberos", "Bomberos", {"amenity": "fire_station"}, "compa[nñ][ií]a de bomberos|^cuartel de bomberos"], ["cultura", "Cine, Teatro y Museos", {"amenity": "cinema|theatre|arts_centre", "tourism": "museum"}, "^cine |^teatro|^museo|^centro cultural"], ["paraderos", "Paraderos de Micro / Buses", {"highway": "bus_stop"}, ""], ["finanzas", "Bancos y Notarías", {"amenity": "bank|atm", "office": "notary"}, "^notar[ií]a|^banco "], ["deporte", "Centros Deportivos", {"leisure": "sports_centre|fitness_centre|stadium|pitch"}, "^gimnasio|^estadio|^centro deportivo|^polideportivo"], ["parques", "Parques y Plazas", {"leisure": "park|garden", "place": "square", "landuse": "recreation_ground"}, "^plaza |^parque "], ["farmacia", "Farmacia", {"amenity": "pharmacy", "healthcare": "pharmacy", "shop": "chemist"}, "^farmacia"], ["cementerio", "Cementerio", {"landuse": "cemetery", "amenity": "grave_yard"}, "^cementerio"], ["iglesia", "Iglesia", {"amenity": "place_of_worship"}, "^iglesia|^parroquia|^capilla"], ["comercio", "Comercio", {"shop": "convenience|bakery|butcher|greengrocer|general|variety_store|hardware|clothes|kiosk|deli|seafood|florist|electronics|furniture", "amenity": "marketplace"}, "^almac[eé]n|^minimarket|^feria libre"], ["teleferico", "Estaciones de Teleférico Santiago", {"aerialway": "station"}, "^estaci[oó]n.*telef[eé]rico"]];
+
+function rubro114(t){
+ if(!t)return null;
+ if(t.highway==='bus_stop'||(['platform','stop_position'].includes(t.public_transport)&&t.bus==='yes'))return 'paraderos';
+ if(t.station==='subway'||t.railway==='subway_entrance')return 'metro';
+ if(t.highway||t.public_transport||t.railway==='tram_stop')return null;
+ for(const [id,title,tags] of RUBROS114) if(Object.entries(tags).some(([k,v])=>v.split('|').includes(t[k])))return id;
+ if(t.shop||t.amenity||t.healthcare||t.railway||t.aerialway)return null;
+ const n=[t.name,t.official_name,t.alt_name].filter(Boolean).join(' ');
+ for(const [id,title,tags,pat] of RUBROS114)if(pat&&new RegExp(pat,'i').test(n))return id;
+ return null;
+}
+function consulta114(row){const [id,title,tags,pat]=row;let q=Object.entries(tags).map(([k,v])=>`nwr["${k}"~"^(${v})$"]{{GEO}};`).join('');
+ if(id==='paraderos')q+='nwr["public_transport"~"^(platform|stop_position)$"]["bus"="yes"]{{GEO}};';
+ if(pat)for(const k of ['name','official_name','alt_name'])q+=`nwr["${k}"~"${pat}",i]{{GEO}};`;
+ return q;}
+function migrarRubros114(){
+ const mapa={}; const originales=CONFIG_SERVICIOS_PREDEFINIDOS.slice();
+ const alias = {'farmacia':'farmacia','cementerio':'cementerio','iglesia':'iglesia','comercio':'comercio','estaciones de teleferico santiago':'teleferico','clinicas':'salud','colegio, escuelas':'colegios'};
+ for(const row of RUBROS114){const [id,title]=row;const candidatos=originales.filter(c=>c.id===id|| (c.id.startsWith('custom_')&&alias[normalizarTextoServicio(c.title)]===id)|| (c.id.startsWith('custom_')&&rubro114({name:c.title})===id)|| (c.id.startsWith('custom_')&&id==='salud'&&/cl[ií]nica|cesfam|cecosf|salud/i.test(c.title))|| (c.id.startsWith('custom_')&&id==='comercio'&&/^comercio$/i.test(c.title))|| (c.id.startsWith('custom_')&&id==='teleferico'&&/telef[eé]rico/i.test(c.title)));
+ const elegido=candidatos.find(c=>c.id!==id)||candidatos[0];
+ for(const c of candidatos)mapa[c.id]=id;
+ const nuevo={id,title,em:'📍',col:'#2563eb',max:5,img:null,...elegido,id,title,query:consulta114(row)};
+ const pos=CONFIG_SERVICIOS_PREDEFINIDOS.findIndex(c=>candidatos.includes(c));
+ CONFIG_SERVICIOS_PREDEFINIDOS=CONFIG_SERVICIOS_PREDEFINIDOS.filter(c=>!candidatos.includes(c));
+ CONFIG_SERVICIOS_PREDEFINIDOS.splice(pos<0?CONFIG_SERVICIOS_PREDEFINIDOS.length:pos,0,nuevo);
+ }
+ for(const g of GRUPOS_SERVICIOS)g.categoriaIds=[...new Set(g.categoriaIds.map(id=>mapa[id]||id))];
+ sincronizarGrupos114();
+}
+function sincronizarGrupos114(){
+ GRUPOS_SERVICIOS=GRUPOS_SERVICIOS.filter(g=>!g.autoRubro||CONFIG_SERVICIOS_PREDEFINIDOS.some(c=>g.id==='rubro_'+c.id));
+ for(const c of CONFIG_SERVICIOS_PREDEFINIDOS){let g=GRUPOS_SERVICIOS.find(g=>g.id==='rubro_'+c.id);if(!g)GRUPOS_SERVICIOS.push({id:'rubro_'+c.id,nombre:c.title,categoriaIds:[c.id],autoRubro:true});else if(g.autoRubro){g.nombre=c.title;g.categoriaIds=[c.id];}}
+}
+
+        const CONSULTAS_ACTUALIZADAS = Object.fromEntries(CONFIG_SERVICIOS_PREDEFINIDOS.map(c=>[c.id,c.query]));
+        const LIMITES_DS_MAPA = {colegios:1000,jardin_infantil:1000,salud:2500,paraderos:400,supermercado:2000,mall:2000,parques:1000};
+        function modoDSMapa(){
+            const g=GRUPOS_SERVICIOS.find(x=>x.id===grupoActivoId);
+            return document.getElementById('ds-mode')?.value==='DS19-DS49' || /ds\s*[-–]?\s*(19|49)/i.test(g?.nombre||'');
+        }
         let coordenadasOrigen = null;
         let nombreUbicacionActual = "Punto de Estudio";
         let listaBitacoraMemoria = [];
@@ -2533,6 +2575,7 @@
         }
 
         function persistirConfiguracionGlobalEnStorage() {
+            sincronizarGrupos114();
             let configMapas = {
                 radius: document.getElementById('search-radius').value,
                 linealFilterActive: document.getElementById('toggle-lineal-filter').checked,
@@ -2617,6 +2660,7 @@
             let srvs = localStorage.getItem('hud_servicios');
             if(srvs) { 
                 CONFIG_SERVICIOS_PREDEFINIDOS = JSON.parse(srvs);
+                CONFIG_SERVICIOS_PREDEFINIDOS.forEach(c=>{if(CONSULTAS_ACTUALIZADAS[c.id]) c.query=CONSULTAS_ACTUALIZADAS[c.id];});
                 // Repara automáticamente categorías que hayan quedado con el mismo identificador
                 // interno por el bug anterior (causaba que se mezclaran íconos/colores entre ellas).
                 let idsVistos = new Set();
@@ -2628,7 +2672,7 @@
                     }
                     idsVistos.add(s.id);
                 });
-                if (huboReparacion) persistirConfiguracionGlobalEnStorage();
+                // Guardar únicamente después de recuperar los grupos.
             }
             let grupos = localStorage.getItem('hud_grupos_servicios');
             if (grupos) {
@@ -2653,22 +2697,24 @@
         let grupoActivoId = null; // cuál grupo está aplicado actualmente, para mostrarlo resaltado
 
         function renderizarListaGruposServicios() {
+            sincronizarGrupos114();
             let cont = document.getElementById('lista-grupos-servicios');
             if (GRUPOS_SERVICIOS.length === 0) {
                 cont.innerHTML = `<div style="font-size:10.5px; color:#64748b;">Aún no tienes grupos guardados.</div>`;
                 return;
             }
-            cont.innerHTML = GRUPOS_SERVICIOS.map(g => {
+            const filaGrupo = g => {
                 let estaActivo = g.id === grupoActivoId;
                 return `
                 <div style="display:flex; align-items:center; gap:6px; background:${estaActivo ? '#0c3d24' : '#161a24'}; border:1px solid ${estaActivo ? '#22c55e' : 'transparent'}; border-radius:6px; padding:6px 8px; margin-bottom:5px;">
                     <span style="flex-grow:1; font-size:11px; color:#e2e8f0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escaparHTML(g.nombre)}: ${g.categoriaIds.length} categorías">${estaActivo ? '✓ ' : ''}${escaparHTML(g.nombre)}</span>
                     <button onclick="activarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 8px; font-size:10px; background:${estaActivo ? '#16a34a' : '#0369a1'}; font-weight:${estaActivo ? '700' : '400'};" title="${estaActivo ? 'Este grupo está activo — clic para desactivarlo' : 'Activar solo las categorías de este grupo'}">${estaActivo ? '✓ Activo' : '▶ Activar'}</button>
-                    <button onclick="editarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 7px; font-size:10px; background:#475569;" title="Modificar nombre y categorías">✏️</button>
-                    <button onclick="eliminarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 6px; font-size:10px; background:#7f1d1d;" title="Eliminar grupo">❌</button>
+                    <button ${g.autoRubro?'hidden':''} onclick="editarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 7px; font-size:10px; background:#475569;" title="Modificar nombre y categorías">✏️</button>
+                    <button ${g.autoRubro?'hidden':''} onclick="eliminarGrupoServicios('${g.id}')" style="width:auto; margin:0; padding:4px 6px; font-size:10px; background:#7f1d1d;" title="Eliminar grupo">❌</button>
                 </div>
             `;
-            }).join('');
+            };
+            cont.innerHTML=GRUPOS_SERVICIOS.filter(g=>!g.autoRubro).map(filaGrupo).join('')+'<details '+(String(grupoActivoId||'').startsWith('rubro_')?'open':'')+'><summary style="cursor:pointer;color:#4facfe;font-size:11px;padding:6px">Grupos individuales por categoría</summary>'+GRUPOS_SERVICIOS.filter(g=>g.autoRubro).map(filaGrupo).join('')+'</details>';
         }
 
         let grupoEnEdicionId = null;
@@ -3512,6 +3558,12 @@
                 return checkObj && checkObj.checked;
             });
 
+            const modoDS = modoDSMapa();
+            if(modoDS){
+                const salud=CONFIG_SERVICIOS_PREDEFINIDOS.find(c=>c.id==='salud');
+                if(salud && !categoriasSeleccionadas.includes(salud)) categoriasSeleccionadas.push(salud);
+                radioConsultaOverpass=Math.max(radioConsultaOverpass,2500);
+            }
             if(categoriasSeleccionadas.length === 0) {
                 document.getElementById('loading').style.display = 'none';
                 liberarBotonAnalizar();
@@ -3533,7 +3585,7 @@
                 `⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s (lote <span id="loading-lote">0</span>/${lotes.length})`;
 
             let tareasLotes = lotes.map(lote => () => {
-                let queryLote = `[out:json][timeout:25];\n(\n${lote.map(s => s.query.replace(/{{GEO}}/g, geoFiltro)).join('\n')}\n);\nout center geom;`;
+                let queryLote = `[out:json][timeout:25];\n(\n${lote.map(s => s.query.replace(/{{GEO}}/g, modoDS && LIMITES_DS_MAPA[s.id] ? `(around:${LIMITES_DS_MAPA[s.id]},${coordenadasOrigen.lat},${coordenadasOrigen.lng})` : geoFiltro)).join('\n')}\n);\nout center geom;`;
                 return consultarCategoriaConReintentos(queryLote, lote.map(s => s.title).join(', ')).then(res => {
                     lotesCompletados++;
                     let elLote = document.getElementById('loading-lote');
@@ -3907,6 +3959,7 @@
                     else if(el.tags.station === 'subway' || el.tags.railway === 'station') nombreReal = el.tags.u_name || "Estación de Metro";
                     else if(el.tags.highway === 'bus_stop' || (el.tags.public_transport === 'platform' && el.tags.bus === 'yes')) nombreReal = el.tags.local_ref || el.tags.ref || "Paradero de Micro Red";
                     else if(esCentroSalud(el.tags)) nombreReal = "Centro de salud (sin nombre registrado)";
+                    else if(rubro114(el.tags)) nombreReal = CONFIG_SERVICIOS_PREDEFINIDOS.find(c=>c.id===rubro114(el.tags))?.title + " (sin nombre registrado)";
                     else return;
                 }
 
@@ -3914,42 +3967,25 @@
                 // palabras sueltas — antes, como casi todas las categorías comparten claves como
                 // "amenity", cualquier coincidencia parcial hacía que la categoría equivocada (la
                 // última que compartiera esa palabra) se quedara con el elemento por error.
-                let catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(s => {
-                    if (!s.id.startsWith("custom_")) return false;
-                    let pares = [...s.query.matchAll(/\["([^"]+)"\s*=\s*"([^"]+)"\]/g)];
-                    return pares.some(([, clave, valor]) => el.tags[clave] === valor);
-                });
-
-                if(!catAsignada) {
-                    if(el.tags.railway === 'subway_entrance' || el.tags.station === 'subway' || el.tags.railway === 'station') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'metro');
-                    else if(el.tags.shop === 'supermarket') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'supermercado');
-                    else if(el.tags.shop === 'mall') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'mall');
-                    else if(el.tags.amenity === 'school') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'colegios');
-                    else if(el.tags.amenity === 'university') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'universidades');
-                    else if(['kindergarten','childcare'].includes(el.tags.amenity)) catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'jardin_infantil');
-                    else if(esCentroSalud(el.tags) || el.tags.amenity === 'pharmacy') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'salud');
-                    else if(el.tags.amenity === 'police') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'seguridad');
-                    else if(el.tags.amenity === 'fire_station') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'bomberos');
-                    else if(el.tags.amenity === 'cinema' || el.tags.amenity === 'theatre' || el.tags.tourism === 'museum') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'cultura');
-                    else if(el.tags.highway === 'bus_stop' || (el.tags.public_transport === 'platform' && el.tags.bus === 'yes')) catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'paraderos');
-                    else if(el.tags.amenity === 'bank' || el.tags.atm === 'atm' || el.tags.amenity === 'atm') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'finanzas');
-                    else if(el.tags.leisure === 'sports_centre' || el.tags.leisure === 'fitness_centre') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'deporte');
-                    else if(el.tags.leisure === 'park' || el.tags.leisure === 'playground') catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c => c.id === 'parques');
-                }
-
+                const rubro = rubro114(el.tags);
+                let catAsignada = CONFIG_SERVICIOS_PREDEFINIDOS.find(c=>c.id===rubro);
+                if(!catAsignada) catAsignada=CONFIG_SERVICIOS_PREDEFINIDOS.find(c=>c.id.startsWith('custom_') && [...c.query.matchAll(/\["([^"]+)"\s*=\s*"([^"]+)"\]/g)].some(([,k,v])=>el.tags[k]===v));
+                if(catAsignada && !document.getElementById(`srv-${catAsignada.id}`)?.checked && !(modoDSMapa()&&catAsignada.id==='salud')) return;
                 if(!catAsignada) return;
-                if(catAsignada.id==='salud' && document.getElementById('ds-mode')?.value==='DS19-DS49' && !esCentroSalud(el.tags)) return;
+                if(catAsignada.id==='salud' && modoDSMapa() && rubro114(el.tags)!=='salud') return;
                 if(el.id===-113713) nombreReal += " (ubicación aportada por usuario)";
 
                 let dLineaRecta = Math.round(map.distance([coordenadasOrigen.lat, coordenadasOrigen.lng], [lat, lng]));
-                if(linealFiltroActivo && dLineaRecta > rMaxLineal) return;
+                const limiteDS = modoDSMapa() ? LIMITES_DS_MAPA[catAsignada.id] : null;
+                if(limiteDS && dLineaRecta > limiteDS) return;
+                if(!limiteDS && linealFiltroActivo && dLineaRecta > rMaxLineal) return;
                 // OPTIMIZACIÓN DE VELOCIDAD: la distancia caminando SIEMPRE es >= a la distancia en
                 // línea recta, así que si ya en línea recta un elemento supera el radio de caminata,
                 // es matemáticamente imposible que califique. Se descarta aquí, sin gastar tiempo
                 // en consultarle una ruta real a OSRM. Antes esto solo se filtraba cuando el filtro
                 // de línea recta estaba activo, obligando a consultar TODOS los elementos (incluso
                 // los evidentemente lejanos) cuando solo el filtro de caminata estaba activo.
-                if(walkFiltroActivo && dLineaRecta > rMaxWalk) return;
+                if(!limiteDS && walkFiltroActivo && dLineaRecta > rMaxWalk) return;
 
                 // Ya no se le pide ruta a ningún servidor externo para calcular distancia. La
                 // distancia real de cada servicio va a salir de que TÚ la traces a mano desde el
@@ -3992,6 +4028,12 @@
                     let cuposDisponibles = Math.max(0, maxDefinido - yaVisibles);
                     itemsDeCategoria.sort((a, b) => a.distanciaLinea - b.distanciaLinea);
                     itemsFinalesPorCategoria[s.id] = itemsDeCategoria.slice(0, cuposDisponibles);
+                    // Las referencias verificables por el usuario no se pierden por el cupo en modo DS.
+                    if(modoDSMapa() && s.id==='salud') {
+                        for(const r of itemsDeCategoria.filter(x=>x.nombre.includes('(ubicación aportada por usuario)'))) {
+                            if(!itemsFinalesPorCategoria[s.id].includes(r)) itemsFinalesPorCategoria[s.id].push(r);
+                        }
+                    }
                 });
 
                 // No limpiar serviciosLayerGroup ni reiniciar elementosMapeadosActivos aquí:
@@ -5368,12 +5410,13 @@
 
         window.onload = function() {
             recuperarConfiguracionGlobalStorage();
+            migrarRubros114();
         // Sincronización inicial de controles visuales con el mapa.
         conmutarNombresIconosMapa(document.getElementById('toggle-nombres-servicios')?.checked !== false);
         conmutarVisibilidadAreaVisual(document.getElementById('circle-toggle-visibility')?.checked !== false);
             renderizarEstructuraServiciosFijos();
             renderizarListaGruposServicios();
-            revisarConflictosExistentesAlCargar();
+            // Clasificación centralizada V114: no mostrar alertas antiguas por solapamiento.
             recuperarLogoEmpresaGuardado();
             toggleSection('sec-capas-kmz', 'arrow-kmz-capas');
             toggleSection('sec-radio-captura', 'arrow-radio-captura');
@@ -5464,15 +5507,18 @@ async function dsAnalizar(){
   if(seq!==dsSeq)return;
   const c=DS_CRITERIOS[i];
   output.innerHTML='<div class="ds-muted">Consultando '+dsEsc(c.nombre)+' ('+(i+1)+'/6)…</div>';
-  const blocks=c.filtro.split(';').map(q=>q+where+';').join('');
+  const ids=({colegios:['colegios'],cunas:['jardin_infantil'],clinicas:['salud'],paraderos:['paraderos'],comercio:['supermercado','mall','comercio'],parques:['parques']})[c.id];
+  const blocks=RUBROS114.filter(r=>ids.includes(r[0])).map(r=>consulta114(r).replace(/{{GEO}}/g,where)).join('');
   const query=`[out:json][timeout:25];(${blocks});out center geom;`;
   try{
-   let elements=await dsFetch(query);if(seq!==dsSeq)return;
+   let elements; let falloFuente=null;
+   try {elements=await dsFetch(query);} catch(e){if(c.id!=='clinicas')throw e;elements=[];falloFuente=e.message;}
+   if(seq!==dsSeq)return;
    if(c.id==='clinicas')elements=agregarReferenciasSalud(elements,punto.lat,punto.lng,radio);
    let sinArea=0;
-   const validos=elements.filter(e=>{if(c.id==='clinicas')return esCentroSalud(e.tags);if(c.id!=='parques')return true;const area=dsArea(e);if(area===null){sinArea++;return false;}return area>5000;});
+   const validos=elements.filter(e=>{if(!ids.includes(rubro114(e.tags)))return false;if(c.id!=='parques')return true;const area=dsArea(e);if(area===null){sinArea++;return false;}return area>5000;});
    const orden=validos.map(e=>({e,d:dsDistanciaElemento(e,terreno,origen)})).filter(x=>Number.isFinite(x.d)).sort((a,b)=>a.d-b.d);
-   resultados.push({...c,masCerca:orden[0]||null,sinArea,estado:'consultado',cantidad:elements.length});
+   resultados.push({...c,masCerca:orden[0]||null,sinArea,estado:falloFuente&&!orden.length?'error':'consultado',error:falloFuente?'Consulta OSM incompleta: '+falloFuente:undefined,cantidad:elements.length});
   }catch(err){if(seq!==dsSeq)return;resultados.push({...c,masCerca:null,estado:'error',error:err.message});}
   dsMostrarResultados(resultados,terreno,true);
  }
