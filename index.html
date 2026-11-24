@@ -5596,7 +5596,27 @@ function dsCopiarFallback(){const ta=document.createElement('textarea');ta.value
 const url='https://geoide.minvu.cl/server2/rest/services/INFORMACION_EXTERNA/SISS/MapServer';
 const status=document.getElementById('san-status'), toggle=document.getElementById('san-toggle');
 let overlay=null, serial=0, generation=0, controller=null;
-const renderer=L.canvas({padding:.2});
+const sanPane=map.createPane('sanitariaInteractiva');
+sanPane.style.zIndex='390';
+const renderer=L.svg({pane:'sanitariaInteractiva',padding:.2});
+let sanPin=null, clickSerial=0;
+function clearSanPin(){if(sanPin){map.removeLayer(sanPin);sanPin=null;}}
+function showSanPin(p,features){
+ clearSanPin();
+ const icon=L.divIcon({className:'san-company-pin',html:'<div style="background:#166534;color:white;border:2px solid white;border-radius:50%;width:30px;height:30px;display:grid;place-items:center;box-shadow:0 2px 6px #0006">💧</div>',iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-16]});
+ sanPin=L.marker(p,{icon,zIndexOffset:1500}).addTo(map).bindPopup(details(features),{autoPan:false});sanPin.openPopup();
+}
+async function inspectSan(p){
+ if(!toggle.checked||modoTrazadoManualActivo)return;
+ const n=++clickSerial;clearSanPin();status.textContent='Consultando empresa sanitaria…';
+ const c=new AbortController(),timer=setTimeout(()=>c.abort(),20000);
+ try{const d=await query({geometry:JSON.stringify({x:p.lng,y:p.lat,spatialReference:{wkid:4326}}),geometryType:'esriGeometryPoint',inSR:'4326',spatialRel:'esriSpatialRelIntersects',where:'1=1',returnGeometry:'false',outFields:'*',f:'json'},c.signal);
+ if(n!==clickSerial||!toggle.checked||modoTrazadoManualActivo)return;
+ status.textContent=d.features.length?'Cobertura registrada. Factibilidad por confirmar.':'Sin cobertura registrada en este punto.';
+ if(d.features.length){status.append(details(d.features));showSanPin(p,d.features);}
+ }catch(e){if(n===clickSerial)status.textContent='No se pudo consultar empresa: '+e.message;}finally{clearTimeout(timer);}
+}
+map.on('click',e=>inspectSan(e.latlng));
 function details(features){
  const box=document.createElement('div');
  for(const f of features){const a=f.properties||f.attributes||{}; const entries=Object.entries(a).filter(([k,v])=>v!=null&&String(v).trim()&&/empresa|localidad|conces|razon|prestador|nombre|operador/i.test(k));
@@ -5607,12 +5627,12 @@ function details(features){
 async function query(params,signal){const r=await fetch(url+'/3/query?'+new URLSearchParams(params),{signal});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();if(d.error||!Array.isArray(d.features))throw Error(d.error?.message||'Respuesta GIS inválida');return d;}
 async function refresh(){
  status.style.color='';const g=++generation;controller?.abort();if(overlay){map.removeLayer(overlay);overlay=null;}
- if(!toggle.checked){status.textContent='Capa desactivada.';return;}
+ if(!toggle.checked){++clickSerial;clearSanPin();status.textContent='Capa desactivada.';return;}
  const b=map.getBounds();controller=new AbortController();const c=controller;const timer=setTimeout(()=>c.abort(),25000);
  status.textContent='Cargando territorios SISS…';
  try{const d=await query({geometry:[b.getWest(),b.getSouth(),b.getEast(),b.getNorth()].join(','),geometryType:'esriGeometryEnvelope',inSR:'4326',outSR:'4326',spatialRel:'esriSpatialRelIntersects',where:'1=1',outFields:'*',returnGeometry:'true',f:'geojson'},c.signal);
  if(g!==generation||!toggle.checked)return;
- overlay=L.geoJSON(d,{renderer,style:{color:'#2583ed',weight:1,opacity:.85,fillColor:'#55cf55',fillOpacity:.32},onEachFeature:(f,l)=>l.bindPopup(()=>details([f]))}).addTo(map);overlay.bringToBack();
+ overlay=L.geoJSON(d,{renderer,pane:'sanitariaInteractiva',interactive:false,style:{color:'#2583ed',weight:1,opacity:.85,fillColor:'#55cf55',fillOpacity:.32}}).addTo(map);overlay.bringToBack();
  status.textContent=d.features.length?`${d.features.length} territorios visibles. Verde: cobertura registrada. ${d.exceededTransferLimit?'Resultados parciales; acerca el mapa.':''}`:'Sin territorios registrados en esta vista; no equivale a rechazo de factibilidad.';
  }catch(e){if(g===generation)status.textContent='No se pudo cargar la capa SISS: '+e.message+' . Acerca el mapa o reintenta.';}finally{clearTimeout(timer);}
 }
@@ -5622,7 +5642,7 @@ document.getElementById('san-check').addEventListener('click',async()=>{
  const p={lat:coordenadasOrigen.lat,lng:coordenadasOrigen.lng};status.textContent='Consultando cobertura del origen…';const c=new AbortController(),timer=setTimeout(()=>c.abort(),20000);
  try{const d=await query({geometry:JSON.stringify({x:p.lng,y:p.lat,spatialReference:{wkid:4326}}),geometryType:'esriGeometryPoint',inSR:'4326',spatialRel:'esriSpatialRelIntersects',where:'1=1',returnGeometry:'false',outFields:'*',f:'json'},c.signal);if(n!==serial)return;
  if(!coordenadasOrigen||p.lat!==coordenadasOrigen.lat||p.lng!==coordenadasOrigen.lng){status.textContent='Origen cambiado; consulta nuevamente.';return;}
- status.textContent=d.features.length?'DENTRO de cobertura registrada. Factibilidad por confirmar.':'FUERA de cobertura registrada en este punto. No demuestra falta de factibilidad.';status.style.color=d.features.length?'#86efac':'#fca5a5';if(d.features.length){status.append(details(d.features));}
+ status.textContent=d.features.length?'DENTRO de cobertura registrada. Factibilidad por confirmar.':'FUERA de cobertura registrada en este punto. No demuestra falta de factibilidad.';status.style.color=d.features.length?'#86efac':'#fca5a5';if(d.features.length){status.append(details(d.features));if(!modoTrazadoManualActivo)showSanPin(p,d.features);}
  }catch(e){if(n===serial){status.style.color='';status.textContent='Consulta no disponible: '+e.message;}}finally{clearTimeout(timer);}
 });
 })();
