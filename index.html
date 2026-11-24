@@ -956,10 +956,19 @@
 
         function esCentroSalud(tags) {
             if (!tags) return false;
+            if (tags.highway || tags.public_transport || tags.bus === 'yes' || tags.railway) return false;
             if (['hospital','clinic','doctors'].includes(tags.amenity) || ['hospital','clinic','centre','center','doctor','doctors','health_centre','health_center'].includes(tags.healthcare)) return true;
             if (tags.shop || ['pharmacy','veterinary','school','kindergarten'].includes(tags.amenity) || ['pharmacy','veterinary'].includes(tags.healthcare) || tags.highway || tags.public_transport) return false;
             const n = [tags.name,tags.official_name,tags.alt_name].filter(Boolean).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
             return /\b(cecosf|cecof|cesfam|sapu|sar|cosam)\b|centro (?:comunitario )?(?:de )?salud|posta (?:de salud )?rural|consultorio|centro medico/.test(n);
+        }
+
+        // Registro complementario: punto aportado por el usuario (Google Maps / Street View).
+        const SALUD_REFERENCIAS = [{type:'node',id:-113713,lat:-33.648866,lon:-70.662892,tags:{name:'CECOSF Ribera del Maipo',official_name:'Centro Comunitario de Salud Familiar Ribera del Maipo',alt_name:'CECOSF Cerrillos de Nos',healthcare:'centre',source:'Ubicación aportada por usuario; funcionamiento actual por verificar'}}];
+        function agregarReferenciasSalud(elements,lat,lng,radio) {
+            const normalizar = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+            const referencias = SALUD_REFERENCIAS.filter(r => map.distance([lat,lng],[r.lat,r.lon]) <= radio);
+            return elements.filter(e => !referencias.some(r => e.id===r.id || (esCentroSalud(e.tags) && /ribera del maipo|cerrillos de nos/.test(normalizar([e.tags.name,e.tags.official_name,e.tags.alt_name].join(' ')))))).concat(referencias);
         }
 
         let CONFIG_SERVICIOS_PREDEFINIDOS = [
@@ -2044,7 +2053,8 @@
             item.distanciaAjustada = true;
             item.distance = distancia;
             item.tiempo = Math.round(distancia / 1.39);
-            if (item.marker) item.marker.setPopupContent(`<b>${escaparHTML(item.name)}</b><br>📏 ${distancia} m · 🚶 ${formatoTiempoCaminando(item.tiempo)} <span style="color:#38bdf8;">trazado ajustado</span>`);
+            if (item.marker) item.marker.closePopup();
+            item.marker.setPopupContent(`<b>${escaparHTML(item.name)}</b><br>📏 ${distancia} m · 🚶 ${formatoTiempoCaminando(item.tiempo)} <span style="color:#38bdf8;">trazado ajustado</span>`);
             rebuildPanelResultadosAcumulado();
         }
 
@@ -2188,6 +2198,7 @@
             if (!coordenadasOrigen) { alert("Primero fija un origen (dirección) antes de trazar una ruta."); return; }
             servicioObjetivoTrazado = uid;
             modoTrazadoManualActivo = true;
+            map.closePopup();
             document.getElementById('btn-trazado-manual').innerText = '🔴 DESACTIVAR TRAZADO MANUAL';
             map.getContainer().style.cursor = 'crosshair';
             mostrarVerticesTrazadosExistentes();
@@ -2215,6 +2226,7 @@
             if (!coordenadasOrigen) { alert("Primero fija un origen (dirección) antes de trazar una ruta."); return; }
             servicioObjetivoTrazado = null;
             modoTrazadoManualActivo = true;
+            map.closePopup();
             document.getElementById('btn-trazado-manual').innerText = '🔴 DESACTIVAR TRAZADO MANUAL';
             map.getContainer().style.cursor = 'crosshair';
             mostrarVerticesTrazadosExistentes();
@@ -2404,9 +2416,11 @@
             limpiarVisualesTrazadoTemporal();
             rebuildPanelResultadosAcumulado();
             aplicarModoVisualizacionTrazados();
-            mostrarBannerEleccionInicio();
+            mostrarVerticesTrazadosExistentes();
+            comenzarTrazadoDesdeOrigen();
         }
 
+        map.on('popupopen', function(e) { if (modoTrazadoManualActivo) map.closePopup(e.popup); });
         map.on('click', function(e) {
             if (!modoTrazadoManualActivo) return;
             puntosTrazadoActual.push(e.latlng);
@@ -3539,6 +3553,7 @@
                     }
                 });
 
+                    if(categoriasSeleccionadas.some(c=>c.id==='salud')) todosLosElementos=agregarReferenciasSalud(todosLosElementos,coordenadasOrigen.lat,coordenadasOrigen.lng,radioConsultaOverpass);
                 if (todosLosElementos.length === 0 && lotesFallidos.length === lotes.length) {
                     document.getElementById('loading').style.display = 'none';
                     liberarBotonAnalizar();
@@ -3555,6 +3570,7 @@
                 // haya detectado antes), esto asegura que la app NUNCA se quede "cargando" para
                 // siempre en silencio — se muestra el error real y se libera el botón.
                 try {
+
                     procesarElementosFiltrosVariables(todosLosElementos, rMaxLineal, linealFiltroActivo, rMaxWalk, walkFiltroActivo);
                 } catch (errProcesamiento) {
                     console.error("Error procesando resultados de búsqueda:", errProcesamiento);
@@ -3922,6 +3938,8 @@
                 }
 
                 if(!catAsignada) return;
+                if(catAsignada.id==='salud' && document.getElementById('ds-mode')?.value==='DS19-DS49' && !esCentroSalud(el.tags)) return;
+                if(el.id===-113713) nombreReal += " (ubicación aportada por usuario)";
 
                 let dLineaRecta = Math.round(map.distance([coordenadasOrigen.lat, coordenadasOrigen.lng], [lat, lng]));
                 if(linealFiltroActivo && dLineaRecta > rMaxLineal) return;
@@ -3992,6 +4010,7 @@
                         );
                         m.bindTooltip(escaparHTML(r.nombre), { permanent: true, direction: 'bottom', offset: [0, 4], className: 'etiqueta-nombre-servicio' });
                         m.on('popupopen', function(e) {
+                            if (modoTrazadoManualActivo) { m.closePopup(); return; }
                             const popupEl = e.popup && e.popup.getElement();
                             if (popupEl && popupEl.parentNode !== document.body) document.body.appendChild(popupEl);
                         });
@@ -5448,7 +5467,8 @@ async function dsAnalizar(){
   const blocks=c.filtro.split(';').map(q=>q+where+';').join('');
   const query=`[out:json][timeout:25];(${blocks});out center geom;`;
   try{
-   const elements=await dsFetch(query);if(seq!==dsSeq)return;
+   let elements=await dsFetch(query);if(seq!==dsSeq)return;
+   if(c.id==='clinicas')elements=agregarReferenciasSalud(elements,punto.lat,punto.lng,radio);
    let sinArea=0;
    const validos=elements.filter(e=>{if(c.id==='clinicas')return esCentroSalud(e.tags);if(c.id!=='parques')return true;const area=dsArea(e);if(area===null){sinArea++;return false;}return area>5000;});
    const orden=validos.map(e=>({e,d:dsDistanciaElemento(e,terreno,origen)})).filter(x=>Number.isFinite(x.d)).sort((a,b)=>a.d-b.d);
@@ -5468,10 +5488,10 @@ function dsMostrarResultados(resultado,terreno,procesando){
  const filas=resultado.map(r=>{
   const x=r.masCerca;
   const status=r.estado==='error'?'NO VERIFICADO (error de conexión)':!x?'SIN EVIDENCIA EN LOS DATOS':x.d<=r.limite?'CUMPLE EL UMBRAL PRELIMINAR':'FUERA DEL UMBRAL PRELIMINAR';
-  const nombre=x?(x.e.tags?.name||x.e.tags?.operator||'Equipamiento sin nombre'):'No identificado';
+  const nombre=x?((x.e.tags?.name||x.e.tags?.operator||'Equipamiento sin nombre')+(x.e.id===-113713?' (ubicación aportada por usuario)':'')):'No identificado';
   return `${r.nombre} — límite ${dsFmt(r.limite)} m: ${status}. ${nombre}${x?' a '+dsFmt(x.d)+' m':''}.${r.error?' Detalle técnico: '+r.error:''}`;
  });
- dsTexto=`INFORME PRELIMINAR DE PROXIMIDAD DS19–DS49\nUbicación: ${ubicacion}\nReferencia: ${terreno?'Geometría del último KMZ/KML':'Punto de origen'}\nDistancias aproximadas en línea recta.\n\n`+filas.join('\n')+`\n\nResultado: ${ok} de ${resultado.length} categorías consultadas con evidencia favorable. ${errores} categorías con error de consulta.\nFuente: OpenStreetMap / Overpass. Evaluación preliminar; no certifica cumplimiento DS19 ni DS49. Verificar recorridos y fuentes oficiales.`;
+ dsTexto=`INFORME PRELIMINAR DE PROXIMIDAD DS19–DS49\nUbicación: ${ubicacion}\nReferencia: ${terreno?'Geometría del último KMZ/KML':'Punto de origen'}\nDistancias aproximadas en línea recta.\n\n`+filas.join('\n')+`\n\nResultado: ${ok} de ${resultado.length} categorías consultadas con evidencia favorable. ${errores} categorías con error de consulta.\nFuente: OpenStreetMap / Overpass y registro complementario aportado por usuario. Evaluación preliminar; no certifica cumplimiento DS19 ni DS49. Verificar recorridos y fuentes oficiales.`;
  output.innerHTML=`<div class="ds-summary">${ok} con evidencia favorable · ${errores} errores · ${pendientes} pendientes</div><div class="ds-muted">${dsEsc(ubicacion)} · Distancias en línea recta desde ${terreno?'el terreno':'el origen'}.</div>`+
  resultado.map(r=>{const x=r.masCerca,fallo=r.estado==='error',cumple=x&&x.d<=r.limite;
  const clase=fallo||!x?'ds-unknown':cumple?'ds-ok':'ds-no';
