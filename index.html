@@ -1786,10 +1786,10 @@ function sincronizarGrupos114(){
         function normalizarLineaMetro(valor) {
             const v=String(valor ?? '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/LINEA|LINE|METRO|L\s*/g,'').replace(/[^0-9A-Z]/g,'');
             if (v==='4A' || v==='A4') return '4A';
-            const m=v.match(/[1-6]/); return m ? m[0] : '';
+            return /^[1-6]$/.test(v) ? v : '';
         }
         function lineaDesdeAtributosMetro(props={}) {
-            for (const k of ['LINEA','Linea','linea','LINE','line','REF','ref','NOMBRE','Nombre','name']) {
+            for (const k of ['LINEA','Linea','linea','LINE','line','REF','ref','NOMBRE','Nombre','name','Name']) {
                 if (props[k] != null) { const l=normalizarLineaMetro(props[k]); if (METRO_LINEAS_UI.includes(l)) return l; }
             }
             return '';
@@ -1811,22 +1811,22 @@ function sincronizarGrupos114(){
                 // Los nombres se normalizan sin tildes ni signos y las estaciones de combinación
                 // se asignan a ambas líneas cuando corresponde (por ejemplo, Los Héroes: L1 y L2).
                 const estacionesPorLineaNombre = {
-                    '1': ['san pablo','neptuno','pajaritos','las rejas','ecuador','san alberto hurtado','universidad de santiago','estacion central','union latinoamericana','republica','los heroes','la moneda','universidad de chile','santa lucia','universidad catolica','baquedano','salvador','manuel montt','pedro de valdivia','los leones','el golf','alcantara','escuela militar','manquehue','hernando de magallanes','los dominicos'],
+                    '1': ['san pablo','neptuno','pajaritos','las rejas','ecuador','san alberto hurtado','universidad de santiago','estacion central','union latinoamericana','republica','los heroes','la moneda','universidad de chile','santa lucia','universidad catolica','baquedano','salvador','manuel montt','pedro de valdivia','los leones','el golf','alcantara','escuela militar','manquehue','hernando de magallanes','los dominicos','tobalaba'],
                     '2': ['vespucio norte','zapadores','dorsal','einstein','cementerios','cerro blanco','patronato','puente cal y canto','puente calicanto','santa ana','los heroes','toesca','parque ohiggins','rondizzoni','franklin','el llano','san miguel','lo vial','departamental','ciudad del nino','lo ovalle','el parron','la cisterna','el bosque','observatorio','copa lo martinez','hospital el pino'],
                     '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irrarazaval','monseñor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco','ferrocarril','lo cruzat','plaza quilicura'],
-                    '4': ['tobalaba','cristobal colon','francisco bilbao','principe de gales','simón bolívar','simón bolivar','plaza egaña','los orientales','grecia','los presidentes','quilín','quilin','las torres','macul','vicuna mackenna','vicuna mackenna','bellavista de la florida','rojas magallanes','trinidad','san jose de la estrella','los quillayes','elisa correa','hospital sotero del rio','protectora de la infancia','las mercedes','plaza de puente alto'],
+                    '4': ['tobalaba','cristobal colon','francisco bilbao','principe de gales','simón bolívar','simón bolivar','plaza egaña','los orientales','grecia','los presidentes','quilín','quilin','las torres','macul','vicuna mackenna','vicuna mackenna','bellavista de la florida','rojas magallanes','trinidad','san jose de la estrella','los quillayes','elisa correa','hospital sotero del rio','protectora de la infancia','las mercedes','plaza de puente alto','vicente valdes'],
                     '4A': ['la cisterna','san ramon','santa rosa','la granja','santa julia','vicuna mackenna'],
-                    '5': ['plaza de maipu','santiago bueras','del sol','monte tabor','las parcelas','laguna sur','barrancas','pudahuel','san pablo','lo prado','blanqueado','gruta de lourdes','quinta normal','cumming','santa ana','plaza de armas','bellas artes','baquedano','parque bustamante','santa isabel','irrarazaval','nuble','rodrigo de araya','camino agricola','san joaquin','pedrero','mirador','bellavista de la florida'],
+                    '5': ['plaza de maipu','santiago bueras','del sol','monte tabor','las parcelas','laguna sur','barrancas','pudahuel','san pablo','lo prado','blanqueado','gruta de lourdes','quinta normal','cumming','santa ana','plaza de armas','bellas artes','baquedano','parque bustamante','santa isabel','irrarazaval','nuble','rodrigo de araya','camino agricola','san joaquin','pedrero','mirador','bellavista de la florida','vicente valdes'],
                     '6': ['cerrillos','lo valledor','presidente pedro aguirre cerda','franklin','bio bio','nuble','estadio nacional','nunoa','ines de suarez','los leones']
                 };
                 const normalizarNombreEstacion = valor => String(valor||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
                 (estaciones.features||[]).forEach(f=>{
                     if(!f.geometry) return;
                     const props=f.properties||{};
-                    const nombre=normalizarNombreEstacion(props.NOMBRE||props.Nombre||props.name||props.NOM_EST||props.ESTACION||'');
+                    const nombre=normalizarNombreEstacion(props.NOMBRE||props.Nombre||props.name||props.NOM_EST||props.ESTACION||props.Name||'');
                     const lineasPorNombre=METRO_LINEAS_UI.filter(l=>(estacionesPorLineaNombre[l]||[]).some(n=>normalizarNombreEstacion(n)===nombre || (nombre && (nombre.endsWith(' '+normalizarNombreEstacion(n)) || nombre.startsWith(normalizarNombreEstacion(n)+' ')))));
                     const lineaAtributo=lineaDesdeAtributosMetro(props);
-                    const lineasAsignadas=lineasPorNombre.length ? lineasPorNombre : (lineaAtributo ? [lineaAtributo] : []);
+                    const lineasAsignadas=lineasPorNombre; // No asignar estaciones desconocidas por números ambiguos.
                     lineasAsignadas.forEach(l=>{if(datosEstacionesMetroPorLinea[l]) datosEstacionesMetroPorLinea[l].push(f);});
                 });
                 if (!METRO_LINEAS_UI.some(l=>datosTrazadosMetroPorLinea[l].length) || !METRO_LINEAS_UI.some(l=>datosEstacionesMetroPorLinea[l].length)) throw new Error('La fuente GIS no entregó trazados y estaciones clasificables por línea.');
@@ -1853,18 +1853,22 @@ function sincronizarGrupos114(){
             if(esCombinacionMetro(nombre)) base.options.className += ' metro-intercambio';
             return base;
         }
-        function dibujarEstacionesMetroLinea(linea) {
+        function dibujarEstacionesMetroLinea(linea, vistos=new Set()) {
             const capa=capasEstacionesMetroPorLinea[linea]; if(capa.getLayers().length) return;
             const config=CONFIG_SERVICIOS_PREDEFINIDOS.find(servicio=>servicio.id==='metro');
             const tam=Math.max(16,Math.min(64,parseInt(document.getElementById('global-icon-size-slider')?.value,10)||30));
             (datosEstacionesMetroPorLinea?.[linea]||[]).forEach(f=>{
                 const g=f.geometry, p=f.properties||{}; if(!g) return;
-                const nombre=String(p.NOMBRE||p.Nombre||p.name||'Estación de Metro');
+                const nombre=String(p.NOMBRE||p.Nombre||p.name||p.NOM_EST||p.ESTACION||p.Name||'Estación de Metro');
+                const clave=nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+                if(vistos.has(clave))return;vistos.add(clave);
                 const add=(xy)=>L.marker([xy[1],xy[0]],{icon:iconoEstacionMetro(config,tam,nombre),keyboard:false}).bindTooltip(escaparHTML(nombre+' · Línea '+linea+(esCombinacionMetro(nombre)?' · Combinación':'')),{direction:'top',offset:[0,-7]}).addTo(capa);
                 if(g.type==='Point')add(g.coordinates); else if(g.type==='MultiPoint')g.coordinates.forEach(add);
             });
         }
+        let revisionSeleccionMetro=0;
         async function actualizarSeleccionMetro() {
+            const revision=++revisionSeleccionMetro;
             const estado=document.getElementById('metro-selector-estado');
             const seleccion=METRO_LINEAS_UI.flatMap(l=>[
                 {linea:l,tipo:'trazo',activo:!!document.getElementById('metro-trazo-'+l.toLowerCase())?.checked},
@@ -1877,9 +1881,11 @@ function sincronizarGrupos114(){
             if(estado)estado.textContent='Cargando trazados y estaciones oficiales…';
             try {
                 await asegurarDatosMetroPorLinea();
+                if(revision!==revisionSeleccionMetro)return;
+                const estacionesVistas=new Set();
                 activos.forEach(x=>{
                     if(x.tipo==='trazo'){dibujarTrazadoMetroLinea(x.linea);capasTrazadoMetroPorLinea[x.linea].addTo(map);}
-                    else {dibujarEstacionesMetroLinea(x.linea);capasEstacionesMetroPorLinea[x.linea].addTo(map);}
+                    else {const capa=capasEstacionesMetroPorLinea[x.linea];capa.clearLayers();dibujarEstacionesMetroLinea(x.linea,estacionesVistas);capa.addTo(map);}
                 });
                 const resumen=METRO_LINEAS_UI.filter(l=>document.getElementById('metro-trazo-'+l.toLowerCase())?.checked||document.getElementById('metro-est-'+l.toLowerCase())?.checked).map(l=>{
                     const t=document.getElementById('metro-trazo-'+l.toLowerCase())?.checked, e=document.getElementById('metro-est-'+l.toLowerCase())?.checked;
@@ -3145,8 +3151,8 @@ function sincronizarGrupos114(){
         const capasFuturasT={},capasFuturasE={};
         FUTURO_LINEAS_UI.forEach(l=>{capasFuturasT[l]=L.layerGroup();capasFuturasE[l]=L.layerGroup();});
         function lineaFuturaPropiedades(props={}) {
-            const campos=[props.linea,props.LINEA,props.ref,props.REF,props.name,props.Name,props.NAME,props.NOMBRE,props.nombre,props.route,props.description].filter(x=>x!=null);
-            for(const campo of campos){const m=String(campo).match(/(?:^|\b)(?:l(?:[íi]nea)?\s*[- ]*|metro\s*)?([789])(?:\b|$)/i);if(m)return m[1];}
+            const campos=[props.linea,props.LINEA,props.ref,props.REF,props.name,props.Name,props.NAME,props.NOMBRE,props.nombre].filter(x=>x!=null);
+            for(const campo of campos){const m=String(campo).trim().match(/^(?:(?:metro\s+)?l(?:[íi]nea)?\s*[- ]*)?([789])$/i);if(m)return m[1];}
             return null;
         }
         function normalizarGeoJSONFuturo(obj){
