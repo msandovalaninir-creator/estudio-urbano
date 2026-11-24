@@ -812,7 +812,7 @@
                 <button onclick="seleccionarViasRapido('limpiar')">Limpiar</button><button type="button" onclick="actualizarCartografiaVial()" title="Actualizar las vías para la zona visible" style="grid-column:1/-1;background:#1e3a5f;color:#bae6fd;border:1px solid #38bdf8">↻ Actualizar vías en esta zona</button>
             </div>
             <div style="font-size:9px;color:#93c5fd;margin:2px 0 5px">Troncales: 100 m/lado · Expresas: 200 m/lado · Actualiza al cambiar de zona</div>
-            <div class="vias-compact-grid">
+            <div id="estado-vial" style="font-size:11px;color:#bae6fd;white-space:pre-line;margin:5px 0"></div><div class="vias-compact-grid">
                 <section class="via-compact-card via-troncal">
                     <label class="via-toggle" for="toggle-vias-troncales"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"><span class="via-color-line">━</span><span>Vías troncales · azul/violeta</span></label>
                     <label class="via-slider-label" for="grosor-troncales"><span>Grosor línea</span><strong id="grosor-troncales-valor">5 px</strong></label>
@@ -836,7 +836,7 @@
                     <small>200 m por lado</small>
                 </section>
             </div>
-            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Clasificación referencial OSM/GIS (no validada por PRMS): troncales primary/secondary y expresas motorway/trunk, sin superposición de categorías. No equivale a la clasificación oficial PRMS. Los buffers se miden en metros desde el eje de cada vía (mitad del ancho por lado); son franjas cartográficas referenciales, no áreas normativas oficiales.</div>
+            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Clasificación referencial OSM/GIS (no validada por PRMS): troncales primary/secondary y expresas motorway/trunk, sin superposición de categorías. No equivale a la clasificación oficial PRMS. Las franjas visuales usan una escala métrica aproximada al centro del mapa; no son polígonos normativos ni sirven para certificar distancias.</div>
         </div>
         <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
 
@@ -1448,39 +1448,34 @@ function sincronizarGrupos114(){
 
         // Agrupa ejes por sectores antes de generar la franja: un buffer por
         // MultiLineString evita los círculos repetidos de cada tramo individual.
-        const revisionBufferVial = {};
-        async function dibujarBufferVias(tipo) {
-            const capa = capasInfraestructura[tipo];
-            if (!capa) return;
-            const revision = (revisionBufferVial[tipo] || 0) + 1;
-            revisionBufferVial[tipo] = revision;
-            const base = tipo === 'bufferTroncal' ? 'troncal' : 'expresa';
-            const ancho = anchosBufferMetros[tipo];
-            if (!window.turf || !datosViasInfraestructura[base]?.length) return;
-            const grupos = datosViasInfraestructura[base].map(v => (v.geometry || []).map(p => [Number(p.lon),Number(p.lat)]).filter(p => p.every(Number.isFinite))).filter(g => g.length > 1);
-            const piezas = [];
-            try {
-                for(let i=0;i<grupos.length;i+=35) {
-                    await new Promise(r=>setTimeout(r,0));
-                    if(revisionBufferVial[tipo]!==revision) return;
-                    const p=turf.buffer(turf.multiLineString(grupos.slice(i,i+35)),ancho/2000,{units:'kilometers',steps:8});
-                    if(p?.geometry) piezas.push(p);
-                }
-                // Union jerárquica: elimina bordes interiores y solapamientos entre lotes.
-                while(piezas.length>1) {
-                    const siguiente=[];
-                    for(let i=0;i<piezas.length;i+=2) {
-                        await new Promise(r=>setTimeout(r,0));
-                        if(revisionBufferVial[tipo]!==revision) return;
-                        siguiente.push(i+1<piezas.length ? turf.union(piezas[i],piezas[i+1]) : piezas[i]);
-                    }
-                    piezas.splice(0,piezas.length,...siguiente.filter(Boolean));
-                }
-                if(revisionBufferVial[tipo]!==revision) return;
-                capa.clearLayers();
-                if(piezas[0]) L.geoJSON(piezas[0],{interactive:false,renderer:renderViasCanvas,style:{stroke:false,fillColor:definicionesInfraestructura[tipo].color,fillOpacity:base==='troncal'?.22:.25}}).addTo(capa);
-            } catch(e) { console.error('No se pudo generar la franja vial continua',e); alert('No fue posible generar la franja continua. Reduce el área visible y actualiza las vías.'); }
+        const estadoVialTexto = {};
+        function informarVial(tipo, mensaje) {
+            estadoVialTexto[tipo] = mensaje;
+            const el=document.getElementById('estado-vial');
+            if(el) el.textContent=Object.entries(estadoVialTexto).map(([k,v])=>k+': '+v).join('\n');
         }
+        const renderBufferVial = {};
+        function anchoBufferPx(tipo) {
+            const c=map.getCenter(), p=map.latLngToContainerPoint(c);
+            const metros=map.distance(c,map.containerPointToLatLng([p.x+100,p.y]))/100;
+            return anchosBufferMetros[tipo]/Math.max(metros,0.001);
+        }
+        async function dibujarBufferVias(tipo) {
+            const capa=capasInfraestructura[tipo], base=tipo==='bufferTroncal'?'troncal':'expresa';
+            const vias=datosViasInfraestructura[base]||[];
+            if(!vias.length) return false;
+            if(!renderBufferVial[tipo]) {
+                const pane=map.createPane('franja_'+tipo);
+                pane.style.zIndex='390'; pane.style.opacity='0.28'; pane.style.pointerEvents='none';
+                renderBufferVial[tipo]=L.canvas({pane:'franja_'+tipo,padding:0.5});
+            }
+            const coords=vias.map(v=>v.geometry.map(p=>[p.lat,p.lon])).filter(g=>g.length>1);
+            capa.clearLayers();
+            if(!coords.length) return false;
+            L.polyline(coords,{renderer:renderBufferVial[tipo],color:definicionesInfraestructura[tipo].color,weight:anchoBufferPx(tipo),opacity:1,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(capa);
+            return true;
+        }
+        map.on('zoomend moveend',()=>{for(const tipo of ['bufferTroncal','bufferExpresa']) if(map.hasLayer(capasInfraestructura[tipo])) capasInfraestructura[tipo].eachLayer(l=>l.setStyle({weight:anchoBufferPx(tipo)}));});
         function actualizarAnchoBuffer(tipo, valor) {
             const ancho = Math.max(50, Math.min(tipo === 'bufferTroncal' ? 2000 : 3000, Number(valor) || 400));
             anchosBufferMetros[tipo] = ancho;
@@ -1626,6 +1621,7 @@ function sincronizarGrupos114(){
             if (estadoCargaInfraestructura[tipo] === 'cargando') return;
             if (estadoCargaInfraestructura[tipo] === 'lista') { capa.addTo(map); return; }
             estadoCargaInfraestructura[tipo] = 'cargando';
+            if(tipo!=='metro') informarVial(tipo,'Consultando ejes GIS / OSM…');
             capa.clearLayers();
 
             const tipoConsulta = tipo === 'bufferTroncal' ? 'troncal' : (tipo === 'bufferExpresa' ? 'expresa' : tipo);
@@ -1656,8 +1652,8 @@ function sincronizarGrupos114(){
             // en cada clic y conserva la misma cartografía en ejes y buffers.
             // Se usa un margen del 35% alrededor de la vista para cubrir bordes y continuidad.
             const boundsConsulta = map.getBounds();
-            const padLatConsulta = Math.max((boundsConsulta.getNorth()-boundsConsulta.getSouth())*1.00,0.04);
-            const padLonConsulta = Math.max((boundsConsulta.getEast()-boundsConsulta.getWest())*1.00,0.05);
+            const padLatConsulta = Math.max((boundsConsulta.getNorth()-boundsConsulta.getSouth())*0.25,0.005);
+            const padLonConsulta = Math.max((boundsConsulta.getEast()-boundsConsulta.getWest())*0.25,0.005);
             const bboxViasCompleto = [boundsConsulta.getSouth()-padLatConsulta,boundsConsulta.getWest()-padLonConsulta,
                 boundsConsulta.getNorth()+padLatConsulta,boundsConsulta.getEast()+padLonConsulta].join(',');
             const queryViasCompleta = '[out:json][timeout:25];(' + definicionesInfraestructura[tipoConsulta].selector + '(' + bboxViasCompleto + '););out geom;';
@@ -1711,6 +1707,7 @@ function sincronizarGrupos114(){
 
             if (!lineas.length) {
                 estadoCargaInfraestructura[tipo] = null;
+                informarVial(tipo,'Sin datos: '+(errorFinal?.message||'consulta vacía'));
                 const cb = document.getElementById('toggle-' + ({metro:'metro-existente',troncal:'vias-troncales',bufferTroncal:'buffer-troncales',expresa:'vias-expresas',bufferExpresa:'buffer-expresas'}[tipo]));
                 if (cb) cb.checked = false;
                 alert('No fue posible cargar ' + definicion.titulo + '. Se intentó el servicio GIS y el respaldo de OpenStreetMap. Comprueba tu conexión, acerca el mapa a Santiago y vuelve a intentarlo.');
@@ -1729,7 +1726,7 @@ function sincronizarGrupos114(){
             if (esBuffer) {
                 const base = tipo === 'bufferTroncal' ? 'troncal' : 'expresa';
                 datosViasInfraestructura[base] = lineas.map(e => ({id:e.id, geometry:e.geometry, tags:e.tags || {}}));
-                await dibujarBufferVias(tipo);
+                if(!await dibujarBufferVias(tipo)) { estadoCargaInfraestructura[tipo]=null; informarVial(tipo,"Sin geometría para dibujar"); return; }
             } else {
                 const definicionColor = esMetro ? null : definicion.color;
                 lineas.forEach(e => {
@@ -1745,6 +1742,7 @@ function sincronizarGrupos114(){
                 });
             }
             estadoCargaInfraestructura[tipo] = 'lista';
+            if(tipo!=='metro') informarVial(tipo,lineas.length+' tramos cargados (referenciales)');
             const idToggle = {troncal:'toggle-vias-troncales',expresa:'toggle-vias-expresas',bufferTroncal:'toggle-buffer-troncales',bufferExpresa:'toggle-buffer-expresas'}[tipo];
             if (!idToggle || document.getElementById(idToggle)?.checked) capa.addTo(map);
         }
