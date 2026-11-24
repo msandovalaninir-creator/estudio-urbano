@@ -1813,24 +1813,41 @@ function sincronizarGrupos114(){
                 const estacionesPorLineaNombre = {
                     '1': ['san pablo','neptuno','pajaritos','las rejas','ecuador','san alberto hurtado','universidad de santiago','estacion central','union latinoamericana','republica','los heroes','la moneda','universidad de chile','santa lucia','universidad catolica','baquedano','salvador','manuel montt','pedro de valdivia','los leones','el golf','alcantara','escuela militar','manquehue','hernando de magallanes','los dominicos','tobalaba'],
                     '2': ['vespucio norte','zapadores','dorsal','einstein','cementerios','cerro blanco','patronato','puente cal y canto','puente calicanto','santa ana','los heroes','toesca','parque ohiggins','rondizzoni','franklin','el llano','san miguel','lo vial','departamental','ciudad del nino','lo ovalle','el parron','la cisterna','el bosque','observatorio','copa lo martinez','hospital el pino'],
-                    '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irrarazaval','monseñor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco','ferrocarril','lo cruzat','plaza quilicura'],
-                    '4': ['tobalaba','cristobal colon','francisco bilbao','principe de gales','simón bolívar','simón bolivar','plaza egaña','los orientales','grecia','los presidentes','quilín','quilin','las torres','macul','vicuna mackenna','vicuna mackenna','bellavista de la florida','rojas magallanes','trinidad','san jose de la estrella','los quillayes','elisa correa','hospital sotero del rio','protectora de la infancia','las mercedes','plaza de puente alto','vicente valdes'],
+                    '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irarrazaval','monsenor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco','ferrocarril','lo cruzat','plaza quilicura'],
+                    '4': ['tobalaba','cristobal colon','francisco bilbao','principe de gales','simón bolívar','simón bolivar','plaza egaña','los orientales','grecia','los presidentes','quilín','quilin','las torres','macul','vicuna mackenna','rojas magallanes','trinidad','san jose de la estrella','los quillayes','elisa correa','hospital sotero del rio','protectora de la infancia','las mercedes','plaza de puente alto','vicente valdes'],
                     '4A': ['la cisterna','san ramon','santa rosa','la granja','santa julia','vicuna mackenna'],
-                    '5': ['plaza de maipu','santiago bueras','del sol','monte tabor','las parcelas','laguna sur','barrancas','pudahuel','san pablo','lo prado','blanqueado','gruta de lourdes','quinta normal','cumming','santa ana','plaza de armas','bellas artes','baquedano','parque bustamante','santa isabel','irrarazaval','nuble','rodrigo de araya','camino agricola','san joaquin','pedrero','mirador','bellavista de la florida','vicente valdes'],
+                    '5': ['plaza de maipu','santiago bueras','del sol','monte tabor','las parcelas','laguna sur','barrancas','pudahuel','san pablo','lo prado','blanqueado','gruta de lourdes','quinta normal','cumming','santa ana','plaza de armas','bellas artes','baquedano','parque bustamante','santa isabel','irarrazaval','nuble','rodrigo de araya','camino agricola','san joaquin','pedrero','mirador','bellavista de la florida','vicente valdes'],
                     '6': ['cerrillos','lo valledor','presidente pedro aguirre cerda','franklin','bio bio','nuble','estadio nacional','nunoa','ines de suarez','los leones']
                 };
-                const normalizarNombreEstacion = valor => String(valor||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
-                (estaciones.features||[]).forEach(f=>{
-                    if(!f.geometry) return;
-                    const props=f.properties||{};
-                    const nombre=normalizarNombreEstacion(props.NOMBRE||props.Nombre||props.name||props.NOM_EST||props.ESTACION||props.Name||'');
-                    const lineasPorNombre=METRO_LINEAS_UI.filter(l=>(estacionesPorLineaNombre[l]||[]).some(n=>normalizarNombreEstacion(n)===nombre || (nombre && (nombre.endsWith(' '+normalizarNombreEstacion(n)) || nombre.startsWith(normalizarNombreEstacion(n)+' ')))));
-                    const lineaAtributo=lineaDesdeAtributosMetro(props);
-                    const lineasAsignadas=lineasPorNombre; // No asignar estaciones desconocidas por números ambiguos.
-                    lineasAsignadas.forEach(l=>{if(datosEstacionesMetroPorLinea[l]) datosEstacionesMetroPorLinea[l].push(f);});
-                });
+                const normalizarNombreEstacion = valor => {
+                    let n=String(valor||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim().replace(/^(estacion (de )?metro|estacion|metro) /,'').replace(/ (linea|l) ?[1-6]a?$/,'');
+                    return ({'plaza puente alto':'plaza de puente alto','puente calicanto':'puente cal y canto','irrarazaval':'irarrazaval','pedro aguirre cerda':'presidente pedro aguirre cerda','plaza maipu':'plaza de maipu','parque o higgins':'parque ohiggins','copa lo martinez':'copa lo martinez'})[n]||n;
+                };
+                const catalogo=new Map();
+                for(const l of METRO_LINEAS_UI) for(const n of estacionesPorLineaNombre[l]) {
+                    const k=normalizarNombreEstacion(n); if(!catalogo.has(k))catalogo.set(k,[]); if(!catalogo.get(k).includes(l))catalogo.get(k).push(l);
+                }
+                const unicas=new Map();
+                function admitir(f){
+                    if(f.geometry?.type!=='Point')return;
+                    const p=f.properties||{}, k=normalizarNombreEstacion(p.NOMBRE||p.Nombre||p.name||p.NOM_EST||p.ESTACION||p.Name);
+                    if(!catalogo.has(k)||unicas.has(k))return;
+                    const xy=f.geometry.coordinates; if(!xy||!Number.isFinite(xy[0])||!Number.isFinite(xy[1]))return;
+                    const nombre=k.replace(/\b\w/g,c=>c.toUpperCase());
+                    unicas.set(k,{...f,properties:{...p,NOMBRE:nombre,metroClave:k,metroLineas:catalogo.get(k)}});
+                }
+                (estaciones.features||[]).forEach(admitir);
+                if([...catalogo.keys()].some(k=>!unicas.has(k))) {
+                    try {
+                        const q='[out:json][timeout:20];node["public_transport"="station"]["station"="subway"](-33.75,-70.95,-33.2,-70.35);out;';
+                        const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q),{signal:AbortSignal.timeout(25000)});
+                        if(r.ok)for(const e of (await r.json()).elements||[])admitir({type:'Feature',geometry:{type:'Point',coordinates:[e.lon,e.lat]},properties:{NOMBRE:e.tags?.name}});
+                    } catch(e){console.warn('Metro complemento no disponible',e);}
+                }
+                for(const f of unicas.values())for(const l of f.properties.metroLineas)datosEstacionesMetroPorLinea[l].push(f);
+                window.metroEstacionesFaltantes=[...catalogo.keys()].filter(k=>!unicas.has(k));
                 if (!METRO_LINEAS_UI.some(l=>datosTrazadosMetroPorLinea[l].length) || !METRO_LINEAS_UI.some(l=>datosEstacionesMetroPorLinea[l].length)) throw new Error('La fuente GIS no entregó trazados y estaciones clasificables por línea.');
-            })().catch(err=>{promesaCargaDatosMetro=null;throw err;});
+            })().catch(err=>{promesaCargaDatosMetro=null;datosTrazadosMetroPorLinea=null;datosEstacionesMetroPorLinea=null;throw err;});
             return promesaCargaDatosMetro;
         }
         function dibujarTrazadoMetroLinea(linea) {
@@ -1845,7 +1862,7 @@ function sincronizarGrupos114(){
         // no de la mera proximidad entre puntos GIS.
         function esCombinacionMetro(nombre) {
             const n=String(nombre||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
-            const cruces=['san pablo','los heroes','universidad de chile','baquedano','los leones','tobalaba','plaza egana','vicuna mackenna','la cisterna','santa ana','plaza de armas','puente cal y canto','franklin','nuble','nunoa','irrarazaval','bellavista de la florida'];
+            const cruces=['san pablo','los heroes','universidad de chile','baquedano','los leones','tobalaba','plaza egana','vicuna mackenna','la cisterna','santa ana','plaza de armas','puente cal y canto','franklin','nuble','nunoa','irarrazaval','vicente valdes'];
             return cruces.some(c=>n===c);
         }
         function iconoEstacionMetro(config,tam,nombre) {
@@ -1860,9 +1877,9 @@ function sincronizarGrupos114(){
             (datosEstacionesMetroPorLinea?.[linea]||[]).forEach(f=>{
                 const g=f.geometry, p=f.properties||{}; if(!g) return;
                 const nombre=String(p.NOMBRE||p.Nombre||p.name||p.NOM_EST||p.ESTACION||p.Name||'Estación de Metro');
-                const clave=nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+                const clave=p.metroClave||nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
                 if(vistos.has(clave))return;vistos.add(clave);
-                const add=(xy)=>L.marker([xy[1],xy[0]],{icon:iconoEstacionMetro(config,tam,nombre),keyboard:false}).bindTooltip(escaparHTML(nombre+' · Línea '+linea+(esCombinacionMetro(nombre)?' · Combinación':'')),{direction:'top',offset:[0,-7]}).addTo(capa);
+                const add=(xy)=>L.marker([xy[1],xy[0]],{icon:iconoEstacionMetro(config,tam,nombre),keyboard:false}).bindTooltip(escaparHTML(nombre+' · Línea '+(p.metroLineas||[linea]).join(' / ')+((p.metroLineas||[]).length>1?' · Combinación':'')),{direction:'top',offset:[0,-7]}).addTo(capa);
                 if(g.type==='Point')add(g.coordinates); else if(g.type==='MultiPoint')g.coordinates.forEach(add);
             });
         }
@@ -1891,7 +1908,7 @@ function sincronizarGrupos114(){
                     const t=document.getElementById('metro-trazo-'+l.toLowerCase())?.checked, e=document.getElementById('metro-est-'+l.toLowerCase())?.checked;
                     return 'L'+l+(t&&e?' trazado+estaciones':t?' trazado':' estaciones');
                 });
-                if(estado)estado.textContent=resumen.join(' · ')+' | Selección aplicada.';
+                if(estado)estado.textContent=resumen.join(' · ')+' | Selección aplicada.'+(window.metroEstacionesFaltantes?.length?' Faltan coordenadas: '+window.metroEstacionesFaltantes.join(', '):'');
                 sincronizarVisibilidadServiciosConMetro();
                 if(document.getElementById('toggle-radios-metro')?.checked) reconstruirRadiosMetro();
             } catch(err) {
@@ -4572,10 +4589,10 @@ function sincronizarGrupos114(){
         const LINEAS_METRO_REPORTE = {
             '1': ['san pablo','neptuno','pajaritos','las rejas','ecuador','san alberto hurtado','universidad de santiago','estacion central','union latinoamericana','republica','los heroes','la moneda','universidad de chile','santa lucia','universidad catolica','baquedano','salvador','manuel montt','pedro de valdivia','los leones','el golf','alcantara','escuela militar','manquehue','hernando de magallanes','los dominicos'],
             '2': ['vespucio norte','zapadores','dorsal','einstein','cementerios','cerro blanco','patronato','puente cal y canto','puente calicanto','santa ana','los heroes','toesca','parque ohiggins','rondizzoni','franklin','el llano','san miguel','lo vial','departamental','ciudad del nino','lo ovalle','el parron','la cisterna','el bosque'],
-            '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irrarazaval','monseñor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco','ferrocarril','lo cruzat','plaza quilicura'],
+            '3': ['los libertadores','cardenal caro','vivaceta','conchali','plaza chacabuco','hospitales','puente cal y canto','plaza de armas','universidad de chile','parque almagro','matta','irarrazaval','monsenor eyzaguirre','nunoa','chile espana','villa frei','plaza egaña','fernando castillo velasco','ferrocarril','lo cruzat','plaza quilicura'],
             '4': ['tobalaba','cristobal colon','francisco bilbao','principe de gales','simon bolivar','plaza egaña','los orientales','grecia','los presidentes','quilin','las torres','macul','vicuna mackenna','bellavista de la florida','rojas magallanes','trinidad','san jose de la estrella','los quillayes','elisa correa','hospital sotero del rio','protectora de la infancia','las mercedes','plaza de puente alto'],
             '4A': ['la cisterna','san ramon','santa rosa','la granja','santa julia','vicuna mackenna'],
-            '5': ['plaza de maipu','santiago bueras','del sol','monte tabor','las parcelas','laguna sur','barrancas','pudahuel','san pablo','lo prado','blanqueado','gruta de lourdes','quinta normal','cumming','santa ana','plaza de armas','bellas artes','baquedano','parque bustamante','santa isabel','irrarazaval','nuble','rodrigo de araya','camino agricola','san joaquin','pedrero','mirador','bellavista de la florida'],
+            '5': ['plaza de maipu','santiago bueras','del sol','monte tabor','las parcelas','laguna sur','barrancas','pudahuel','san pablo','lo prado','blanqueado','gruta de lourdes','quinta normal','cumming','santa ana','plaza de armas','bellas artes','baquedano','parque bustamante','santa isabel','irarrazaval','nuble','rodrigo de araya','camino agricola','san joaquin','pedrero','mirador','bellavista de la florida'],
             '6': ['cerrillos','lo valledor','presidente pedro aguirre cerda','franklin','bio bio','nuble','estadio nacional','nunoa','ines de suarez','los leones']
         };
         function normalizarNombreMetroReporte(valor) {
@@ -4589,7 +4606,7 @@ function sincronizarGrupos114(){
             const lineas = Object.keys(LINEAS_METRO_REPORTE).filter(linea =>
                 LINEAS_METRO_REPORTE[linea].some(estacion => {
                     const n = normalizarNombreMetroReporte(estacion);
-                    return normalizado === n || normalizado.endsWith(' ' + n) || normalizado.startsWith(n + ' ');
+                    return normalizado === n;
                 })
             );
             if (!lineas.length) return nombre;
