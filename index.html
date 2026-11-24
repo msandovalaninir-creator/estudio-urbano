@@ -573,6 +573,8 @@
   border-radius: 0 !important;
   box-shadow: none !important;
 }
+/* Indicador de búsqueda dentro de la barra fija, debajo de los tres botones. */
+.barra-acciones-fija #loading { grid-column: 1 / -1; margin: 0; padding: 8px 5px; background: #161a24; }
 .barra-acciones-fija .barra-acciones-titulo { display: none !important; }
 .barra-acciones-fija button {
   min-width: 0 !important;
@@ -647,6 +649,7 @@
             <button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br>STUDY URBANO</button>
             <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" title="Sugerir servicios cercanos que falten">💡 SUGERIR<br>SERVICIOS</button>
             <button id="btn-futuras-lineas-metro" onclick="abrirVisorMetroFuturo()" title="Abrir mapa geográfico de futuras líneas 7, 8 y 9 (fuente externa referencial)">🚇 FUTURAS<br>LÍNEAS METRO</button>
+            <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
         </div>
 
         <div class="collapsible-header" onclick="toggleSection('sec-capas-kmz', 'arrow-kmz-capas')">
@@ -743,7 +746,6 @@
 
 
 
-        <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
         <div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
             <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
             <div class="metro-selector-compacto">
@@ -3143,7 +3145,7 @@ function sincronizarGrupos114(){
         const capasFuturasT={},capasFuturasE={};
         FUTURO_LINEAS_UI.forEach(l=>{capasFuturasT[l]=L.layerGroup();capasFuturasE[l]=L.layerGroup();});
         function lineaFuturaPropiedades(props={}) {
-            const campos=[props.linea,props.LINEA,props.ref,props.REF,props.name,props.NOMBRE,props.nombre,props.route,props.description].filter(x=>x!=null);
+            const campos=[props.linea,props.LINEA,props.ref,props.REF,props.name,props.Name,props.NAME,props.NOMBRE,props.nombre,props.route,props.description].filter(x=>x!=null);
             for(const campo of campos){const m=String(campo).match(/(?:^|\b)(?:l(?:[íi]nea)?\s*[- ]*|metro\s*)?([789])(?:\b|$)/i);if(m)return m[1];}
             return null;
         }
@@ -3161,7 +3163,7 @@ function sincronizarGrupos114(){
             const config=CONFIG_SERVICIOS_PREDEFINIDOS.find(x=>x.id==='metro');
             futuroGeoJSON.features.forEach(f=>{
                 const l=lineaFuturaPropiedades(f.properties||{});if(!l)return;
-                const nombre=String(f.properties?.name||f.properties?.NOMBRE||f.properties?.nombre||'Línea '+l+' (referencial)');
+                const nombre=String(f.properties?.name||f.properties?.Name||f.properties?.NAME||f.properties?.NOMBRE||f.properties?.nombre||'Línea '+l+' (referencial)');
                 const geom=f.geometry.type;
                 if(geom==='LineString'||geom==='MultiLineString'){
                     L.geoJSON(f,{style:{color:FUTURO_COLORES_UI[l],weight:grosorLineasMetro,opacity:.95,dashArray:'10,7'},onEachFeature:(_f,layer)=>layer.bindTooltip(escaparHTML(nombre+' · L'+l+' · Proyecto referencial'))}).addTo(capasFuturasT[l]);
@@ -3181,7 +3183,7 @@ function sincronizarGrupos114(){
             const estado=document.getElementById('metro-futuro-estado');
             if(estado)estado.textContent='Consultando trazados geográficos de Metro futuro…';
             try{
-                const params=new URLSearchParams({where:'1=1',outFields:'*',returnGeometry:'true',outSR:'4326',f:'geojson'});
+                const params=new URLSearchParams({where:'1=1',outFields:'*',returnGeometry:'true',returnZ:'false',returnM:'false',outSR:'4326',f:'geojson'});
                 const controller=new AbortController();
                 const timer=setTimeout(()=>controller.abort(),18000);
                 let respuesta;
@@ -3202,7 +3204,7 @@ function sincronizarGrupos114(){
                 reconstruirCapasMetroFuturo();
                 try{localStorage.setItem(FUTURO_GEOJSON_KEY,JSON.stringify(futuroGeoJSON));}catch(_e){}
                 actualizarSeleccionMetroFuturo();
-                if(estado)estado.textContent='Cartografía referencial cargada · '+clasificadas.length+' segmentos. Fuente: ArcGIS DS27 (2024). No usar como trazado definitivo.';
+                if(estado)estado.textContent='Cartografía referencial cargada · '+clasificadas.length+' segmentos. Fuente: ArcGIS DS27 (2024). Estaciones y accesos aún no incluidos. No usar como trazado definitivo.';
             }catch(e){
                 console.warn('Metro futuro GIS',e);
                 if(estado)estado.textContent='No fue posible cargar el trazado desde ArcGIS: '+e.message+'. Puedes importar un GeoJSON o reintentar seleccionando las líneas.';
