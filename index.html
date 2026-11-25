@@ -656,7 +656,7 @@
             <button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br>STUDY URBANO</button>
             <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" title="Sugerir servicios cercanos que falten">💡 SUGERIR<br>SERVICIOS</button>
             <button id="btn-futuras-lineas-metro" onclick="abrirVisorMetroFuturo()" title="Abrir mapa geográfico de futuras líneas 7, 8 y 9 (fuente externa referencial)">🚇 FUTURAS<br>LÍNEAS METRO</button>
-            <div id="loading">⚡ Servicios EXPRESS: caché local o consulta en línea...  <span id="loading-segundos">0</span>s</div>
+            <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
         </div>
 
         <div class="collapsible-header" onclick="toggleSection('sec-capas-kmz', 'arrow-kmz-capas')">
@@ -3727,7 +3727,7 @@ function sincronizarGrupos114(){
                 });
             });
 
-            ejecutarConPoolConcurrencia(tareasLotes, 2).then(resultadosLotes => {
+            ejecutarConPoolConcurrencia(tareasLotes, 1).then(resultadosLotes => {
                 let todosLosElementos = [];
                 let lotesFallidos = [];
                 resultadosLotes.forEach((res, idx) => {
@@ -3742,7 +3742,7 @@ function sincronizarGrupos114(){
                 if (todosLosElementos.length === 0 && lotesFallidos.length === lotes.length) {
                     document.getElementById('loading').style.display = 'none';
                     liberarBotonAnalizar();
-                    alert("No fue posible obtener datos de OpenStreetMap desde los servidores públicos de Overpass después de varios intentos.\n\nLa app ahora consulta los servidores de respaldo en secuencia y evita lanzar lotes en paralelo para reducir rechazos por saturación. Si todos están caídos o bloquean temporalmente la conexión, la búsqueda no puede completarse desde el navegador.\n\nPrueba: esperar 1-2 minutos, reducir el radio o seleccionar menos categorías. Si persiste durante varios minutos, el problema probablemente está en la disponibilidad de Overpass y no en tu cuenta de GitHub.");
+                    alert("No fue posible consultar la base EXPRESS. Carga servicios_chile.json y verifica las categorías.\n\nLa app ahora consulta los servidores de respaldo en secuencia y evita lanzar lotes en paralelo para reducir rechazos por saturación. Si todos están caídos o bloquean temporalmente la conexión, la búsqueda no puede completarse desde el navegador.\n\nPrueba: esperar 1-2 minutos, reducir el radio o seleccionar menos categorías. Si persiste durante varios minutos, el problema probablemente está en la disponibilidad de Overpass y no en tu cuenta de GitHub.");
                     return;
                 }
 
@@ -3789,62 +3789,16 @@ function sincronizarGrupos114(){
             return new Promise(resolve => setTimeout(resolve, ms));
         }
 
-        // V151 EXPRESS: cache exacta de consultas completas, sin mezclar radios ni categorias.
-        const ibExpressMem = new Map();
-        const ibExpressPend = new Map();
-        const ibExpressTTL = 24 * 60 * 60 * 1000;
-        let ibExpressDB;
-        function ibAbrirExpress() {
-            if (!ibExpressDB) ibExpressDB = new Promise(resolve => {
-                try {
-                    const r = indexedDB.open('IB_SERVICIOS_EXPRESS_V1', 1);
-                    r.onupgradeneeded = () => r.result.createObjectStore('consultas');
-                    r.onsuccess = () => resolve(r.result);
-                    r.onerror = r.onblocked = () => resolve(null);
-                } catch (_) { resolve(null); }
-            });
-            return Promise.race([ibExpressDB, new Promise(r => setTimeout(() => r(null), 800))]);
-        }
-        async function ibLeerExpress(key) {
-            let v = ibExpressMem.get(key);
-            if (v && Date.now()-v.fecha < ibExpressTTL) return v;
-            const db = await ibAbrirExpress();
-            if (!db) return null;
-            return Promise.race([new Promise(resolve => {
-                try {
-                    const r = db.transaction('consultas').objectStore('consultas').get(key);
-                    r.onsuccess = () => resolve(r.result && Date.now()-r.result.fecha < ibExpressTTL ? r.result : null);
-                    r.onerror = () => resolve(null);
-                } catch (_) { resolve(null); }
-            }), new Promise(r => setTimeout(() => r(null), 800))]);
-        }
-        async function ibGuardarExpress(key, elements) {
-            const v = {fecha: Date.now(), elements};
-            ibExpressMem.set(key,v);
-            if (ibExpressMem.size > 60) ibExpressMem.delete(ibExpressMem.keys().next().value);
-            const db = await ibAbrirExpress();
-            if (!db) return;
-            try {
-                const tx = db.transaction('consultas','readwrite');
-                const store = tx.objectStore('consultas');
-                store.put(v,key);
-                const cursor = store.openCursor();
-                cursor.onsuccess = () => { const c = cursor.result; if(c){if(Date.now()-c.value.fecha >= ibExpressTTL)c.delete();c.continue();} };
-            } catch (_) {}
-        }
-        async function consultarCategoriaConReintentos(query, categoriaTitulo) {
-            const hit = await ibLeerExpress(query);
-            if (hit) return {ok:true,elements:hit.elements,title:categoriaTitulo,cache:true};
-            if (!ibExpressPend.has(query)) {
-                const task = consultarCategoriaRedExpress(query,categoriaTitulo).then(r => {
-                    if(r.ok) void ibGuardarExpress(query,r.elements);
-                    return r;
-                }).finally(() => ibExpressPend.delete(query));
-                ibExpressPend.set(query,task);
-            }
-            return ibExpressPend.get(query);
-        }
-        function consultarCategoriaRedExpress(query, categoriaTitulo) {
+
+let ib152=null, ib152grid=new Map();
+function ib152Load(data){if(data.schema!==1||!Array.isArray(data.elements))throw Error('Base incompatible');const grid=new Map();for(const e of data.elements){const c=e.center||e;if(!Number.isFinite(c.lat)||!Number.isFinite(c.lon))continue;const k=Math.floor(c.lat*10)+','+Math.floor(c.lon*10);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(e);}ib152grid=grid;ib152=data;document.getElementById('ib152status').textContent=data.elements.length.toLocaleString('es-CL')+' registros OSM · '+data.date+' · cobertura no certificada';}
+function ib152Query(q){if(!ib152)throw Error('Carga primero la base nacional EXPRESS');const ranges=[...q.matchAll(/\(around:([\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\)/g)];if(!ranges.length)throw Error('Consulta no compatible con EXPRESS');const selectors=[...q.matchAll(/nwr((?:\["[^"]+"(?:[~=]"[^"]*"(?:,i)?)?\])+)(?:\(around:([\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\))/g)];if(!selectors.length)throw Error('Categoría no compatible');const out=new Map();for(const m of selectors){const r=+m[2],lat=+m[3],lon=+m[4],dy=r/110000,dx=r/(110000*Math.cos(lat*Math.PI/180));const tests=[...m[1].matchAll(/\["([^"]+)"(?:([~=])"([^"]*)"(,i)?)?\]/g)].map(t=>[t[1],t[2],t[3],t[2]==='~'?new RegExp(t[3],t[4]?'i':''):null]);for(let y=Math.floor((lat-dy)*10);y<=Math.floor((lat+dy)*10);y++)for(let x=Math.floor((lon-dx)*10);x<=Math.floor((lon+dx)*10);x++)for(const e of ib152grid.get(y+','+x)||[]){if(!tests.every(([k,op,v,rx])=>op==='='?e.tags[k]===v:op==='~'?rx.test(e.tags[k]||''):k in e.tags))continue;const c=e.center||e;const a=Math.sin((c.lat-lat)*Math.PI/360)**2+Math.cos(lat*Math.PI/180)*Math.cos(c.lat*Math.PI/180)*Math.sin((c.lon-lon)*Math.PI/360)**2;if(12742000*Math.asin(Math.min(1,Math.sqrt(a)))<=r)out.set(e.type+e.id,e);}}return [...out.values()];}
+window.addEventListener('DOMContentLoaded',()=>{const box=document.createElement('div');box.style.cssText='position:fixed;bottom:8px;left:8px;z-index:9999;background:#10263d;color:white;padding:8px;border-radius:8px;font:12px Arial;max-width:300px';box.innerHTML='<b>IB SERVICIOS EXPRESS · PILOTO</b><br><input type="file" id="ib152file" accept=".json"><div id="ib152status">Carga servicios_chile.json</div><small>© OpenStreetMap contributors · ODbL</small>';document.body.append(box);document.getElementById('ib152file').onchange=async e=>{try{ib152Load(JSON.parse(await e.target.files[0].text()));}catch(err){document.getElementById('ib152status').textContent=err.message;}};});
+
+        function consultarCategoriaConReintentos(query, categoriaTitulo) {
+            if(ib152) { try {return Promise.resolve({ok:true,elements:ib152Query(query)});} catch(e){return Promise.resolve({ok:false,elements:[],error:e.message});} }
+            return Promise.resolve({ok:false,elements:[],error:"Carga la base EXPRESS"});
+
             // Los servidores públicos suelen limitar consultas simultáneas y pueden responder
             // 429/502/504 durante picos de carga. Se prueba cada instancia más de una vez,
             // con pausas crecientes, y se deja más tiempo a las consultas amplias.
@@ -3870,7 +3824,7 @@ function sincronizarGrupos114(){
                                 continue;
                             }
                             const json = await res.json();
-                            if (!json || !Array.isArray(json.elements) || json.remark) {
+                            if (!json || !Array.isArray(json.elements)) {
                                 console.warn(`Respuesta inválida de Overpass (${categoriaTitulo}) en ${endpoint}.`);
                                 continue;
                             }
@@ -5665,6 +5619,8 @@ function dsArea(el){
  return turf.area(turf.polygon([ring]));}catch(e){return null;}
 }
 async function dsFetch(query){
+ return ib152Query(query);
+
  const endpoints=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.nchc.org.tw/api/interpreter','https://overpass.private.coffee/api/interpreter'];
  const errors=[];
  for(const url of endpoints){
