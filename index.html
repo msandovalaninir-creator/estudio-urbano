@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analizador Urbano V140 — Ubicación y Catastro</title>
+    <title>IB GEOINTELLIGENCE V150 — Inteligencia territorial 360°</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
@@ -845,7 +845,7 @@
                 <button onclick="seleccionarViasRapido('todas')">Todas</button>
                 <button onclick="seleccionarViasRapido('ejes')">Solo ejes</button>
                 <button onclick="seleccionarViasRapido('franjas')">Solo franjas</button>
-                <button onclick="seleccionarViasRapido('limpiar')">Limpiar</button><button type="button" onclick="actualizarCartografiaVial()" title="Actualizar las vías para la zona visible" style="grid-column:1/-1;background:#1e3a5f;color:#bae6fd;border:1px solid #38bdf8">↻ Actualizar vías en esta zona</button>
+                <button onclick="seleccionarViasRapido('limpiar')">Limpiar</button><button type="button" onclick="actualizarCartografiaVial()" title="Reintentar carga de la red PRMS completa" style="grid-column:1/-1;background:#1e3a5f;color:#bae6fd;border:1px solid #38bdf8">↻ Actualizar vías en esta zona</button>
             </div>
             <div style="font-size:9px;color:#93c5fd;margin:2px 0 5px">Troncales: 100 m/lado · Expresas: 200 m/lado · Actualiza al cambiar de zona</div>
             <div id="estado-vial" style="font-size:11px;color:#bae6fd;white-space:pre-line;margin:5px 0"></div><div class="vias-compact-grid">
@@ -1507,7 +1507,7 @@ function sincronizarGrupos114(){
                 const f=turf.buffer(turf.lineString(coords),anchosBufferMetros[tipo]/2,{units:'meters',steps:8});
                 if(f?.geometry) features.push(f);
             }catch(e){console.warn('Tramo sin buffer',e);}}
-            if(!features.length) return false;
+            if(features.length!==vias.length) return false;
             capa.clearLayers();
             L.geoJSON(turf.featureCollection(features),{renderer:renderBufferVial[tipo],interactive:false,style:{color:definicionesInfraestructura[tipo].color,weight:0,fillOpacity:1,fill:true}}).addTo(capa);
             return true;
@@ -1649,7 +1649,64 @@ function sincronizarGrupos114(){
             await Promise.all(pares.filter(([tipo,id]) => document.getElementById(id)?.checked)
                 .map(([tipo]) => conmutarCapaInfraestructura(tipo,true)));
         }
+        const PRMS150 = 'https://morning-mode-964fibaquedano-cartografia.tazonideas.workers.dev/cartografia';
+        const prmsPromesas = {};
+        const prmsPlan = {troncal:[14,2791,'TRONCAL'], expresa:[4,794,'EXPRESA']};
+        async function cargarPRMS150(base) {
+            if(prmsPromesas[base]) return prmsPromesas[base];
+            prmsPromesas[base]=(async()=>{
+                const [n,total,tipo]=prmsPlan[base];
+                const ids=new Set(), vias=[];
+                let lotes=[];
+                const cacheKey='ib_prms150_'+tipo;
+                try { lotes=JSON.parse(localStorage.getItem(cacheKey)||'[]'); } catch(e){}
+                if(!Array.isArray(lotes)||lotes.length!==n) lotes=[];
+                if(!lotes.length) {
+                    for(let i=1;i<=n;i+=4) {
+                        const grupo=await Promise.all(Array.from({length:Math.min(4,n-i+1)},(_,j)=>i+j).map(async lote=>{
+                            const c=new AbortController(), timer=setTimeout(()=>c.abort(),30000);
+                            try {const r=await fetch(PRMS150+'?tipo='+tipo+'&lote='+lote,{signal:c.signal}); if(!r.ok) throw Error('HTTP '+r.status); return await r.json();} finally {clearTimeout(timer);}
+                        })); lotes.push(...grupo);
+                    }
+                }
+                try {
+                    for(const [i,l] of lotes.entries()) {
+                        if(l.type!=='FeatureCollection'||!Array.isArray(l.features)||l.features.length!==(i===n-1?total-200*(n-1):200)) throw Error('Lote incompleto '+(i+1));
+                        for(const f of l.features) {
+                            const p=f.properties||{}, id=p.OBJECTID, g=f.geometry;
+                            if(id==null||ids.has(String(id))||p.TIPO_V_M99!==tipo) throw Error('Identificador o tipo incorrecto');
+                            ids.add(String(id));
+                            const partes=g?.type==='LineString'?[g.coordinates]:g?.type==='MultiLineString'?g.coordinates:[];
+                            if(!partes.length) throw Error('Geometría ausente');
+                            partes.forEach((a,j)=>{if(a.length<2||!a.every(q=>Number.isFinite(q[0])&&Number.isFinite(q[1])&&Math.abs(q[0])<=180&&Math.abs(q[1])<=90)) throw Error('Coordenadas inválidas'); vias.push({id:id+':'+j,geometry:a.map(q=>({lon:q[0],lat:q[1]})),tags:{name:[p.NOM_VIA,p.COD_M99,p.COM_TRA1].filter(Boolean).join(' · '),ref:p.COD_M99}});});
+                        }
+                    }
+                    if(ids.size!==total) throw Error('Total PRMS incorrecto');
+                } catch(e) {try{localStorage.removeItem(cacheKey);}catch(_){} throw e;}
+                try{localStorage.setItem(cacheKey,JSON.stringify(lotes));}catch(e){}
+                datosViasInfraestructura[base]=vias; return vias;
+            })().catch(e=>{delete prmsPromesas[base];throw e;});
+            return prmsPromesas[base];
+        }
+        async function mostrarPRMS150(tipo,visible) {
+            const capa=capasInfraestructura[tipo], d=definicionesInfraestructura[tipo];
+            const toggle={troncal:'toggle-vias-troncales',expresa:'toggle-vias-expresas',bufferTroncal:'toggle-buffer-troncales',bufferExpresa:'toggle-buffer-expresas'}[tipo];
+            if(!visible){map.removeLayer(capa);return;}
+            if(estadoCargaInfraestructura[tipo]==='cargando')return;
+            if(estadoCargaInfraestructura[tipo]==='lista'){capa.addTo(map);return;}
+            estadoCargaInfraestructura[tipo]='cargando';
+            const base=tipo==='bufferTroncal'?'troncal':tipo==='bufferExpresa'?'expresa':tipo;
+            informarVial(tipo,'Cargando red PRMS completa…');
+            try {
+                const vias=await cargarPRMS150(base);
+                if(tipo.startsWith('buffer')) {if(!await dibujarBufferVias(tipo))throw Error('No se pudo generar la franja');}
+                else {capa.clearLayers(); for(const v of vias) L.polyline(v.geometry.map(p=>[p.lat,p.lon]),{color:d.color,weight:grosoresViasPx[base],opacity:d.opacidad,renderer:renderViasCanvas,interactive:true,bubblingMouseEvents:false}).bindTooltip(escaparHTML(v.tags.name||d.titulo),{sticky:true}).addTo(capa);}
+                estadoCargaInfraestructura[tipo]='lista'; informarVial(tipo,prmsPlan[base][1]+' registros PRMS · vigencia normativa pendiente');
+                if(document.getElementById(toggle)?.checked)capa.addTo(map);
+            } catch(e){estadoCargaInfraestructura[tipo]=null; informarVial(tipo,'Error PRMS: '+e.message+' · reintentar'); const cb=document.getElementById(toggle);if(cb)cb.checked=false;}
+        }
         async function conmutarCapaInfraestructura(tipo, visible) {
+            if(tipo!=='metro') return mostrarPRMS150(tipo,visible);
             const capa = capasInfraestructura[tipo];
             const definicion = definicionesInfraestructura[tipo];
             if (!capa || !definicion) return;
@@ -1805,29 +1862,9 @@ function sincronizarGrupos114(){
         // Rendimiento: las capas viales cargadas se conservan durante el desplazamiento.
         // No volver a descargar ni recalcular cuatro capas al terminar cada gesto del mapa.
         async function actualizarCartografiaVial() {
-            const pares = [['troncal','toggle-vias-troncales'],['expresa','toggle-vias-expresas'],
-                ['bufferTroncal','toggle-buffer-troncales'],['bufferExpresa','toggle-buffer-expresas']];
-            const activos = pares.filter(([tipo,id]) => document.getElementById(id)?.checked).map(([tipo])=>tipo);
-            if (!activos.length) return;
-            for (const tipo of activos) {
-                if(estadoCargaInfraestructura[tipo]==='cargando') continue;
-                estadoCargaInfraestructura[tipo] = null;
-            }
-            await Promise.all(activos.map(tipo => conmutarCapaInfraestructura(tipo,true)));
+            const pares=[['troncal','toggle-vias-troncales'],['expresa','toggle-vias-expresas'],['bufferTroncal','toggle-buffer-troncales'],['bufferExpresa','toggle-buffer-expresas']];
+            await Promise.all(pares.filter(([t,id])=>document.getElementById(id)?.checked).map(([t])=>conmutarCapaInfraestructura(t,true)));
         }
-
-        let vialTimer, vialRefreshRunning=false, vialLastView='';
-        map.on('moveend',()=>{
-            clearTimeout(vialTimer);
-            vialTimer=setTimeout(async()=>{
-                if(vialRefreshRunning || map.getZoom()<10) return;
-                if(!['toggle-vias-troncales','toggle-vias-expresas','toggle-buffer-troncales','toggle-buffer-expresas'].some(id=>document.getElementById(id)?.checked)) return;
-                if(Object.values(estadoCargaInfraestructura).includes('cargando')) return;
-                const key=claveVistaVial('vista'); if(key===vialLastView)return;
-                vialRefreshRunning=true;
-                try{await actualizarCartografiaVial(); vialLastView=key;}finally{vialRefreshRunning=false;}
-            },1800);
-        });
         // Selector independiente de trazados y estaciones por línea. Los datos GIS se cargan una sola vez.
         const METRO_LINEAS_UI = ['1','2','3','4','4A','5','6'];
         const METRO_COLORES_UI = {'1':'#e2231a','2':'#f4d21f','3':'#8b6f47','4':'#0067a5','4A':'#f58220','5':'#008c45','6':'#7b2d8e'};
