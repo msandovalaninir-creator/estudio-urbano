@@ -5702,7 +5702,33 @@ function code(x){const aliases={MOSTAZAL:"SANFRANCISCODEMOSTAZAL",CALERA:"LACALE
 const rolKey=(n,r)=>normalizeName(n)+'|'+String(r).split('-').map(Number).join('-');
 function saveVerified(n,r,ll){try{localStorage.setItem('ib_verified_predio_'+rolKey(n,r),JSON.stringify([ll.lat,ll.lng]));}catch{}}
 function ficha(p){const d=document.createElement('div');d.style.minWidth='220px';const h=document.createElement('h3');h.textContent='ROL '+p.rol;d.append(h);const btn=document.createElement('button');btn.textContent='Copiar ROL';btn.onclick=async()=>{try{await navigator.clipboard.writeText(p.rol);btn.textContent='Copiado';}catch{btn.textContent='Selecciona el ROL para copiar';}};d.append(btn);const add=(k,v)=>{const r=document.createElement('div');r.textContent=k+': '+(v??'No informado');d.append(r);};const money=v=>v==null?null:'$'+Number(v).toLocaleString('es-CL');for(const [k,v] of [['Comuna',p.nombreComuna],['Dirección',p.direccion],['Destino',p.destinoDescripcion],['Ubicación',p.ubicacion],['Propietario','No informado por SII'],['Avalúo total',money(p.valorTotal)],['Avalúo afecto',money(p.valorAfecto)],['Avalúo exento',money(p.valorExento)],['Superficie terreno',p.supTerreno>0?p.supTerreno+' m²':null],['Superficie construida',p.supConsMt2>0?p.supConsMt2+' m²':null],['Área homogénea',p.ah],['Rango predial',p.datosAh?.rangoSuperficie],['Valor fiscal m²',money(p.datosAh?.valorUnitario)],['Periodo',p.periodo]])add(k,v);const note=document.createElement('small');note.textContent='Fuente: www.sii.cl, Cartografía Digital SII Mapas. Información referencial; no acredita dominio ni deslindes oficiales.';d.append(note);return d;}
-map.on('click',async e=>{if(!on.checked||!document.getElementById('cat-info').checked||map.getZoom()<14||!layers.size||(typeof modoTrazadoManualActivo!=='undefined'&&modoTrazadoManualActivo))return;const seq=++clickSeq;abort?.abort();abort=new AbortController();const signal=abort.signal;if(pin)map.removeLayer(pin);pin=L.circleMarker(e.latlng,{radius:7,color:'#fff',weight:2,fillColor:'#2563eb',fillOpacity:1,interactive:false}).addTo(map);const show=x=>{if(seq!==clickSeq||!on.checked)return;if(catPopup)map.closePopup(catPopup);catPopup=L.popup({autoPan:false,maxHeight:350}).setLatLng(e.latlng).setContent(x).openOn(map);};show('Consultando ficha predial…');const b=map.getBounds(),z=map.getSize(),pt=map.latLngToContainerPoint(e.latlng);let error='No se encontró un código de comuna en el catálogo.';for(const [k,l] of layers){if(signal.aborted)return;if(!l.options.bounds.contains(e.latlng))continue;const x=catalog.find(a=>a.layer===k),comuna=x&&code(x);if(!comuna)continue;try{const r=await fetch(worker,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clickInfo:{x:pt.x,y:pt.y,width:z.x,height:z.y,southwestx:b.getSouth(),southwesty:b.getWest(),northeastx:b.getNorth(),northeasty:b.getEast(),layer:k,comuna}}),signal});const j=await r.json();if(j.consultaExitosa&&j.data?.rol){saveVerified(j.data.nombreComuna,j.data.rol,e.latlng);show(ficha(j.data));return;}error=j.error||'Sin respuesta predial';}catch(e){if(signal.aborted)return;error=e.message;}}show('Consulta predial no disponible: '+error);});
+map.on('click',async e=>{
+if(!on.checked||!document.getElementById('cat-info').checked||map.getZoom()<14||(typeof modoTrazadoManualActivo!=='undefined'&&modoTrazadoManualActivo))return;
+const seq=++clickSeq;abort?.abort();abort=new AbortController();const signal=abort.signal;
+if(pin){map.removeLayer(pin);pin=null;}
+const show=x=>{if(seq!==clickSeq||signal.aborted||!on.checked)return;if(catPopup)map.closePopup(catPopup);catPopup=L.popup({autoPan:false,maxHeight:350}).setLatLng(e.latlng).setContent(x).openOn(map);};
+show('Consultando ficha predial…');
+const b=map.getBounds(),z=map.getSize(),pt=map.latLngToContainerPoint(e.latlng);
+let error='Sin sector catastral identificado',attempts=0;
+try{
+const all=await load();if(signal.aborted)return;
+const candidates=all.filter(x=>code(x)&&L.latLngBounds([x.bbox[1],x.bbox[0]],[x.bbox[3],x.bbox[2]]).pad(.02).contains(e.latlng)).sort((a,b)=>Number(layers.has(b.layer))-Number(layers.has(a.layer)));
+const unique=[...new Map(candidates.map(x=>[x.layer,x])).values()].slice(0,10);
+for(const x of unique){
+ for(let retry=0;retry<2;retry++){
+ if(signal.aborted)return;attempts++;
+ try{
+ const r=await fetch(worker,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clickInfo:{x:pt.x,y:pt.y,width:z.x,height:z.y,southwestx:b.getSouth(),southwesty:b.getWest(),northeastx:b.getNorth(),northeasty:b.getEast(),layer:x.layer,comuna:code(x)}}),signal:AbortSignal.any([signal,AbortSignal.timeout(20000)])});
+ const j=await r.json();if(signal.aborted)return;
+ if(r.ok&&j.consultaExitosa&&j.data?.rol){saveVerified(j.data.nombreComuna,j.data.rol,e.latlng);pin=L.circleMarker(e.latlng,{radius:7,color:'#fff',weight:2,fillColor:'#2563eb',fillOpacity:1,interactive:false}).addTo(map);show(ficha(j.data));return;}
+ error=j.error||'HTTP '+r.status;if(r.status===429){show('SII temporalmente limitado. Reintenta más tarde.');return;}if(r.status<500)break;
+ }catch(err){if(signal.aborted)return;error=err.message;}
+ if(retry===0)await new Promise(r=>setTimeout(r,500));
+ }
+}
+}catch(err){error=err.message;}
+show('Consulta predial sin resultado ('+attempts+' intentos): '+error+'. No acredita ausencia de predio. Reintenta dentro del deslinde.');
+});
 const tabs=document.querySelectorAll('#v140-tabs button'), rolStatus=document.getElementById('v140-rol-status');
 const fichaPanel=document.createElement('div');fichaPanel.id='v142-ficha';fichaPanel.hidden=true;rolStatus.after(fichaPanel);
 const pilotInput=document.getElementById('v141-worker');
