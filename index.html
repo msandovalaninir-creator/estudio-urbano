@@ -689,6 +689,13 @@
 <div id="cat-status" role="status" style="font-size:11px;margin:8px 0">Capa desactivada.</div>
 <small>Acércate al mapa para ver los predios. Cartografía referencial. <a href="https://www4.sii.cl/mapasui/internet/" target="_blank" rel="noopener">Consultar ficha en SII Mapas</a>.</small>
 </div>
+<div class="collapsible-header" onclick="toggleSection('sec-prc131','arrow-prc131')"><span>🗺 Normativa urbanística PRC</span><span id="arrow-prc131">▼</span></div>
+<div id="sec-prc131" class="collapsible-content" style="padding:8px;color:#cbd5e1">
+<label style="display:block"><input type="checkbox" id="prc131-on"> Mostrar zonas PRC — RM</label>
+<label style="display:block"><input type="checkbox" id="prc131-info" checked> Consultar zona al pinchar mapa</label>
+<label>Opacidad <span id="prc131-pct">45%</span><input id="prc131-opacity" type="range" min="0" max="100" value="45" style="width:100%"></label>
+<div id="prc131-status" role="status" style="font-size:11px;margin:8px 0">Capa desactivada.</div><div id="prc131-result" style="font-size:12px;overflow-wrap:anywhere"></div>
+<small>Cartografía referencial SMA/MINVU (catálogo 2024). Verificar vigencia y normas en <a href="https://instrumentosdeplanificacion.minvu.cl/" target="_blank" rel="noopener">Portal IPT oficial</a> y CIP municipal. Sin cobertura no implica ausencia de norma.</small></div>
         <div class="collapsible-header" onclick="toggleSection('sec-iconos', 'arrow-3')">
             <span>3. Filtros Estratégicos Inteligentes</span>
             <span id="arrow-3">▼</span>
@@ -5688,6 +5695,22 @@ map.on('click',async e=>{if(!on.checked||!document.getElementById('cat-info').ch
 function resetCat(){clickSeq++;abort?.abort();if(catPopup)map.closePopup(catPopup);if(pin){map.removeLayer(pin);pin=null;}}
 on.addEventListener('change',()=>{if(!on.checked)resetCat();});document.getElementById('cat-info').addEventListener('change',e=>{if(!e.target.checked)resetCat();});
 on.addEventListener('change',refresh);roles.addEventListener('change',()=>{clear();refresh();});map.on('moveend',()=>{clearTimeout(timer);timer=setTimeout(()=>{if(on.checked)refresh();},250);});
+})();
+</script>
+<script>
+(()=>{
+const base='https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/MINVU/MapServer';
+const $=id=>document.getElementById('prc131-'+id), on=$('on'), status=$('status'), result=$('result');
+const pane=map.createPane('prc131');pane.style.zIndex=385;pane.style.pointerEvents='none';
+const Tiles=L.TileLayer.extend({getTileUrl(c){const n=256,a=map.unproject([c.x*n,c.y*n],c.z),b=map.unproject([(c.x+1)*n,(c.y+1)*n],c.z);const sw=L.CRS.EPSG3857.project(L.latLng(b.lat,a.lng)),ne=L.CRS.EPSG3857.project(L.latLng(a.lat,b.lng));return base+'/export?'+new URLSearchParams({bbox:[sw.x,sw.y,ne.x,ne.y].join(','),bboxSR:3857,imageSR:3857,size:'256,256',format:'png32',transparent:'true',layers:'show:388',f:'image'});}});
+const tiles=new Tiles('',{pane:'prc131',opacity:.45,maxZoom:22,maxNativeZoom:19,updateWhenIdle:true,keepBuffer:1,attribution:'PRC referencial: SMA / MINVU'});
+let seq=0,ctrl,loaded=0,failed=0;
+function report(){if(on.checked)status.textContent=`Teselas recibidas: ${loaded} · errores: ${failed}. Una tesela vacía no confirma ausencia de PRC.`;}
+tiles.on('tileload',()=>{loaded++;report();});tiles.on('tileerror',()=>{failed++;report();});
+on.addEventListener('change',()=>{seq++;ctrl?.abort();result.replaceChildren();if(on.checked){loaded=failed=0;status.textContent='Cargando cartografía PRC…';tiles.addTo(map);}else{map.removeLayer(tiles);status.textContent='Capa desactivada.';}});
+$('opacity').addEventListener('input',e=>{tiles.setOpacity(e.target.value/100);$('pct').textContent=e.target.value+'%';});
+$('info').addEventListener('change',()=>{seq++;ctrl?.abort();result.replaceChildren();});
+map.on('click',async e=>{if(!on.checked||!$('info').checked||(typeof modoTrazadoManualActivo!=='undefined'&&modoTrazadoManualActivo))return;const k=++seq;ctrl?.abort();ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),18000);result.textContent='Consultando zona PRC…';const b=map.getBounds(),z=map.getSize();try{const q=new URLSearchParams({f:'json',geometry:JSON.stringify({x:e.latlng.lng,y:e.latlng.lat,spatialReference:{wkid:4326}}),geometryType:'esriGeometryPoint',sr:4326,layers:'all:388',tolerance:0,mapExtent:[b.getWest(),b.getSouth(),b.getEast(),b.getNorth()].join(','),imageDisplay:[z.x,z.y,96].join(','),returnGeometry:'false'});const r=await fetch(base+'/identify?'+q,{signal:ctrl.signal});if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();if(j.error)throw Error(j.error.message);if(k!==seq||!on.checked)return;result.replaceChildren();const rows=(j.results||[]).filter(x=>x.layerId!==389);if(!rows.length){result.textContent='Sin registros PRC en este punto del catálogo. Consultar IPT municipal.';return;}for(const x of rows){const h=document.createElement('strong');h.textContent=x.layerName+' — '+(x.value??'');result.append(h);for(const [key,v] of Object.entries(x.attributes||{})){if(v==null||v===''||/^(objectid|fid|shape[_.])/i.test(key))continue;const d=document.createElement('div');d.textContent=key+': '+v;result.append(d);}result.append(document.createElement('hr'));}const note=document.createElement('small');note.textContent='Atributos del servicio, no equivalen a normativa completa ni vigente verificada.';result.append(note);}catch(err){if(k===seq&&on.checked)result.textContent='Consulta no disponible: '+err.message;}finally{clearTimeout(timer);}});
 })();
 </script>
 </body>
