@@ -872,7 +872,7 @@
                     <small>200 m por lado</small>
                 </section>
             </div>
-            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Clasificación referencial OSM/GIS (no validada por PRMS): troncales primary/secondary y expresas motorway/trunk, sin superposición de categorías. No equivale a la clasificación oficial PRMS. Las franjas visuales usan una escala métrica aproximada al centro del mapa; no son polígonos normativos ni sirven para certificar distancias.</div>
+            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Clasificación referencial OSM/GIS (no validada por PRMS): troncales primary/secondary y expresas motorway/trunk, sin superposición de categorías. No equivale a la clasificación oficial PRMS. Franjas geográficas calculadas en metros desde los ejes disponibles; clasificación referencial, no certificación PRMS.</div>
         </div>
         <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
 
@@ -1085,7 +1085,7 @@ function sincronizarGrupos114(){
         // combine con el tema oscuro de la interfaz.
         const ICONO_CAMINANTE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAArCAYAAADlqKH9AAACMUlEQVR4nO2XsWsTURzHv+eSLdsNDscLNOhwpeAVBUOEa7sEBZ1EzNDFwYJg0T8gQ9DFdHEQKg5qJkEQIgRvKBioXofigdIrESMEzimZLpMHws8hiWk0LWl+v0PB+8DBvcvjx4d3v++9F42I8K9z4m8LTEMiKUUiKUUiKUUiKUUsklHbpdqrGrntSGY7IyLZq1mhvFKklCKl8lRpEnFriq9k0HAQjEZwGsERs6dDXNKwCzBGIxRs44jZ06HFcQqK2i45Xhe6VUAuk9LYBaV68XvnPT2/c5FOKUVqboXuuSG7F4cXeyWDxhPaeLCB2n40/kPqCjZ3H6KQBnslGZIulU4XUY0On5G++hSfKktsSUZwIoQRAGSx+qiO3cfX/pjRe7mOtddddtMLpNvE0iUT4dcPY0/1BRNp9ODcPosLt6rkfuvNLCv0CYrge62xJ8t363j3bBUGgKBeQjG/gExmnd4Cx5YVkmzhy8eD4xwsE0jbZW3b38LmjRyyemr28iKfic4Luv5rK1Sk5m7Sm5C/Hcpui74H9+D4h4O1yyW4veO/2kmISLb2B6E5X8bWoA/RrqK4ch/eDD34OzKSzX5o9DOLyNplbXunDAsAuh2EAvUFJH3a2+nfLZ8z+zcnDfCPFSP4kt09eF1gmOg44EsOQ6NbmNfZ1SbClgw+D0JjL8IE/zAxCbak7/dDk7Pm2TKHwZQchkaHZcb0rhHTyVya//d/tzSJpBSJpBSJpBSJpBQ/ASzn+jZv04S+AAAAAElFTkSuQmCC';
 
-        const ENDPOINTS_OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://lz4.overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+        const ENDPOINTS_OVERPASS = ['https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter', 'https://lz4.overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 
         // SEGURIDAD: los nombres de lugares vienen de OpenStreetMap, una base de datos editable
         // por cualquier persona. Antes de insertarlos en el HTML (popups, listas de resultados),
@@ -1491,27 +1491,27 @@ function sincronizarGrupos114(){
             if(el) el.textContent=Object.entries(estadoVialTexto).map(([k,v])=>k+': '+v).join('\n');
         }
         const renderBufferVial = {};
-        function anchoBufferPx(tipo) {
-            const c=map.getCenter(), p=map.latLngToContainerPoint(c);
-            const metros=map.distance(c,map.containerPointToLatLng([p.x+100,p.y]))/100;
-            return anchosBufferMetros[tipo]/Math.max(metros,0.001);
-        }
         async function dibujarBufferVias(tipo) {
             const capa=capasInfraestructura[tipo], base=tipo==='bufferTroncal'?'troncal':'expresa';
             const vias=datosViasInfraestructura[base]||[];
-            if(!vias.length) return false;
+            if(!vias.length || !window.turf) return false;
             if(!renderBufferVial[tipo]) {
                 const pane=map.createPane('franja_'+tipo);
-                pane.style.zIndex='390'; pane.style.opacity='0.28'; pane.style.pointerEvents='none';
+                pane.style.zIndex='390'; pane.style.opacity='0.45'; pane.style.pointerEvents='none';
                 renderBufferVial[tipo]=L.canvas({pane:'franja_'+tipo,padding:0.5});
             }
-            const coords=vias.map(v=>v.geometry.map(p=>[p.lat,p.lon])).filter(g=>g.length>1);
+            const features=[];
+            for(const v of vias){try{
+                const coords=v.geometry.map(p=>[p.lon,p.lat]);
+                if(coords.length<2) continue;
+                const f=turf.buffer(turf.lineString(coords),anchosBufferMetros[tipo]/2,{units:'meters',steps:8});
+                if(f?.geometry) features.push(f);
+            }catch(e){console.warn('Tramo sin buffer',e);}}
+            if(!features.length) return false;
             capa.clearLayers();
-            if(!coords.length) return false;
-            L.polyline(coords,{renderer:renderBufferVial[tipo],color:definicionesInfraestructura[tipo].color,weight:anchoBufferPx(tipo),opacity:1,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(capa);
+            L.geoJSON(turf.featureCollection(features),{renderer:renderBufferVial[tipo],interactive:false,style:{color:definicionesInfraestructura[tipo].color,weight:0,fillOpacity:1,fill:true}}).addTo(capa);
             return true;
         }
-        map.on('zoomend moveend',()=>{for(const tipo of ['bufferTroncal','bufferExpresa']) if(map.hasLayer(capasInfraestructura[tipo])) capasInfraestructura[tipo].eachLayer(l=>l.setStyle({weight:anchoBufferPx(tipo)}));});
         function actualizarAnchoBuffer(tipo, valor) {
             const ancho = Math.max(50, Math.min(tipo === 'bufferTroncal' ? 2000 : 3000, Number(valor) || 400));
             anchosBufferMetros[tipo] = ancho;
@@ -1798,6 +1798,18 @@ function sincronizarGrupos114(){
             await Promise.all(activos.map(tipo => conmutarCapaInfraestructura(tipo,true)));
         }
 
+        let vialTimer, vialRefreshRunning=false, vialLastView='';
+        map.on('moveend',()=>{
+            clearTimeout(vialTimer);
+            vialTimer=setTimeout(async()=>{
+                if(vialRefreshRunning || map.getZoom()<10) return;
+                if(!['toggle-vias-troncales','toggle-vias-expresas','toggle-buffer-troncales','toggle-buffer-expresas'].some(id=>document.getElementById(id)?.checked)) return;
+                if(Object.values(estadoCargaInfraestructura).includes('cargando')) return;
+                const key=claveVistaVial('vista'); if(key===vialLastView)return;
+                vialRefreshRunning=true;
+                try{await actualizarCartografiaVial(); vialLastView=key;}finally{vialRefreshRunning=false;}
+            },850);
+        });
         // Selector independiente de trazados y estaciones por línea. Los datos GIS se cargan una sola vez.
         const METRO_LINEAS_UI = ['1','2','3','4','4A','5','6'];
         const METRO_COLORES_UI = {'1':'#e2231a','2':'#f4d21f','3':'#8b6f47','4':'#0067a5','4A':'#f58220','5':'#008c45','6':'#7b2d8e'};
