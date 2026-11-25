@@ -656,7 +656,7 @@
             <button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br>STUDY URBANO</button>
             <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" title="Sugerir servicios cercanos que falten">💡 SUGERIR<br>SERVICIOS</button>
             <button id="btn-futuras-lineas-metro" onclick="abrirVisorMetroFuturo()" title="Abrir mapa geográfico de futuras líneas 7, 8 y 9 (fuente externa referencial)">🚇 FUTURAS<br>LÍNEAS METRO</button>
-            <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
+            <div id="loading">⚡ Servicios EXPRESS: caché local o consulta en línea...  <span id="loading-segundos">0</span>s</div>
         </div>
 
         <div class="collapsible-header" onclick="toggleSection('sec-capas-kmz', 'arrow-kmz-capas')">
@@ -3727,7 +3727,7 @@ function sincronizarGrupos114(){
                 });
             });
 
-            ejecutarConPoolConcurrencia(tareasLotes, 1).then(resultadosLotes => {
+            ejecutarConPoolConcurrencia(tareasLotes, 2).then(resultadosLotes => {
                 let todosLosElementos = [];
                 let lotesFallidos = [];
                 resultadosLotes.forEach((res, idx) => {
@@ -3789,7 +3789,62 @@ function sincronizarGrupos114(){
             return new Promise(resolve => setTimeout(resolve, ms));
         }
 
-        function consultarCategoriaConReintentos(query, categoriaTitulo) {
+        // V151 EXPRESS: cache exacta de consultas completas, sin mezclar radios ni categorias.
+        const ibExpressMem = new Map();
+        const ibExpressPend = new Map();
+        const ibExpressTTL = 24 * 60 * 60 * 1000;
+        let ibExpressDB;
+        function ibAbrirExpress() {
+            if (!ibExpressDB) ibExpressDB = new Promise(resolve => {
+                try {
+                    const r = indexedDB.open('IB_SERVICIOS_EXPRESS_V1', 1);
+                    r.onupgradeneeded = () => r.result.createObjectStore('consultas');
+                    r.onsuccess = () => resolve(r.result);
+                    r.onerror = r.onblocked = () => resolve(null);
+                } catch (_) { resolve(null); }
+            });
+            return Promise.race([ibExpressDB, new Promise(r => setTimeout(() => r(null), 800))]);
+        }
+        async function ibLeerExpress(key) {
+            let v = ibExpressMem.get(key);
+            if (v && Date.now()-v.fecha < ibExpressTTL) return v;
+            const db = await ibAbrirExpress();
+            if (!db) return null;
+            return Promise.race([new Promise(resolve => {
+                try {
+                    const r = db.transaction('consultas').objectStore('consultas').get(key);
+                    r.onsuccess = () => resolve(r.result && Date.now()-r.result.fecha < ibExpressTTL ? r.result : null);
+                    r.onerror = () => resolve(null);
+                } catch (_) { resolve(null); }
+            }), new Promise(r => setTimeout(() => r(null), 800))]);
+        }
+        async function ibGuardarExpress(key, elements) {
+            const v = {fecha: Date.now(), elements};
+            ibExpressMem.set(key,v);
+            if (ibExpressMem.size > 60) ibExpressMem.delete(ibExpressMem.keys().next().value);
+            const db = await ibAbrirExpress();
+            if (!db) return;
+            try {
+                const tx = db.transaction('consultas','readwrite');
+                const store = tx.objectStore('consultas');
+                store.put(v,key);
+                const cursor = store.openCursor();
+                cursor.onsuccess = () => { const c = cursor.result; if(c){if(Date.now()-c.value.fecha >= ibExpressTTL)c.delete();c.continue();} };
+            } catch (_) {}
+        }
+        async function consultarCategoriaConReintentos(query, categoriaTitulo) {
+            const hit = await ibLeerExpress(query);
+            if (hit) return {ok:true,elements:hit.elements,title:categoriaTitulo,cache:true};
+            if (!ibExpressPend.has(query)) {
+                const task = consultarCategoriaRedExpress(query,categoriaTitulo).then(r => {
+                    if(r.ok) void ibGuardarExpress(query,r.elements);
+                    return r;
+                }).finally(() => ibExpressPend.delete(query));
+                ibExpressPend.set(query,task);
+            }
+            return ibExpressPend.get(query);
+        }
+        function consultarCategoriaRedExpress(query, categoriaTitulo) {
             // Los servidores públicos suelen limitar consultas simultáneas y pueden responder
             // 429/502/504 durante picos de carga. Se prueba cada instancia más de una vez,
             // con pausas crecientes, y se deja más tiempo a las consultas amplias.
@@ -3815,7 +3870,7 @@ function sincronizarGrupos114(){
                                 continue;
                             }
                             const json = await res.json();
-                            if (!json || !Array.isArray(json.elements)) {
+                            if (!json || !Array.isArray(json.elements) || json.remark) {
                                 console.warn(`Respuesta inválida de Overpass (${categoriaTitulo}) en ${endpoint}.`);
                                 continue;
                             }
