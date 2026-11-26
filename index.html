@@ -613,349 +613,329 @@
     background-color: #fff3ad !important;
 }
 </style>
-<style>.prc-map-popup .leaflet-popup-content-wrapper,.prc-map-popup .leaflet-popup-tip{background:#fff;color:#20294d;border:0;box-shadow:0 3px 16px #0003}.prc-map-popup .leaflet-popup-content{margin:18px 15px 12px;overflow-wrap:anywhere;font:12px/1.4 Arial,sans-serif}.prc-map-popup a.leaflet-popup-close-button{color:#555}.prc-map-popup .prc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:3px 0;border-bottom:1px solid #edf0f4}.prc-map-popup .prc-row span:last-child{text-align:right;color:#53617a}.prc-map-popup .prc-note{font-size:10px;color:#657084;margin-top:8px}.prc-map-popup a{color:#2459a5}</style><style>#v140-tabs button{flex:1;width:auto;margin:0;padding:9px 3px;font-size:11px;background:#1e293b;border:1px solid #334155;color:#cbd5e1}#v140-tabs button[aria-pressed="true"]{background:#174b80;border-color:#38bdf8;color:white}#v140-rol[hidden],#v140-dir[hidden],#v140-kmz[hidden]{display:none!important}</style><style>#v140-comuna,#v140-rol-input,#v141-worker{box-sizing:border-box;width:100%;background:#0d1524;color:#e5edf8;border:1px solid #394b63;border-radius:8px;padding:10px;font:inherit}#v142-ficha:not([hidden]){margin:8px 0;padding:10px;border:1px solid #394b63;border-radius:8px;background:#101a2a;color:#e5edf8;overflow-wrap:anywhere;font-size:12px;line-height:1.5}#v142-ficha h3{margin:0 0 8px}</style></head>
+<style>.prc-map-popup .leaflet-popup-content-wrapper,.prc-map-popup .leaflet-popup-tip{background:#fff;color:#20294d;border:0;box-shadow:0 3px 16px #0003}.prc-map-popup .leaflet-popup-content{margin:18px 15px 12px;overflow-wrap:anywhere;font:12px/1.4 Arial,sans-serif}.prc-map-popup a.leaflet-popup-close-button{color:#555}.prc-map-popup .prc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:3px 0;border-bottom:1px solid #edf0f4}.prc-map-popup .prc-row span:last-child{text-align:right;color:#53617a}.prc-map-popup .prc-note{font-size:10px;color:#657084;margin-top:8px}.prc-map-popup a{color:#2459a5}</style><style>#v140-tabs button{flex:1;width:auto;margin:0;padding:9px 3px;font-size:11px;background:#1e293b;border:1px solid #334155;color:#cbd5e1}#v140-tabs button[aria-pressed="true"]{background:#174b80;border-color:#38bdf8;color:white}#v140-rol[hidden],#v140-dir[hidden],#v140-kmz[hidden]{display:none!important}</style><style>#v140-comuna,#v140-rol-input,#v141-worker{box-sizing:border-box;width:100%;background:#0d1524;color:#e5edf8;border:1px solid #394b63;border-radius:8px;padding:10px;font:inherit}#v142-ficha:not([hidden]){margin:8px 0;padding:10px;border:1px solid #394b63;border-radius:8px;background:#101a2a;color:#e5edf8;overflow-wrap:anywhere;font-size:12px;line-height:1.5}#v142-ficha h3{margin:0 0 8px}</style><style id="ib169-panel-css">#control-panel .ib169-group{margin:0 0 7px;border:1px solid #334155;border-radius:8px;background:#171e2a}#control-panel .ib169-group>summary{cursor:pointer;list-style:none;padding:11px 10px;font-size:11px;font-weight:750;color:#e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:8px}#control-panel .ib169-group>summary::-webkit-details-marker{display:none}#control-panel .ib169-group>summary::after{content:'▸';color:#93c5fd;font-size:13px}#control-panel .ib169-group[open]>summary::after{content:'▾'}#control-panel .ib169-body{padding:7px;border-top:1px solid #334155}#control-panel .ib169-body .collapsible-header{padding:8px;margin-bottom:5px;font-size:10px}#control-panel .ib169-body .collapsible-content{margin-bottom:7px;padding:8px}#control-panel .ib169-body .form-group{margin-bottom:8px}#control-panel .ib169-body>div:has(> .metro-selector-compacto){padding:6px!important;margin:0!important}#control-panel .barra-acciones-fija{background:#131b2a!important;padding:3px 0!important}#control-panel .barra-acciones-fija button{font-size:9px!important;height:38px!important}#control-panel h2{margin-bottom:10px}</style>
+</head>
 <body>
 
     <div id="map"></div>
     <div id="toggle-left-btn" class="toggle-sidebar-btn" onclick="toggleLeftSidebar()">◀</div>
 
     <div id="control-panel">
-        <h2>1. Ubicación y Capas</h2>
-        <div class="form-group">
-            <label>Buscar ubicación por</label>
-            <div id="v140-tabs" style="display:flex;gap:4px;margin:6px 0 10px" role="group" aria-label="Modo de búsqueda"><button type="button" data-mode="dir" aria-pressed="true">Dirección</button><button type="button" data-mode="rol" aria-pressed="false">ROL SII</button><button type="button" data-mode="kmz" aria-pressed="false">KMZ</button></div>
-            <div id="v140-dir">
-            <label>Dirección / Intersección o Nombre Específico (Ej: Jumbo)</label>
-            <input type="text" id="address-input" placeholder="Ej: Av. Vitacura 3565, Vitacura o Jumbo">
-            <div style="display: flex; gap: 5px; margin-top: 8px;">
-                <button id="btn-buscar-direccion" style="margin-bottom: 0; flex-grow: 2;">Buscar Origen</button>
-                <button class="btn-secondary" style="margin-bottom: 0; width: auto;" onclick="document.getElementById('address-input').value='';">🧹</button>
-                <button class="btn-success" style="margin-top: 0; margin-bottom: 0; width: auto;" onclick="guardarUbicacionActualEnBitacora()">📌 Guardar</button>
-            </div>
-            </div>
-            <div id="v140-rol" hidden><label>Comuna</label><input id="v140-comuna" list="v140-comunas" placeholder="Escribe el nombre de la comuna"><datalist id="v140-comunas"></datalist><label style="margin-top:8px">ROL de avalúo SII</label><input id="v140-rol-input" placeholder="Ej.: 3002-39"><button type="button" id="v140-rol-search" style="margin-top:8px">Buscar ROL</button><details style="margin-top:8px"><summary>Configuración Worker piloto</summary><input id="v141-worker" placeholder="https://…workers.dev/"><button type="button" id="v141-save">Guardar conexión piloto</button></details><div id="v140-rol-status" role="status" style="font-size:11px;line-height:1.5"></div><a href="https://www4.sii.cl/mapasui/internet/" target="_blank" rel="noopener" style="color:#7dd3fc;font-size:11px">Consultar en SII Mapas</a></div>
-            <div id="v140-kmz" hidden><label>Localizar terreno desde archivo</label><button type="button" onclick="document.getElementById('kmz-file').click()">Seleccionar KMZ / KML</button><small>El archivo se incorpora a Capas de planificación.</small></div>
-            <label style="display:flex; align-items:center; gap:8px; margin-top:10px; padding:8px 10px; border:1px solid #334155; border-radius:9px; background:rgba(15,23,42,.72); cursor:pointer;">
-                <input type="checkbox" id="toggle-pin-origen" checked onchange="conmutarPinOrigen(this.checked)" style="width:16px;height:16px;">
-                <span>📍 Mostrar pin de ubicación del proyecto</span>
-            </label>
-        </div>
 
-        <label style="display:block;border-top:1px solid #334155;padding-top:10px;margin-bottom:8px;color:#aebed1">Herramientas de análisis</label>
-        <button id="btn-trazado-manual" style="background:#1e293b; color:#7dd3fc; border:1px solid #38bdf8; font-size:11px; padding:10px; font-weight:700; width:100%; margin-bottom:10px; border-radius:6px; cursor:pointer;" onclick="activarModoTrazadoManual()">✏️ TRAZAR RUTA MANUAL A UN SERVICIO</button>
-        <div id="banner-trazado-manual" style="display:none; background:#0c4a6e; border:1px solid #38bdf8; color:#e0f2fe; font-size:11.5px; padding:10px; border-radius:6px; margin-bottom:12px; line-height:1.5;">
-            <b>Modo trazado activo:</b> haz clic en el mapa siguiendo la calle real, punto por punto, desde tu dirección. Termina haciendo clic directo sobre el ícono del servicio correcto.
-            <div style="margin-top:8px; display:flex; gap:6px;">
-                <button style="flex:1; background:#dc2626; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="cancelarTrazadoManual()">Cancelar</button>
-                <button style="flex:1; background:#334155; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="deshacerUltimoPuntoTrazado()">Deshacer último punto</button>
-            </div>
-        </div>
-        
-        <div class="acciones-principales-compactas barra-acciones-fija">
-            <div class="barra-acciones-titulo">ACCIONES DE BÚSQUEDA</div>
-            <button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br>STUDY URBANO</button>
-            <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" title="Sugerir servicios cercanos que falten">💡 SUGERIR<br>SERVICIOS</button>
-            <button id="btn-futuras-lineas-metro" onclick="abrirVisorMetroFuturo()" title="Abrir mapa geográfico de futuras líneas 7, 8 y 9 (fuente externa referencial)">🚇 FUTURAS<br>LÍNEAS METRO</button>
-            <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
-        </div>
 
-        <div class="collapsible-header" onclick="toggleSection('sec-capas-kmz', 'arrow-kmz-capas')">
-            <span>🗺️ Capas Planificación (.kml / .kmz)</span>
-            <span id="arrow-kmz-capas">▼</span>
-        </div>
-        <div id="sec-capas-kmz" class="collapsible-content">
-            <input type="file" id="kmz-file" accept=".kml,.kmz" multiple onchange="procesarArchivosKMZMasivos(this)" style="margin-bottom: 10px;">
-            
-            <div style="display: flex; gap: 6px; margin-bottom: 10px;">
-                <input type="text" id="kmz-search-input" placeholder="🔍 Buscar KMZ por nombre..." oninput="filtrarListaKMZLocalmente(this.value)" style="flex-grow: 1; padding: 6px 10px; font-size: 11.5px;">
-                <button class="btn-danger-hud" onclick="eliminarAbsolutamenteTodosLosKMZ()" style="width: auto; margin-bottom: 0; padding: 6px 10px; font-size: 11px;">🗑️ Borrar Todos</button>
-            </div>
 
-            <div id="kmz-history-list"></div>
-        </div>
 
-        <div class="collapsible-header" onclick="toggleSection('sec-sanitaria','arrow-sanitaria')"><span>💧 Factibilidad sanitaria — Agua potable</span><span id="arrow-sanitaria">▼</span></div>
-        <div id="sec-sanitaria" class="collapsible-content" style="padding:8px">
-          <label><input type="checkbox" id="san-toggle"> Mostrar territorios operacionales SISS 2026</label>
-          <div style="font-size:11px;margin-top:6px"><span style="color:#86efac">■ Verde: cobertura registrada</span> · Sin relleno: fuera de cobertura cartografiada (si la carga es completa).</div>
-          <div id="san-status" style="font-size:11px;margin:8px 0" role="status">Capa desactivada.</div>
-          <button type="button" id="san-check">Consultar cobertura del punto de origen</button>
-          <small>Información referencial; no sustituye certificado de factibilidad. <a href="https://www.siss.gob.cl/589/w3-propertyvalue-8969.html" target="_blank" rel="noopener">Fuente SISS</a></small>
-        </div>
-<div class="collapsible-header" onclick="toggleSection('sec-patrimonio','arrow-patrimonio')"><span>🏛️ Patrimonio y Conservación Histórica</span><span id="arrow-patrimonio">▼</span></div><div id="sec-patrimonio" class="collapsible-content" style="padding:8px">
-<label style="display:block;color:#cbd5e1"><input type="checkbox" id="pat-mh"> Monumentos históricos</label>
-<label style="display:block;color:#cbd5e1"><input type="checkbox" id="pat-zt"> Zonas típicas</label>
-<label style="display:block;color:#cbd5e1"><input type="checkbox" id="pat-zch"> Zonas de conservación histórica</label>
-<label style="display:block;color:#cbd5e1"><input type="checkbox" id="pat-ich"> Inmuebles de conservación histórica</label>
-<div id="pat-status" role="status" style="font-size:11px;margin:8px 0;white-space:pre-line">Capas desactivadas.</div><small>Fuentes: IDE MINVU (ICH/ZCH) y SMA/CMN (MH/ZT). Ausencia de registros no descarta protección. <a target="_blank" rel="noopener" href="https://www.patrimoniourbano.gob.cl/inmuebles-y-zonas-patrimoniales/">Consultar ICH y PRC</a>.</small></div>
-<div class="collapsible-header" onclick="toggleSection('sec-catastro','arrow-catastro')"><span>📐 Catastro predial SII</span><span id="arrow-catastro">▼</span></div>
-<div id="sec-catastro" class="collapsible-content" style="padding:8px;color:#cbd5e1">
-<label style="display:block"><input type="checkbox" id="cat-on"> Mostrar límites prediales</label>
-<label style="display:block"><input type="checkbox" id="cat-roles"> Mostrar roles disponibles</label>
-<label style="display:block"><input type="checkbox" id="cat-info" checked> Consultar ficha al pinchar predio</label>
-<div id="cat-status" role="status" style="font-size:11px;margin:8px 0">Capa desactivada.</div>
-<small>Acércate al mapa para ver los predios. Cartografía referencial. <a href="https://www4.sii.cl/mapasui/internet/" target="_blank" rel="noopener">Consultar ficha en SII Mapas</a>.</small>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2>Herramientas de trabajo</h2><div class="acciones-principales-compactas barra-acciones-fija">
+<div class="barra-acciones-titulo">ACCIONES DE BÚSQUEDA</div>
+<button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br/>STUDY URBANO</button>
+<button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" title="Sugerir servicios cercanos que falten">💡 SUGERIR<br/>SERVICIOS</button>
+<button id="btn-futuras-lineas-metro" onclick="abrirVisorMetroFuturo()" title="Abrir mapa geográfico de futuras líneas 7, 8 y 9 (fuente externa referencial)">🚇 FUTURAS<br/>LÍNEAS METRO</button>
+<div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
+</div><details class="ib169-group" id="ib169-origen"><summary>01 · Ubicación y terrenos</summary><div class="ib169-body"><div class="form-group">
+<label>Buscar ubicación por</label>
+<div aria-label="Modo de búsqueda" id="v140-tabs" role="group" style="display:flex;gap:4px;margin:6px 0 10px"><button aria-pressed="true" data-mode="dir" type="button">Dirección</button><button aria-pressed="false" data-mode="rol" type="button">ROL SII</button><button aria-pressed="false" data-mode="kmz" type="button">KMZ</button></div>
+<div id="v140-dir">
+<label>Dirección / Intersección o Nombre Específico (Ej: Jumbo)</label>
+<input id="address-input" placeholder="Ej: Av. Vitacura 3565, Vitacura o Jumbo" type="text"/>
+<div style="display: flex; gap: 5px; margin-top: 8px;">
+<button id="btn-buscar-direccion" style="margin-bottom: 0; flex-grow: 2;">Buscar Origen</button>
+<button class="btn-secondary" onclick="document.getElementById('address-input').value='';" style="margin-bottom: 0; width: auto;">🧹</button>
+<button class="btn-success" onclick="guardarUbicacionActualEnBitacora()" style="margin-top: 0; margin-bottom: 0; width: auto;">📌 Guardar</button>
 </div>
-<div class="collapsible-header" onclick="toggleSection('sec-prc131','arrow-prc131')"><span>🗺 Normativa urbanística PRC</span><span id="arrow-prc131">▼</span></div>
-<div id="sec-prc131" class="collapsible-content" style="padding:8px;color:#cbd5e1">
-<label style="display:block"><input type="checkbox" id="prc131-on"> Mostrar zonas PRC — RM</label>
-<label style="display:block"><input type="checkbox" id="prc131-info" checked> Consultar zona al pinchar mapa</label>
-<label>Opacidad <span id="prc131-pct">45%</span><input id="prc131-opacity" type="range" min="0" max="100" value="45" style="width:100%"></label>
+</div>
+<div hidden="" id="v140-rol"><label>Comuna</label><input id="v140-comuna" list="v140-comunas" placeholder="Escribe el nombre de la comuna"/><datalist id="v140-comunas"></datalist><label style="margin-top:8px">ROL de avalúo SII</label><input id="v140-rol-input" placeholder="Ej.: 3002-39"/><button id="v140-rol-search" style="margin-top:8px" type="button">Buscar ROL</button><details style="margin-top:8px"><summary>Configuración Worker piloto</summary><input id="v141-worker" placeholder="https://…workers.dev/"/><button id="v141-save" type="button">Guardar conexión piloto</button></details><div id="v140-rol-status" role="status" style="font-size:11px;line-height:1.5"></div><a href="https://www4.sii.cl/mapasui/internet/" rel="noopener" style="color:#7dd3fc;font-size:11px" target="_blank">Consultar en SII Mapas</a></div>
+<div hidden="" id="v140-kmz"><label>Localizar terreno desde archivo</label><button onclick="document.getElementById('kmz-file').click()" type="button">Seleccionar KMZ / KML</button><small>El archivo se incorpora a Capas de planificación.</small></div>
+<label style="display:flex; align-items:center; gap:8px; margin-top:10px; padding:8px 10px; border:1px solid #334155; border-radius:9px; background:rgba(15,23,42,.72); cursor:pointer;">
+<input checked="" id="toggle-pin-origen" onchange="conmutarPinOrigen(this.checked)" style="width:16px;height:16px;" type="checkbox"/>
+<span>📍 Mostrar pin de ubicación del proyecto</span>
+</label>
+</div><div class="collapsible-header" onclick="toggleSection('sec-capas-kmz', 'arrow-kmz-capas')">
+<span>🗺️ Capas Planificación (.kml / .kmz)</span>
+<span id="arrow-kmz-capas">▲</span>
+</div><div class="collapsed collapsible-content" id="sec-capas-kmz">
+<input accept=".kml,.kmz" id="kmz-file" multiple="" onchange="procesarArchivosKMZMasivos(this)" style="margin-bottom: 10px;" type="file"/>
+<div style="display: flex; gap: 6px; margin-bottom: 10px;">
+<input id="kmz-search-input" oninput="filtrarListaKMZLocalmente(this.value)" placeholder="🔍 Buscar KMZ por nombre..." style="flex-grow: 1; padding: 6px 10px; font-size: 11.5px;" type="text"/>
+<button class="btn-danger-hud" onclick="eliminarAbsolutamenteTodosLosKMZ()" style="width: auto; margin-bottom: 0; padding: 6px 10px; font-size: 11px;">🗑️ Borrar Todos</button>
+</div>
+<div id="kmz-history-list"></div>
+</div><div class="collapsible-header" onclick="toggleSection('sec-bitacora', 'arrow-4-bit')">
+<span>📔 Bitácora de Ubicaciones y KMZ</span>
+<span id="arrow-4-bit">▲</span>
+</div><div class="collapsed collapsible-content" id="sec-bitacora">
+<div id="bitacora-lista-contenedor"></div>
+</div></div></details><details class="ib169-group" id="ib169-servicios"><summary>02 · Servicios y rutas peatonales</summary><div class="ib169-body"><button id="btn-trazado-manual" onclick="activarModoTrazadoManual()" style="background:#1e293b; color:#7dd3fc; border:1px solid #38bdf8; font-size:11px; padding:10px; font-weight:700; width:100%; margin-bottom:10px; border-radius:6px; cursor:pointer;">✏️ TRAZAR RUTA MANUAL A UN SERVICIO</button><div id="banner-trazado-manual" style="display:none; background:#0c4a6e; border:1px solid #38bdf8; color:#e0f2fe; font-size:11.5px; padding:10px; border-radius:6px; margin-bottom:12px; line-height:1.5;">
+<b>Modo trazado activo:</b> haz clic en el mapa siguiendo la calle real, punto por punto, desde tu dirección. Termina haciendo clic directo sobre el ícono del servicio correcto.
+            <div style="margin-top:8px; display:flex; gap:6px;">
+<button onclick="cancelarTrazadoManual()" style="flex:1; background:#dc2626; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;">Cancelar</button>
+<button onclick="deshacerUltimoPuntoTrazado()" style="flex:1; background:#334155; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;">Deshacer último punto</button>
+</div>
+</div><div class="collapsible-header" onclick="toggleSection('sec-iconos', 'arrow-3')">
+<span>3. Filtros Estratégicos Inteligentes</span>
+<span id="arrow-3">▲</span>
+</div><div class="collapsed collapsible-content" id="sec-iconos" style="padding: 8px;">
+<div style="display:flex; align-items:center; gap:6px; background:#1e2430; border-radius:6px; padding:6px 8px; margin-bottom:8px;">
+<label class="switch" style="flex-shrink:0;" title="Mostrar líneas de tránsito peatonal">
+<input checked="" id="toggle-rutas-visibles" onchange="conmutarVisibilidadLineasRuta(this.checked); persistirConfiguracionGlobalEnStorage();" type="checkbox"/>
+<span class="slider-switch"></span>
+</label>
+<select id="route-display-mode" onchange="aplicarModoVisualizacionTrazados(); persistirConfiguracionGlobalEnStorage();" style="max-width:116px; font-size:10px; padding:4px;" title="Qué trazados mostrar">
+<option value="todos">Recta + manual</option>
+<option value="recta">Solo línea recta</option>
+<option value="manual">Solo trazado manual</option>
+</select>
+<select id="route-line-style-select" onchange="redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();" style="flex-grow:1; font-size:10.5px; padding:4px;" title="Tipo de línea peatonal">
+<option value="continua">⎯⎯⎯ Sólida</option>
+<option value="segmentada">╌╌╌ Segmentada</option>
+<option value="punteada">┈┈┈┈ Punteada</option>
+<option value="guiones-largos">▬ ▬ ▬ Guiones</option>
+<option value="mixta">─ ∙ ─ Mixta</option>
+</select>
+<input id="route-line-weight-slider" max="10" min="1" oninput="document.getElementById('route-weight-display').innerText = this.value + 'px'; redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();" step="1" style="width:50px; flex-shrink:0;" title="Grosor de línea" type="range" value="4"/>
+<span id="route-weight-display" style="font-size:9.5px; flex-shrink:0; width:22px;">4px</span>
+</div>
+<div style="background: rgba(79,172,254,0.06); border:1px solid rgba(79,172,254,0.25); border-radius:8px; padding:8px; margin-bottom:10px;">
+<label style="color: #4facfe; margin-bottom: 8px; display:block; font-size:11px;">📁 GRUPOS DE BÚSQUEDA (por rubro/negocio)</label>
+<div id="lista-grupos-servicios"></div>
+<button onclick="mostrarFormularioCrearGrupo()" style="margin-top:6px; margin-bottom:0; background:#1e293b; border:1px solid #4facfe; font-size:11px; padding:6px;" type="button">➕ Crear grupo nuevo</button>
+<div id="form-crear-grupo" style="display:none; margin-top:8px;"></div>
+</div>
+<div class="mass-toggle-container" style="margin-bottom:8px;">
+<button class="btn-secondary" onclick="conmutarTodosLosServiciosCheckbox(false)" type="button">⬜ Desmarcar Todos</button>
+<button class="btn-success" onclick="conmutarTodosLosServiciosCheckbox(true)" type="button">☑️ Marcar Todos</button>
+</div>
+<button class="btn-secondary" onclick="abrirModalCategoriasServicios()" style="margin-top:0; width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;" type="button">
+<span>📋 Ver todas las categorías (<span id="contador-categorias">0</span>)</span>
+<span aria-hidden="true">↗</span>
+</button>
+<div aria-hidden="true" class="hud-modal-overlay" id="modal-categorias-servicios" onclick="if(event.target===this) cerrarModalCategoriasServicios();" style="display:none;">
+<section aria-labelledby="titulo-modal-categorias" aria-modal="true" class="hud-modal-card" role="dialog">
+<header class="hud-modal-header">
+<div>
+<strong id="titulo-modal-categorias">📋 Categorías de servicios</strong>
+<div class="hud-modal-subtitle">Activa, desactiva, reordena o personaliza cada categoría.</div>
+</div>
+<button aria-label="Cerrar" class="hud-modal-close" onclick="cerrarModalCategoriasServicios()" type="button">✕</button>
+</header>
+<div class="hud-modal-list" id="dynamic-services-container"></div>
+<footer class="hud-modal-footer">
+<span id="resumen-categorias-modal">Administra tus categorías de búsqueda</span>
+<button class="btn-secondary" onclick="cerrarModalCategoriasServicios()" style="width:auto; margin:0;" type="button">Listo</button>
+</footer>
+</section>
+</div>
+<div style="border-top: 1px solid #2e3545; padding-top: 10px; margin-top: 10px;">
+<label style="color: #4facfe; margin-bottom: 6px; display:block; font-size:11px;">➕ AGREGAR SERVICIO PERSONALIZADO</label>
+<div class="form-group">
+<input id="new-srv-name" placeholder="Ej: Farmacia, Bencinera, Colegio..." style="margin-bottom:6px;" type="text"/>
+<details style="margin-bottom:6px;">
+<summary style="cursor:pointer; font-size:10px; color:#94a3b8;">Avanzado: consulta propia (opcional)</summary>
+<input id="new-srv-query" placeholder='Ej: nwr["amenity"="fuel"]{{GEO}};' style="margin-top:6px;" type="text"/>
+</details>
+<div style="display:flex; gap: 6px;">
+<input id="new-srv-emoji" placeholder="🎫" style="width:22%;" type="text"/>
+<input id="new-srv-color" style="width:18%; height:36px; padding:0; border:1px solid #2a313d; border-radius:8px; background:none; cursor:pointer;" type="color" value="#f59e0b"/>
+<button onclick="registrarNuevoServicioHUD()" style="margin:0; flex-grow:1;">Agregar</button>
+</div>
+<div style="font-size:9.5px; color:#64748b; margin-top:4px;">Solo el nombre — reconoce automáticamente farmacias, bencineras, colegios, bancos, etc.</div>
+</div>
+</div>
+</div><div class="collapsible-header" onclick="toggleSection('sec-radio-captura', 'arrow-radio-captura')">
+<span>📏 Radios de Corte y Análisis</span>
+<span id="arrow-radio-captura">▲</span>
+</div><div class="collapsed collapsible-content" id="sec-radio-captura" style="padding:8px;">
+<div class="hud-analysis-row hud-radius-row">
+<label class="switch" style="flex-shrink:0;" title="Habilitar Radio Línea Recta">
+<input checked="" id="toggle-lineal-filter" onchange="conmutarFiltroLinealCirculo(this.checked); persistirConfiguracionGlobalEnStorage();" type="checkbox"/>
+<span class="slider-switch"></span>
+</label>
+<span style="font-size:14px; flex-shrink:0;" title="Radio en línea recta">📐</span>
+<input id="search-radius" max="3000" min="100" oninput="document.getElementById('radius-val-display').innerText = this.value + ' m'; cambiarRadioCapturaDesdeSlider(this.value); persistirConfiguracionGlobalEnStorage();" step="50" style="flex-grow:1;" type="range" value="1500"/>
+<span class="slider-value" id="radius-val-display" style="flex-shrink:0; font-size:10px;">1500 m</span>
+</div>
+<div class="hud-analysis-row hud-radius-row">
+<label class="switch" style="flex-shrink:0;" title="Habilitar Corte Real Walk">
+<input checked="" id="toggle-walk-filter" onchange="persistirConfiguracionGlobalEnStorage();" type="checkbox"/>
+<span class="slider-switch"></span>
+</label>
+<span style="font-size:14px; flex-shrink:0;" title="Corte real caminando por calles">🚶</span>
+<input id="walk-filter-radius" max="3000" min="100" oninput="document.getElementById('walk-radius-val-display').innerText = this.value + ' m'; persistirConfiguracionGlobalEnStorage();" step="50" style="flex-grow:1;" type="range" value="1200"/>
+<span class="slider-value" id="walk-radius-val-display" style="flex-shrink:0; font-size:10px; color:#38bdf8;">1200 m</span>
+</div>
+<div class="hud-analysis-row hud-icon-style-row">
+<span style="font-size:12px; flex-shrink:0;" title="Tamaño de íconos">🔎</span>
+<input id="global-icon-size-slider" max="64" min="16" oninput="document.getElementById('global-icon-size-display').innerText = this.value + 'px'; reescalarIconosSimultaneamente(this.value); persistirConfiguracionGlobalEnStorage();" step="2" style="flex-grow:1; min-width:30px;" title="Tamaño de íconos" type="range" value="30"/>
+<span id="global-icon-size-display" style="font-size:9.5px; flex-shrink:0; width:26px;">30px</span>
+<input id="capture-border-color" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();" style="width:20px; height:20px; padding:0; border:none; flex-shrink:0; cursor:pointer;" title="Color de contorno" type="color" value="#4facfe"/>
+<input id="capture-border-weight" max="10" min="1" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();" step="1" style="width:36px; flex-shrink:0;" title="Grosor de línea" type="range" value="2"/>
+<input id="capture-border-opacity" max="1" min="0.1" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();" step="0.1" style="width:36px; flex-shrink:0;" title="Opacidad de línea" type="range" value="1"/>
+</div>
+<div class="hud-analysis-row hud-label-row">
+<label class="switch" style="flex-shrink:0;" title="Mostrar nombre de cada servicio en el mapa">
+<input checked="" id="toggle-nombres-servicios" onchange="conmutarNombresIconosMapa(this.checked); persistirConfiguracionGlobalEnStorage();" type="checkbox"/>
+<span class="slider-switch"></span>
+</label>
+<span style="font-size:10.5px; color:#94a3b8;">🏷️ Mostrar nombres de servicios en el mapa</span>
+</div>
+</div></div></details><div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div><details class="ib169-group" id="ib169-movilidad"><summary>03 · Metro y vialidad PRMS</summary><div class="ib169-body"><div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
+<div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
+<div class="metro-selector-compacto">
+<div class="metro-selector-head"><span>Seleccionar por línea</span><span class="metro-leyenda"><b>T</b> trazado <b>E</b> estaciones</span></div>
+<div class="metro-selector-actions"><button onclick="seleccionarMetroRapido('todo')" type="button">Todas</button><button onclick="seleccionarMetroRapido('trazados')" type="button">Solo trazados</button><button onclick="seleccionarMetroRapido('estaciones')" type="button">Solo estaciones</button><button onclick="seleccionarMetroRapido('nada')" type="button">Limpiar</button></div>
+<div class="metro-linea-grid">
+<div class="metro-linea-titulos"><span>Línea</span><span>T</span><span>E</span></div>
+<div class="metro-linea-row"><span><i style="background:#e2231a"></i>Línea 1</span><input aria-label="Trazado Línea 1" id="metro-trazo-1" onchange="actualizarSeleccionMetro()" type="checkbox"/><input aria-label="Estaciones Línea 1" id="metro-est-1" onchange="actualizarSeleccionMetro()" type="checkbox"/></div>
+<div class="metro-linea-row"><span><i style="background:#f4d21f"></i>Línea 2</span><input aria-label="Trazado Línea 2" id="metro-trazo-2" onchange="actualizarSeleccionMetro()" type="checkbox"/><input aria-label="Estaciones Línea 2" id="metro-est-2" onchange="actualizarSeleccionMetro()" type="checkbox"/></div>
+<div class="metro-linea-row"><span><i style="background:#8b6f47"></i>Línea 3</span><input aria-label="Trazado Línea 3" id="metro-trazo-3" onchange="actualizarSeleccionMetro()" type="checkbox"/><input aria-label="Estaciones Línea 3" id="metro-est-3" onchange="actualizarSeleccionMetro()" type="checkbox"/></div>
+<div class="metro-linea-row"><span><i style="background:#0067a5"></i>Línea 4</span><input aria-label="Trazado Línea 4" id="metro-trazo-4" onchange="actualizarSeleccionMetro()" type="checkbox"/><input aria-label="Estaciones Línea 4" id="metro-est-4" onchange="actualizarSeleccionMetro()" type="checkbox"/></div>
+<div class="metro-linea-row"><span><i style="background:#f58220"></i>Línea 4A</span><input aria-label="Trazado Línea 4A" id="metro-trazo-4a" onchange="actualizarSeleccionMetro()" type="checkbox"/><input aria-label="Estaciones Línea 4A" id="metro-est-4a" onchange="actualizarSeleccionMetro()" type="checkbox"/></div>
+<div class="metro-linea-row"><span><i style="background:#008c45"></i>Línea 5</span><input aria-label="Trazado Línea 5" id="metro-trazo-5" onchange="actualizarSeleccionMetro()" type="checkbox"/><input aria-label="Estaciones Línea 5" id="metro-est-5" onchange="actualizarSeleccionMetro()" type="checkbox"/></div>
+<div class="metro-linea-row"><span><i style="background:#7b2d8e"></i>Línea 6</span><input aria-label="Trazado Línea 6" id="metro-trazo-6" onchange="actualizarSeleccionMetro()" type="checkbox"/><input aria-label="Estaciones Línea 6" id="metro-est-6" onchange="actualizarSeleccionMetro()" type="checkbox"/></div>
+</div>
+<div id="metro-selector-estado" role="status">Elige trazado y/o estaciones por separado.</div>
+</div>
+<div style="font-size:11px;font-weight:800;color:#e2e8f0;margin:9px 0 5px;">🚇 Infraestructura futura · trazados referenciales</div>
+<div class="metro-selector-compacto" id="metro-futuro-selector">
+<div class="metro-selector-head"><span>Seleccionar por línea futura</span><span class="metro-leyenda"><b>T</b> trazado <b>E</b> estaciones</span></div>
+<div class="metro-selector-actions"><button onclick="seleccionarMetroFuturoRapido('todo')" type="button">Todas</button><button onclick="seleccionarMetroFuturoRapido('trazados')" type="button">Solo trazados</button><button onclick="seleccionarMetroFuturoRapido('estaciones')" type="button">Solo estaciones</button><button onclick="seleccionarMetroFuturoRapido('nada')" type="button">Limpiar</button></div>
+<div class="metro-linea-grid">
+<div class="metro-linea-titulos"><span>Línea</span><span>T</span><span>E</span></div>
+<div class="metro-linea-row"><span><i style="background:#a855f7"></i>Línea 7</span><input aria-label="Trazado L7" id="metro-fut-trazo-7" onchange="actualizarSeleccionMetroFuturo()" type="checkbox"/><input aria-label="Estaciones L7" id="metro-fut-est-7" onchange="actualizarSeleccionMetroFuturo()" type="checkbox"/></div>
+<div class="metro-linea-row"><span><i style="background:#f97316"></i>Línea 8</span><input aria-label="Trazado L8" id="metro-fut-trazo-8" onchange="actualizarSeleccionMetroFuturo()" type="checkbox"/><input aria-label="Estaciones L8" id="metro-fut-est-8" onchange="actualizarSeleccionMetroFuturo()" type="checkbox"/></div>
+<div class="metro-linea-row"><span><i style="background:#ec4899"></i>Línea 9</span><input aria-label="Trazado L9" id="metro-fut-trazo-9" onchange="actualizarSeleccionMetroFuturo()" type="checkbox"/><input aria-label="Estaciones L9" id="metro-fut-est-9" onchange="actualizarSeleccionMetroFuturo()" type="checkbox"/></div>
+</div>
+<div id="metro-futuro-estado" role="status">Capas futuras listas para importar cartografía verificada. No se dibujan trazados sin coordenadas.</div>
+</div>
+<div style="padding:7px;border:1px solid #334155;border-radius:7px;margin-bottom:9px;font-size:10px;color:#cbd5e1;">
+<label for="metro-futuro-geojson">Importar cartografía futura verificada (.geojson / .json)</label>
+<input accept=".geojson,.json,application/geo+json,application/json" id="metro-futuro-geojson" onchange="importarMetroFuturoGeoJSON(this.files[0])" style="font-size:10px;" type="file"/>
+<small style="display:block;margin-top:4px;color:#94a3b8">GeoJSON con propiedades linea/ref/name que identifiquen L7, L8 o L9. Se guarda localmente para carga inmediata.</small>
+<a href="https://majermi4.github.io/santiago-metro-map/" rel="noopener noreferrer" style="display:block;margin-top:8px;color:#7dd3fc;font-weight:700" target="_blank">Consultar cartografía referencial de L7, L8 y L9 ↗</a>
+</div>
+<div style="margin:0 0 7px 0;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.7);">
+<label for="metro-grosor-lineas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;margin-bottom:5px;">Grosor de líneas actuales y futuras <strong id="metro-grosor-valor" style="color:#38bdf8;">6 px</strong></label>
+<input id="metro-grosor-lineas" max="14" min="2" oninput="actualizarGrosorLineasMetro(this.value)" step="1" style="width:100%;accent-color:#38bdf8;cursor:pointer;" type="range" value="6"/>
+<div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;"><span>Fino</span><span>Grueso</span></div>
+</div>
+<input id="toggle-todas-estaciones-metro-rm" onchange="conmutarTodasEstacionesMetroRM(this.checked)" style="display:none" type="checkbox"/>
+<div class="metro-radios-compacto">
+<label class="metro-radios-toggle" for="toggle-radios-metro"><input id="toggle-radios-metro" onchange="conmutarRadiosMetro(this.checked)" type="checkbox"/> <span>◉ Círculos de distancia desde cada estación</span></label>
+<div class="metro-radios-grid">
+<div class="metro-radio-control">
+<label for="radio-distancia-metro">Radio de cobertura <strong id="radio-distancia-metro-valor">400 m</strong></label>
+<input id="radio-distancia-metro" max="2000" min="200" oninput="actualizarRadioMetro(this.value)" step="200" type="range" value="400"/>
+<div class="metro-radio-scale"><span>200 m</span><span>2.000 m</span></div>
+</div>
+<div class="metro-radio-control">
+<label for="opacidad-relleno-radio-metro">Opacidad del relleno <strong id="opacidad-relleno-radio-metro-valor">9%</strong></label>
+<input id="opacidad-relleno-radio-metro" max="60" min="0" oninput="actualizarEstiloRadiosMetro()" step="1" type="range" value="9"/>
+<div class="metro-radio-scale"><span>0%</span><span>60%</span></div>
+</div>
+</div>
+<label class="metro-radio-color" for="color-borde-radio-metro"><span>Color del borde</span><input id="color-borde-radio-metro" oninput="actualizarEstiloRadiosMetro()" type="color" value="#38bdf8"/></label>
+<div class="metro-radio-help">Círculos medidos en metros alrededor de cada estación para identificar servicios y terrenos cercanos.</div>
+</div>
+<label style="display:flex;align-items:center;gap:7px;margin:5px 0 7px 22px;font-size:10px;color:#cbd5e1;cursor:pointer;"><input id="toggle-mostrar-demas-servicios-con-metro" onchange="sincronizarVisibilidadServiciosConMetro()" style="width:14px;height:14px;" type="checkbox"/> Mostrar también los demás servicios</label>
+<div class="metro-selector-actions" style="margin:6px 0 7px;grid-template-columns:repeat(4,minmax(0,1fr))">
+<button onclick="seleccionarViasRapido('todas')">Todas</button>
+<button onclick="seleccionarViasRapido('ejes')">Solo ejes</button>
+<button onclick="seleccionarViasRapido('franjas')">Solo franjas</button>
+<button onclick="seleccionarViasRapido('limpiar')">Limpiar</button><button onclick="actualizarCartografiaVial()" style="grid-column:1/-1;background:#1e3a5f;color:#bae6fd;border:1px solid #38bdf8" title="Reintentar carga de la red PRMS completa" type="button">↻ Actualizar vías en esta zona</button>
+</div>
+<div style="font-size:9px;color:#93c5fd;margin:2px 0 5px">Troncales: 100 m/lado · Expresas: 200 m/lado · Actualiza al cambiar de zona</div>
+<div id="estado-vial" style="font-size:11px;color:#bae6fd;white-space:pre-line;margin:5px 0"></div><div class="vias-compact-grid">
+<section class="via-compact-card via-troncal">
+<label class="via-toggle" for="toggle-vias-troncales"><input id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)" type="checkbox"/><span class="via-color-line">━</span><span>Vías troncales · azul/violeta</span></label>
+<label class="via-slider-label" for="grosor-troncales"><span>Grosor línea</span><strong id="grosor-troncales-valor">5 px</strong></label>
+<input id="grosor-troncales" max="14" min="1" oninput="actualizarEstiloVias('troncal',this.value)" step="1" type="range" value="5"/>
+</section>
+<section class="via-compact-card via-buffer-troncal">
+<label class="via-toggle" for="toggle-buffer-troncales"><input id="toggle-buffer-troncales" onchange="conmutarCapaInfraestructura('bufferTroncal',this.checked)" type="checkbox"/><span class="via-color-line">━━</span><span>Buffer troncal</span></label>
+<label class="via-slider-label" for="ancho-buffer-troncales"><span>Ancho total</span><strong id="ancho-buffer-troncales-valor">200 m</strong></label>
+<input id="ancho-buffer-troncales" max="2000" min="50" oninput="actualizarAnchoBuffer('bufferTroncal',this.value)" step="50" type="range" value="200"/>
+<small>100 m por lado</small>
+</section>
+<section class="via-compact-card via-expresa">
+<label class="via-toggle" for="toggle-vias-expresas"><input id="toggle-vias-expresas" onchange="conmutarCapaInfraestructura('expresa',this.checked)" type="checkbox"/><span class="via-color-line">━</span><span>Calles expresas / autopistas</span></label>
+<label class="via-slider-label" for="grosor-expresas"><span>Grosor línea</span><strong id="grosor-expresas-valor">5 px</strong></label>
+<input id="grosor-expresas" max="14" min="1" oninput="actualizarEstiloVias('expresa',this.value)" step="1" type="range" value="5"/>
+</section>
+<section class="via-compact-card via-buffer-expresa">
+<label class="via-toggle" for="toggle-buffer-expresas"><input id="toggle-buffer-expresas" onchange="conmutarCapaInfraestructura('bufferExpresa',this.checked)" type="checkbox"/><span class="via-color-line">━━</span><span>Buffer expreso</span></label>
+<label class="via-slider-label" for="ancho-buffer-expresas"><span>Ancho total</span><strong id="ancho-buffer-expresas-valor">400 m</strong></label>
+<input id="ancho-buffer-expresas" max="3000" min="50" oninput="actualizarAnchoBuffer('bufferExpresa',this.value)" step="50" type="range" value="400"/>
+<small>200 m por lado</small>
+</section>
+</div>
+<div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Clasificación referencial OSM/GIS (no validada por PRMS): troncales primary/secondary y expresas motorway/trunk, sin superposición de categorías. No equivale a la clasificación oficial PRMS. Franjas geográficas calculadas en metros desde los ejes disponibles; clasificación referencial, no certificación PRMS.</div>
+</div></div></details><details class="ib169-group" id="ib169-normativa"><summary>04 · Catastro y normativa urbana</summary><div class="ib169-body"><div class="collapsible-header" onclick="toggleSection('sec-catastro','arrow-catastro')"><span>📐 Catastro predial SII</span><span id="arrow-catastro">▲</span></div><div class="collapsed collapsible-content" id="sec-catastro" style="padding:8px;color:#cbd5e1">
+<label style="display:block"><input id="cat-on" type="checkbox"/> Mostrar límites prediales</label>
+<label style="display:block"><input id="cat-roles" type="checkbox"/> Mostrar roles disponibles</label>
+<label style="display:block"><input checked="" id="cat-info" type="checkbox"/> Consultar ficha al pinchar predio</label>
+<div id="cat-status" role="status" style="font-size:11px;margin:8px 0">Capa desactivada.</div>
+<small>Acércate al mapa para ver los predios. Cartografía referencial. <a href="https://www4.sii.cl/mapasui/internet/" rel="noopener" target="_blank">Consultar ficha en SII Mapas</a>.</small>
+</div><div class="collapsible-header" onclick="toggleSection('sec-prc131','arrow-prc131')"><span>🗺 Normativa urbanística PRC</span><span id="arrow-prc131">▲</span></div><div class="collapsed collapsible-content" id="sec-prc131" style="padding:8px;color:#cbd5e1">
+<label style="display:block"><input id="prc131-on" type="checkbox"/> Mostrar zonas PRC — RM</label>
+<label style="display:block"><input checked="" id="prc131-info" type="checkbox"/> Consultar zona al pinchar mapa</label>
+<label>Opacidad <span id="prc131-pct">45%</span><input id="prc131-opacity" max="100" min="0" style="width:100%" type="range" value="45"/></label>
 <div id="prc131-status" role="status" style="font-size:11px;margin:8px 0">Capa desactivada.</div><div id="prc131-result" style="font-size:12px;overflow-wrap:anywhere"></div>
-<small>Cartografía referencial SMA/MINVU (catálogo 2024). Verificar vigencia y normas en <a href="https://instrumentosdeplanificacion.minvu.cl/" target="_blank" rel="noopener">Portal IPT oficial</a> y CIP municipal. Sin cobertura no implica ausencia de norma.</small></div>
-        <div class="collapsible-header" onclick="toggleSection('sec-iconos', 'arrow-3')">
-            <span>3. Filtros Estratégicos Inteligentes</span>
-            <span id="arrow-3">▼</span>
-        </div>
-        <div id="sec-iconos" class="collapsible-content" style="padding: 8px;">
-            <div style="display:flex; align-items:center; gap:6px; background:#1e2430; border-radius:6px; padding:6px 8px; margin-bottom:8px;">
-                <label class="switch" style="flex-shrink:0;" title="Mostrar líneas de tránsito peatonal">
-                    <input type="checkbox" id="toggle-rutas-visibles" checked onchange="conmutarVisibilidadLineasRuta(this.checked); persistirConfiguracionGlobalEnStorage();">
-                    <span class="slider-switch"></span>
-                </label>
-                <select id="route-display-mode" title="Qué trazados mostrar" style="max-width:116px; font-size:10px; padding:4px;" onchange="aplicarModoVisualizacionTrazados(); persistirConfiguracionGlobalEnStorage();">
-                    <option value="todos">Recta + manual</option>
-                    <option value="recta">Solo línea recta</option>
-                    <option value="manual">Solo trazado manual</option>
-                </select>
-                <select id="route-line-style-select" title="Tipo de línea peatonal" style="flex-grow:1; font-size:10.5px; padding:4px;" onchange="redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();">
-                    <option value="continua">⎯⎯⎯ Sólida</option>
-                    <option value="segmentada">╌╌╌ Segmentada</option>
-                    <option value="punteada">┈┈┈┈ Punteada</option>
-                    <option value="guiones-largos">▬ ▬ ▬ Guiones</option>
-                    <option value="mixta">─ ∙ ─ Mixta</option>
-                </select>
-                <input type="range" id="route-line-weight-slider" min="1" max="10" step="1" value="4" style="width:50px; flex-shrink:0;" title="Grosor de línea" oninput="document.getElementById('route-weight-display').innerText = this.value + 'px'; redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();">
-                <span id="route-weight-display" style="font-size:9.5px; flex-shrink:0; width:22px;">4px</span>
-            </div>
-
-            <div style="background: rgba(79,172,254,0.06); border:1px solid rgba(79,172,254,0.25); border-radius:8px; padding:8px; margin-bottom:10px;">
-                <label style="color: #4facfe; margin-bottom: 8px; display:block; font-size:11px;">📁 GRUPOS DE BÚSQUEDA (por rubro/negocio)</label>
-                <div id="lista-grupos-servicios"></div>
-                <button type="button" onclick="mostrarFormularioCrearGrupo()" style="margin-top:6px; margin-bottom:0; background:#1e293b; border:1px solid #4facfe; font-size:11px; padding:6px;">➕ Crear grupo nuevo</button>
-                <div id="form-crear-grupo" style="display:none; margin-top:8px;"></div>
-            </div>
-
-            <div class="mass-toggle-container" style="margin-bottom:8px;">
-                <button type="button" class="btn-secondary" onclick="conmutarTodosLosServiciosCheckbox(false)">⬜ Desmarcar Todos</button>
-                <button type="button" class="btn-success" onclick="conmutarTodosLosServiciosCheckbox(true)">☑️ Marcar Todos</button>
-            </div>
-
-            <button type="button" class="btn-secondary" style="margin-top:0; width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;" onclick="abrirModalCategoriasServicios()">
-                <span>📋 Ver todas las categorías (<span id="contador-categorias">0</span>)</span>
-                <span aria-hidden="true">↗</span>
-            </button>
-            <div id="modal-categorias-servicios" class="hud-modal-overlay" style="display:none;" onclick="if(event.target===this) cerrarModalCategoriasServicios();" aria-hidden="true">
-                <section class="hud-modal-card" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-categorias">
-                    <header class="hud-modal-header">
-                        <div>
-                            <strong id="titulo-modal-categorias">📋 Categorías de servicios</strong>
-                            <div class="hud-modal-subtitle">Activa, desactiva, reordena o personaliza cada categoría.</div>
-                        </div>
-                        <button type="button" class="hud-modal-close" onclick="cerrarModalCategoriasServicios()" aria-label="Cerrar">✕</button>
-                    </header>
-                    <div id="dynamic-services-container" class="hud-modal-list"></div>
-                    <footer class="hud-modal-footer">
-                        <span id="resumen-categorias-modal">Administra tus categorías de búsqueda</span>
-                        <button type="button" class="btn-secondary" style="width:auto; margin:0;" onclick="cerrarModalCategoriasServicios()">Listo</button>
-                    </footer>
-                </section>
-            </div>
-            
-            <div style="border-top: 1px solid #2e3545; padding-top: 10px; margin-top: 10px;">
-                <label style="color: #4facfe; margin-bottom: 6px; display:block; font-size:11px;">➕ AGREGAR SERVICIO PERSONALIZADO</label>
-                <div class="form-group">
-                    <input type="text" id="new-srv-name" placeholder="Ej: Farmacia, Bencinera, Colegio..." style="margin-bottom:6px;">
-                    <details style="margin-bottom:6px;">
-                        <summary style="cursor:pointer; font-size:10px; color:#94a3b8;">Avanzado: consulta propia (opcional)</summary>
-                        <input type="text" id="new-srv-query" placeholder='Ej: nwr["amenity"="fuel"]{{GEO}};' style="margin-top:6px;">
-                    </details>
-                    <div style="display:flex; gap: 6px;">
-                        <input type="text" id="new-srv-emoji" placeholder="🎫" style="width:22%;">
-                        <input type="color" id="new-srv-color" value="#f59e0b" style="width:18%; height:36px; padding:0; border:1px solid #2a313d; border-radius:8px; background:none; cursor:pointer;">
-                        <button onclick="registrarNuevoServicioHUD()" style="margin:0; flex-grow:1;">Agregar</button>
-                    </div>
-                    <div style="font-size:9.5px; color:#64748b; margin-top:4px;">Solo el nombre — reconoce automáticamente farmacias, bencineras, colegios, bancos, etc.</div>
-                </div>
-            </div>
-        </div>
-
-
-
-        <div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
-            <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
-            <div class="metro-selector-compacto">
-                <div class="metro-selector-head"><span>Seleccionar por línea</span><span class="metro-leyenda"><b>T</b> trazado <b>E</b> estaciones</span></div>
-                <div class="metro-selector-actions"><button type="button" onclick="seleccionarMetroRapido('todo')">Todas</button><button type="button" onclick="seleccionarMetroRapido('trazados')">Solo trazados</button><button type="button" onclick="seleccionarMetroRapido('estaciones')">Solo estaciones</button><button type="button" onclick="seleccionarMetroRapido('nada')">Limpiar</button></div>
-                <div class="metro-linea-grid">
-                    <div class="metro-linea-titulos"><span>Línea</span><span>T</span><span>E</span></div>
-                    <div class="metro-linea-row"><span><i style="background:#e2231a"></i>Línea 1</span><input aria-label="Trazado Línea 1" type="checkbox" id="metro-trazo-1" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 1" type="checkbox" id="metro-est-1" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#f4d21f"></i>Línea 2</span><input aria-label="Trazado Línea 2" type="checkbox" id="metro-trazo-2" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 2" type="checkbox" id="metro-est-2" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#8b6f47"></i>Línea 3</span><input aria-label="Trazado Línea 3" type="checkbox" id="metro-trazo-3" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 3" type="checkbox" id="metro-est-3" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#0067a5"></i>Línea 4</span><input aria-label="Trazado Línea 4" type="checkbox" id="metro-trazo-4" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 4" type="checkbox" id="metro-est-4" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#f58220"></i>Línea 4A</span><input aria-label="Trazado Línea 4A" type="checkbox" id="metro-trazo-4a" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 4A" type="checkbox" id="metro-est-4a" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#008c45"></i>Línea 5</span><input aria-label="Trazado Línea 5" type="checkbox" id="metro-trazo-5" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 5" type="checkbox" id="metro-est-5" onchange="actualizarSeleccionMetro()"></div>
-                    <div class="metro-linea-row"><span><i style="background:#7b2d8e"></i>Línea 6</span><input aria-label="Trazado Línea 6" type="checkbox" id="metro-trazo-6" onchange="actualizarSeleccionMetro()"><input aria-label="Estaciones Línea 6" type="checkbox" id="metro-est-6" onchange="actualizarSeleccionMetro()"></div>
-                </div>
-                <div id="metro-selector-estado" role="status">Elige trazado y/o estaciones por separado.</div>
-            </div>
-            <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin:9px 0 5px;">🚇 Infraestructura futura · trazados referenciales</div>
-            <div class="metro-selector-compacto" id="metro-futuro-selector">
-              <div class="metro-selector-head"><span>Seleccionar por línea futura</span><span class="metro-leyenda"><b>T</b> trazado <b>E</b> estaciones</span></div>
-              <div class="metro-selector-actions"><button type="button" onclick="seleccionarMetroFuturoRapido('todo')">Todas</button><button type="button" onclick="seleccionarMetroFuturoRapido('trazados')">Solo trazados</button><button type="button" onclick="seleccionarMetroFuturoRapido('estaciones')">Solo estaciones</button><button type="button" onclick="seleccionarMetroFuturoRapido('nada')">Limpiar</button></div>
-              <div class="metro-linea-grid">
-                <div class="metro-linea-titulos"><span>Línea</span><span>T</span><span>E</span></div>
-                <div class="metro-linea-row"><span><i style="background:#a855f7"></i>Línea 7</span><input id="metro-fut-trazo-7" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Trazado L7"><input id="metro-fut-est-7" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Estaciones L7"></div>
-                <div class="metro-linea-row"><span><i style="background:#f97316"></i>Línea 8</span><input id="metro-fut-trazo-8" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Trazado L8"><input id="metro-fut-est-8" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Estaciones L8"></div>
-                <div class="metro-linea-row"><span><i style="background:#ec4899"></i>Línea 9</span><input id="metro-fut-trazo-9" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Trazado L9"><input id="metro-fut-est-9" type="checkbox" onchange="actualizarSeleccionMetroFuturo()" aria-label="Estaciones L9"></div>
-              </div>
-              <div id="metro-futuro-estado" role="status">Capas futuras listas para importar cartografía verificada. No se dibujan trazados sin coordenadas.</div>
-            </div>
-            <div style="padding:7px;border:1px solid #334155;border-radius:7px;margin-bottom:9px;font-size:10px;color:#cbd5e1;">
-              <label for="metro-futuro-geojson">Importar cartografía futura verificada (.geojson / .json)</label>
-              <input type="file" id="metro-futuro-geojson" accept=".geojson,.json,application/geo+json,application/json" onchange="importarMetroFuturoGeoJSON(this.files[0])" style="font-size:10px;">
-              <small style="display:block;margin-top:4px;color:#94a3b8">GeoJSON con propiedades linea/ref/name que identifiquen L7, L8 o L9. Se guarda localmente para carga inmediata.</small>
-              <a href="https://majermi4.github.io/santiago-metro-map/" target="_blank" rel="noopener noreferrer" style="display:block;margin-top:8px;color:#7dd3fc;font-weight:700">Consultar cartografía referencial de L7, L8 y L9 ↗</a>
-            </div>
-            <div style="margin:0 0 7px 0;padding:6px 8px;border:1px solid #334155;border-radius:6px;background:rgba(15,23,42,.7);">
-                <label for="metro-grosor-lineas" style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#cbd5e1;margin-bottom:5px;">Grosor de líneas actuales y futuras <strong id="metro-grosor-valor" style="color:#38bdf8;">6 px</strong></label>
-                <input type="range" id="metro-grosor-lineas" min="2" max="14" step="1" value="6" oninput="actualizarGrosorLineasMetro(this.value)" style="width:100%;accent-color:#38bdf8;cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;"><span>Fino</span><span>Grueso</span></div>
-            </div>
-            <input type="checkbox" id="toggle-todas-estaciones-metro-rm" onchange="conmutarTodasEstacionesMetroRM(this.checked)" style="display:none">
-            <div class="metro-radios-compacto">
-                <label class="metro-radios-toggle" for="toggle-radios-metro"><input type="checkbox" id="toggle-radios-metro" onchange="conmutarRadiosMetro(this.checked)"> <span>◉ Círculos de distancia desde cada estación</span></label>
-                <div class="metro-radios-grid">
-                    <div class="metro-radio-control">
-                        <label for="radio-distancia-metro">Radio de cobertura <strong id="radio-distancia-metro-valor">400 m</strong></label>
-                        <input id="radio-distancia-metro" type="range" min="200" max="2000" step="200" value="400" oninput="actualizarRadioMetro(this.value)">
-                        <div class="metro-radio-scale"><span>200 m</span><span>2.000 m</span></div>
-                    </div>
-                    <div class="metro-radio-control">
-                        <label for="opacidad-relleno-radio-metro">Opacidad del relleno <strong id="opacidad-relleno-radio-metro-valor">9%</strong></label>
-                        <input id="opacidad-relleno-radio-metro" type="range" min="0" max="60" step="1" value="9" oninput="actualizarEstiloRadiosMetro()">
-                        <div class="metro-radio-scale"><span>0%</span><span>60%</span></div>
-                    </div>
-                </div>
-                <label class="metro-radio-color" for="color-borde-radio-metro"><span>Color del borde</span><input id="color-borde-radio-metro" type="color" value="#38bdf8" oninput="actualizarEstiloRadiosMetro()"></label>
-                <div class="metro-radio-help">Círculos medidos en metros alrededor de cada estación para identificar servicios y terrenos cercanos.</div>
-            </div>
-            <label style="display:flex;align-items:center;gap:7px;margin:5px 0 7px 22px;font-size:10px;color:#cbd5e1;cursor:pointer;"><input type="checkbox" id="toggle-mostrar-demas-servicios-con-metro" onchange="sincronizarVisibilidadServiciosConMetro()" style="width:14px;height:14px;"> Mostrar también los demás servicios</label>
-            <div class="metro-selector-actions" style="margin:6px 0 7px;grid-template-columns:repeat(4,minmax(0,1fr))">
-                <button onclick="seleccionarViasRapido('todas')">Todas</button>
-                <button onclick="seleccionarViasRapido('ejes')">Solo ejes</button>
-                <button onclick="seleccionarViasRapido('franjas')">Solo franjas</button>
-                <button onclick="seleccionarViasRapido('limpiar')">Limpiar</button><button type="button" onclick="actualizarCartografiaVial()" title="Reintentar carga de la red PRMS completa" style="grid-column:1/-1;background:#1e3a5f;color:#bae6fd;border:1px solid #38bdf8">↻ Actualizar vías en esta zona</button>
-            </div>
-            <div style="font-size:9px;color:#93c5fd;margin:2px 0 5px">Troncales: 100 m/lado · Expresas: 200 m/lado · Actualiza al cambiar de zona</div>
-            <div id="estado-vial" style="font-size:11px;color:#bae6fd;white-space:pre-line;margin:5px 0"></div><div class="vias-compact-grid">
-                <section class="via-compact-card via-troncal">
-                    <label class="via-toggle" for="toggle-vias-troncales"><input type="checkbox" id="toggle-vias-troncales" onchange="conmutarCapaInfraestructura('troncal',this.checked)"><span class="via-color-line">━</span><span>Vías troncales · azul/violeta</span></label>
-                    <label class="via-slider-label" for="grosor-troncales"><span>Grosor línea</span><strong id="grosor-troncales-valor">5 px</strong></label>
-                    <input type="range" id="grosor-troncales" min="1" max="14" step="1" value="5" oninput="actualizarEstiloVias('troncal',this.value)">
-                </section>
-                <section class="via-compact-card via-buffer-troncal">
-                    <label class="via-toggle" for="toggle-buffer-troncales"><input type="checkbox" id="toggle-buffer-troncales" onchange="conmutarCapaInfraestructura('bufferTroncal',this.checked)"><span class="via-color-line">━━</span><span>Buffer troncal</span></label>
-                    <label class="via-slider-label" for="ancho-buffer-troncales"><span>Ancho total</span><strong id="ancho-buffer-troncales-valor">200 m</strong></label>
-                    <input type="range" id="ancho-buffer-troncales" min="50" max="2000" step="50" value="200" oninput="actualizarAnchoBuffer('bufferTroncal',this.value)">
-                    <small>100 m por lado</small>
-                </section>
-                <section class="via-compact-card via-expresa">
-                    <label class="via-toggle" for="toggle-vias-expresas"><input type="checkbox" id="toggle-vias-expresas" onchange="conmutarCapaInfraestructura('expresa',this.checked)"><span class="via-color-line">━</span><span>Calles expresas / autopistas</span></label>
-                    <label class="via-slider-label" for="grosor-expresas"><span>Grosor línea</span><strong id="grosor-expresas-valor">5 px</strong></label>
-                    <input type="range" id="grosor-expresas" min="1" max="14" step="1" value="5" oninput="actualizarEstiloVias('expresa',this.value)">
-                </section>
-                <section class="via-compact-card via-buffer-expresa">
-                    <label class="via-toggle" for="toggle-buffer-expresas"><input type="checkbox" id="toggle-buffer-expresas" onchange="conmutarCapaInfraestructura('bufferExpresa',this.checked)"><span class="via-color-line">━━</span><span>Buffer expreso</span></label>
-                    <label class="via-slider-label" for="ancho-buffer-expresas"><span>Ancho total</span><strong id="ancho-buffer-expresas-valor">400 m</strong></label>
-                    <input type="range" id="ancho-buffer-expresas" min="50" max="3000" step="50" value="400" oninput="actualizarAnchoBuffer('bufferExpresa',this.value)">
-                    <small>200 m por lado</small>
-                </section>
-            </div>
-            <div style="font-size:9px;color:#94a3b8;line-height:1.4;margin-top:7px;">Clasificación referencial OSM/GIS (no validada por PRMS): troncales primary/secondary y expresas motorway/trunk, sin superposición de categorías. No equivale a la clasificación oficial PRMS. Franjas geográficas calculadas en metros desde los ejes disponibles; clasificación referencial, no certificación PRMS.</div>
-        </div>
-        <div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div>
-
-        <div class="collapsible-header" onclick="toggleSection('sec-radio-captura', 'arrow-radio-captura')">
-            <span>📏 Radios de Corte y Análisis</span>
-            <span id="arrow-radio-captura">▼</span>
-        </div>
-        <div id="sec-radio-captura" class="collapsible-content" style="padding:8px;">
-            <div class="hud-analysis-row hud-radius-row">
-                <label class="switch" style="flex-shrink:0;" title="Habilitar Radio Línea Recta">
-                    <input type="checkbox" id="toggle-lineal-filter" checked onchange="conmutarFiltroLinealCirculo(this.checked); persistirConfiguracionGlobalEnStorage();">
-                    <span class="slider-switch"></span>
-                </label>
-                <span style="font-size:14px; flex-shrink:0;" title="Radio en línea recta">📐</span>
-                <input type="range" id="search-radius" min="100" max="3000" step="50" value="1500" style="flex-grow:1;" oninput="document.getElementById('radius-val-display').innerText = this.value + ' m'; cambiarRadioCapturaDesdeSlider(this.value); persistirConfiguracionGlobalEnStorage();">
-                <span id="radius-val-display" class="slider-value" style="flex-shrink:0; font-size:10px;">1500 m</span>
-            </div>
-
-            <div class="hud-analysis-row hud-radius-row">
-                <label class="switch" style="flex-shrink:0;" title="Habilitar Corte Real Walk">
-                    <input type="checkbox" id="toggle-walk-filter" checked onchange="persistirConfiguracionGlobalEnStorage();">
-                    <span class="slider-switch"></span>
-                </label>
-                <span style="font-size:14px; flex-shrink:0;" title="Corte real caminando por calles">🚶</span>
-                <input type="range" id="walk-filter-radius" min="100" max="3000" step="50" value="1200" style="flex-grow:1;" oninput="document.getElementById('walk-radius-val-display').innerText = this.value + ' m'; persistirConfiguracionGlobalEnStorage();">
-                <span id="walk-radius-val-display" class="slider-value" style="flex-shrink:0; font-size:10px; color:#38bdf8;">1200 m</span>
-            </div>
-
-            <div class="hud-analysis-row hud-icon-style-row">
-                <span style="font-size:12px; flex-shrink:0;" title="Tamaño de íconos">🔎</span>
-                <input type="range" id="global-icon-size-slider" min="16" max="64" step="2" value="30" style="flex-grow:1; min-width:30px;" title="Tamaño de íconos" oninput="document.getElementById('global-icon-size-display').innerText = this.value + 'px'; reescalarIconosSimultaneamente(this.value); persistirConfiguracionGlobalEnStorage();">
-                <span id="global-icon-size-display" style="font-size:9.5px; flex-shrink:0; width:26px;">30px</span>
-                <input type="color" id="capture-border-color" value="#4facfe" style="width:20px; height:20px; padding:0; border:none; flex-shrink:0; cursor:pointer;" title="Color de contorno" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
-                <input type="range" id="capture-border-weight" min="1" max="10" step="1" value="2" style="width:36px; flex-shrink:0;" title="Grosor de línea" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
-                <input type="range" id="capture-border-opacity" min="0.1" max="1" step="0.1" value="1" style="width:36px; flex-shrink:0;" title="Opacidad de línea" oninput="actualizarEstiloRadioCaptura(); persistirConfiguracionGlobalEnStorage();">
-            </div>
-
-            <div class="hud-analysis-row hud-label-row">
-                <label class="switch" style="flex-shrink:0;" title="Mostrar nombre de cada servicio en el mapa">
-                    <input type="checkbox" id="toggle-nombres-servicios" checked onchange="conmutarNombresIconosMapa(this.checked); persistirConfiguracionGlobalEnStorage();">
-                    <span class="slider-switch"></span>
-                </label>
-                <span style="font-size:10.5px; color:#94a3b8;">🏷️ Mostrar nombres de servicios en el mapa</span>
-            </div>
-        </div>
-
-        <div class="collapsible-header" onclick="toggleSection('sec-circulo', 'arrow-2')">
-            <span>2. Área Visual de Influencia</span>
-            <span id="arrow-2">▼</span>
-        </div>
-        <div id="sec-circulo" class="collapsible-content" style="padding:8px;">
-            <div class="hud-analysis-row" style="gap:7px; margin-top:5px;">
-                <label class="switch" style="flex-shrink:0;" title="Mostrar u ocultar contornos de parques y plazas">
-                    <input type="checkbox" id="toggle-poligonos-parques" checked onchange="conmutarVisibilidadPoligonosParques(this.checked); persistirConfiguracionGlobalEnStorage();">
-                    <span class="slider-switch"></span>
-                </label>
-                <span style="font-size:10.5px; color:#94a3b8;">🌳 Mostrar / ocultar áreas de parques y plazas</span>
-            </div>
-            <div class="hud-analysis-row hud-influence-radius-row">
-                <label class="switch" style="flex-shrink:0;" title="Mostrar Área Visual">
-                    <input type="checkbox" id="circle-toggle-visibility" checked onchange="conmutarVisibilidadAreaVisual(this.checked); persistirConfiguracionGlobalEnStorage();">
-                    <span class="slider-switch"></span>
-                </label>
-                <input type="range" id="circle-size-slider" min="50" max="2000" step="25" value="250" style="flex-grow:1;" title="Tamaño (radio en metros)" oninput="document.getElementById('circle-size-display').innerText = this.value + ' m'; refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
-                <span id="circle-size-display" class="slider-value" style="flex-shrink:0; font-size:10px;">250 m</span>
-            </div>
-            <div class="hud-analysis-row hud-influence-style-row">
-                <input type="color" id="circle-color-picker" value="#2563eb" style="width:20px; height:20px; padding:0; border:none; flex-shrink:0; cursor:pointer;" title="Color de fondo/borde" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
-                <input type="range" id="circle-weight-slider" min="0" max="8" step="1" value="1" style="flex-grow:1;" title="Grosor de borde" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
-                <input type="range" id="circle-opacity-slider" min="0" max="1" step="0.05" value="0.15" style="flex-grow:1;" title="Opacidad de fondo" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();">
-            </div>
-        </div>
-
-
-        <div class="collapsible-header" onclick="toggleSection('sec-bitacora', 'arrow-4-bit')">
-            <span>📔 Bitácora de Ubicaciones y KMZ</span>
-            <span id="arrow-4-bit">▼</span>
-        </div>
-        <div id="sec-bitacora" class="collapsible-content">
-            <div id="bitacora-lista-contenedor"></div>
-        </div>
-    </div>
-
+<small>Cartografía referencial SMA/MINVU (catálogo 2024). Verificar vigencia y normas en <a href="https://instrumentosdeplanificacion.minvu.cl/" rel="noopener" target="_blank">Portal IPT oficial</a> y CIP municipal. Sin cobertura no implica ausencia de norma.</small></div><div class="collapsible-header" onclick="toggleSection('sec-patrimonio','arrow-patrimonio')"><span>🏛️ Patrimonio y Conservación Histórica</span><span id="arrow-patrimonio">▲</span></div><div class="collapsed collapsible-content" id="sec-patrimonio" style="padding:8px">
+<label style="display:block;color:#cbd5e1"><input id="pat-mh" type="checkbox"/> Monumentos históricos</label>
+<label style="display:block;color:#cbd5e1"><input id="pat-zt" type="checkbox"/> Zonas típicas</label>
+<label style="display:block;color:#cbd5e1"><input id="pat-zch" type="checkbox"/> Zonas de conservación histórica</label>
+<label style="display:block;color:#cbd5e1"><input id="pat-ich" type="checkbox"/> Inmuebles de conservación histórica</label>
+<div id="pat-status" role="status" style="font-size:11px;margin:8px 0;white-space:pre-line">Capas desactivadas.</div><small>Fuentes: IDE MINVU (ICH/ZCH) y SMA/CMN (MH/ZT). Ausencia de registros no descarta protección. <a href="https://www.patrimoniourbano.gob.cl/inmuebles-y-zonas-patrimoniales/" rel="noopener" target="_blank">Consultar ICH y PRC</a>.</small></div></div></details><details class="ib169-group" id="ib169-sanitaria"><summary>05 · Factibilidad sanitaria</summary><div class="ib169-body"><div class="collapsible-header" onclick="toggleSection('sec-sanitaria','arrow-sanitaria')"><span>💧 Factibilidad sanitaria — Agua potable</span><span id="arrow-sanitaria">▲</span></div><div class="collapsed collapsible-content" id="sec-sanitaria" style="padding:8px">
+<label><input id="san-toggle" type="checkbox"/> Mostrar territorios operacionales SISS 2026</label>
+<div style="font-size:11px;margin-top:6px"><span style="color:#86efac">■ Verde: cobertura registrada</span> · Sin relleno: fuera de cobertura cartografiada (si la carga es completa).</div>
+<div id="san-status" role="status" style="font-size:11px;margin:8px 0">Capa desactivada.</div>
+<button id="san-check" type="button">Consultar cobertura del punto de origen</button>
+<small>Información referencial; no sustituye certificado de factibilidad. <a href="https://www.siss.gob.cl/589/w3-propertyvalue-8969.html" rel="noopener" target="_blank">Fuente SISS</a></small>
+</div></div></details><details class="ib169-group" id="ib169-visual"><summary>06 · Área de influencia y visualización</summary><div class="ib169-body"><div class="collapsible-header" onclick="toggleSection('sec-circulo', 'arrow-2')">
+<span>2. Área Visual de Influencia</span>
+<span id="arrow-2">▲</span>
+</div><div class="collapsed collapsible-content" id="sec-circulo" style="padding:8px;">
+<div class="hud-analysis-row" style="gap:7px; margin-top:5px;">
+<label class="switch" style="flex-shrink:0;" title="Mostrar u ocultar contornos de parques y plazas">
+<input checked="" id="toggle-poligonos-parques" onchange="conmutarVisibilidadPoligonosParques(this.checked); persistirConfiguracionGlobalEnStorage();" type="checkbox"/>
+<span class="slider-switch"></span>
+</label>
+<span style="font-size:10.5px; color:#94a3b8;">🌳 Mostrar / ocultar áreas de parques y plazas</span>
+</div>
+<div class="hud-analysis-row hud-influence-radius-row">
+<label class="switch" style="flex-shrink:0;" title="Mostrar Área Visual">
+<input checked="" id="circle-toggle-visibility" onchange="conmutarVisibilidadAreaVisual(this.checked); persistirConfiguracionGlobalEnStorage();" type="checkbox"/>
+<span class="slider-switch"></span>
+</label>
+<input id="circle-size-slider" max="2000" min="50" oninput="document.getElementById('circle-size-display').innerText = this.value + ' m'; refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();" step="25" style="flex-grow:1;" title="Tamaño (radio en metros)" type="range" value="250"/>
+<span class="slider-value" id="circle-size-display" style="flex-shrink:0; font-size:10px;">250 m</span>
+</div>
+<div class="hud-analysis-row hud-influence-style-row">
+<input id="circle-color-picker" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();" style="width:20px; height:20px; padding:0; border:none; flex-shrink:0; cursor:pointer;" title="Color de fondo/borde" type="color" value="#2563eb"/>
+<input id="circle-weight-slider" max="8" min="0" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();" step="1" style="flex-grow:1;" title="Grosor de borde" type="range" value="1"/>
+<input id="circle-opacity-slider" max="1" min="0" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();" step="0.05" style="flex-grow:1;" title="Opacidad de fondo" type="range" value="0.15"/>
+</div>
+</div></div></details></div>
     <div id="toggle-right-btn" class="toggle-sidebar-btn" onclick="toggleRightSidebar()">▶</div>
 
     <div id="results-panel">
