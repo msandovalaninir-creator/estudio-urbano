@@ -614,45 +614,20 @@
 }
 </style>
 <style>.prc-map-popup .leaflet-popup-content-wrapper,.prc-map-popup .leaflet-popup-tip{background:#fff;color:#20294d;border:0;box-shadow:0 3px 16px #0003}.prc-map-popup .leaflet-popup-content{margin:18px 15px 12px;overflow-wrap:anywhere;font:12px/1.4 Arial,sans-serif}.prc-map-popup a.leaflet-popup-close-button{color:#555}.prc-map-popup .prc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:3px 0;border-bottom:1px solid #edf0f4}.prc-map-popup .prc-row span:last-child{text-align:right;color:#53617a}.prc-map-popup .prc-note{font-size:10px;color:#657084;margin-top:8px}.prc-map-popup a{color:#2459a5}</style><style>#v140-tabs button{flex:1;width:auto;margin:0;padding:9px 3px;font-size:11px;background:#1e293b;border:1px solid #334155;color:#cbd5e1}#v140-tabs button[aria-pressed="true"]{background:#174b80;border-color:#38bdf8;color:white}#v140-rol[hidden],#v140-dir[hidden],#v140-kmz[hidden]{display:none!important}</style><style>#v140-comuna,#v140-rol-input,#v141-worker{box-sizing:border-box;width:100%;background:#0d1524;color:#e5edf8;border:1px solid #394b63;border-radius:8px;padding:10px;font:inherit}#v142-ficha:not([hidden]){margin:8px 0;padding:10px;border:1px solid #394b63;border-radius:8px;background:#101a2a;color:#e5edf8;overflow-wrap:anywhere;font-size:12px;line-height:1.5}#v142-ficha h3{margin:0 0 8px}</style><style id="ib169-panel-css">#control-panel .ib169-group{margin:0 0 7px;border:1px solid #334155;border-radius:8px;background:#171e2a}#control-panel .ib169-group>summary{cursor:pointer;list-style:none;padding:11px 10px;font-size:11px;font-weight:750;color:#e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:8px}#control-panel .ib169-group>summary::-webkit-details-marker{display:none}#control-panel .ib169-group>summary::after{content:'▸';color:#93c5fd;font-size:13px}#control-panel .ib169-group[open]>summary::after{content:'▾'}#control-panel .ib169-body{padding:7px;border-top:1px solid #334155}#control-panel .ib169-body .collapsible-header{padding:8px;margin-bottom:5px;font-size:10px}#control-panel .ib169-body .collapsible-content{margin-bottom:7px;padding:8px}#control-panel .ib169-body .form-group{margin-bottom:8px}#control-panel .ib169-body>div:has(> .metro-selector-compacto){padding:6px!important;margin:0!important}#control-panel .barra-acciones-fija{background:#131b2a!important;padding:3px 0!important}#control-panel .barra-acciones-fija button{font-size:9px!important;height:38px!important}#control-panel h2{margin-bottom:10px}</style>
-</head>
+<style id="ib170-css">#results-panel .ib170-result{border:1px solid #334155;border-radius:8px;margin:7px 0;background:#1b2331}#results-panel .ib170-result>summary{padding:10px;cursor:pointer;font-weight:700;color:#cbd5e1;font-size:13px}#results-panel .ib169-body{padding:7px}.ib170-quick{display:flex;gap:6px;margin:8px 0}.ib170-quick button{flex:1;padding:9px 4px;font-size:11px;background:#075985;color:white;border:0;border-radius:6px;cursor:pointer}</style></head>
 <body>
 
     <div id="map"></div>
     <div id="toggle-left-btn" class="toggle-sidebar-btn" onclick="toggleLeftSidebar()">◀</div>
 
     <div id="control-panel">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <h2>Herramientas de trabajo</h2><div class="acciones-principales-compactas barra-acciones-fija">
 <div class="barra-acciones-titulo">ACCIONES DE BÚSQUEDA</div>
 <button id="btn-analizar" title="Generar estudio urbano">🎯 GENERAR<br/>STUDY URBANO</button>
 <button id="btn-sugerir-servicios" onclick="sugerirServiciosCercanos()" title="Sugerir servicios cercanos que falten">💡 SUGERIR<br/>SERVICIOS</button>
 <button id="btn-futuras-lineas-metro" onclick="abrirVisorMetroFuturo()" title="Abrir mapa geográfico de futuras líneas 7, 8 y 9 (fuente externa referencial)">🚇 FUTURAS<br/>LÍNEAS METRO</button>
 <div id="loading">⌛ Buscando servicios cercanos... <span id="loading-segundos">0</span>s</div>
-</div><details class="ib169-group" id="ib169-origen"><summary>01 · Ubicación y terrenos</summary><div class="ib169-body"><div class="form-group">
+</div><details class="ib169-group" id="ib169-origen"><summary>01 · Ubicación y estudio del terreno</summary><div class="ib169-body"><div class="form-group">
 <label>Buscar ubicación por</label>
 <div aria-label="Modo de búsqueda" id="v140-tabs" role="group" style="display:flex;gap:4px;margin:6px 0 10px"><button aria-pressed="true" data-mode="dir" type="button">Dirección</button><button aria-pressed="false" data-mode="rol" type="button">ROL SII</button><button aria-pressed="false" data-mode="kmz" type="button">KMZ</button></div>
 <div id="v140-dir">
@@ -685,83 +660,18 @@
 <span id="arrow-4-bit">▲</span>
 </div><div class="collapsed collapsible-content" id="sec-bitacora">
 <div id="bitacora-lista-contenedor"></div>
-</div></div></details><details class="ib169-group" id="ib169-servicios"><summary>02 · Servicios y rutas peatonales</summary><div class="ib169-body"><button id="btn-trazado-manual" onclick="activarModoTrazadoManual()" style="background:#1e293b; color:#7dd3fc; border:1px solid #38bdf8; font-size:11px; padding:10px; font-weight:700; width:100%; margin-bottom:10px; border-radius:6px; cursor:pointer;">✏️ TRAZAR RUTA MANUAL A UN SERVICIO</button><div id="banner-trazado-manual" style="display:none; background:#0c4a6e; border:1px solid #38bdf8; color:#e0f2fe; font-size:11.5px; padding:10px; border-radius:6px; margin-bottom:12px; line-height:1.5;">
-<b>Modo trazado activo:</b> haz clic en el mapa siguiendo la calle real, punto por punto, desde tu dirección. Termina haciendo clic directo sobre el ícono del servicio correcto.
-            <div style="margin-top:8px; display:flex; gap:6px;">
-<button onclick="cancelarTrazadoManual()" style="flex:1; background:#dc2626; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;">Cancelar</button>
-<button onclick="deshacerUltimoPuntoTrazado()" style="flex:1; background:#334155; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;">Deshacer último punto</button>
-</div>
-</div><div class="collapsible-header" onclick="toggleSection('sec-iconos', 'arrow-3')">
-<span>3. Filtros Estratégicos Inteligentes</span>
-<span id="arrow-3">▲</span>
-</div><div class="collapsed collapsible-content" id="sec-iconos" style="padding: 8px;">
-<div style="display:flex; align-items:center; gap:6px; background:#1e2430; border-radius:6px; padding:6px 8px; margin-bottom:8px;">
-<label class="switch" style="flex-shrink:0;" title="Mostrar líneas de tránsito peatonal">
-<input checked="" id="toggle-rutas-visibles" onchange="conmutarVisibilidadLineasRuta(this.checked); persistirConfiguracionGlobalEnStorage();" type="checkbox"/>
-<span class="slider-switch"></span>
-</label>
-<select id="route-display-mode" onchange="aplicarModoVisualizacionTrazados(); persistirConfiguracionGlobalEnStorage();" style="max-width:116px; font-size:10px; padding:4px;" title="Qué trazados mostrar">
-<option value="todos">Recta + manual</option>
-<option value="recta">Solo línea recta</option>
-<option value="manual">Solo trazado manual</option>
-</select>
-<select id="route-line-style-select" onchange="redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();" style="flex-grow:1; font-size:10.5px; padding:4px;" title="Tipo de línea peatonal">
-<option value="continua">⎯⎯⎯ Sólida</option>
-<option value="segmentada">╌╌╌ Segmentada</option>
-<option value="punteada">┈┈┈┈ Punteada</option>
-<option value="guiones-largos">▬ ▬ ▬ Guiones</option>
-<option value="mixta">─ ∙ ─ Mixta</option>
-</select>
-<input id="route-line-weight-slider" max="10" min="1" oninput="document.getElementById('route-weight-display').innerText = this.value + 'px'; redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();" step="1" style="width:50px; flex-shrink:0;" title="Grosor de línea" type="range" value="4"/>
-<span id="route-weight-display" style="font-size:9.5px; flex-shrink:0; width:22px;">4px</span>
-</div>
-<div style="background: rgba(79,172,254,0.06); border:1px solid rgba(79,172,254,0.25); border-radius:8px; padding:8px; margin-bottom:10px;">
+</div><div style="background: rgba(79,172,254,0.06); border:1px solid rgba(79,172,254,0.25); border-radius:8px; padding:8px; margin-bottom:10px;">
 <label style="color: #4facfe; margin-bottom: 8px; display:block; font-size:11px;">📁 GRUPOS DE BÚSQUEDA (por rubro/negocio)</label>
 <div id="lista-grupos-servicios"></div>
 <button onclick="mostrarFormularioCrearGrupo()" style="margin-top:6px; margin-bottom:0; background:#1e293b; border:1px solid #4facfe; font-size:11px; padding:6px;" type="button">➕ Crear grupo nuevo</button>
 <div id="form-crear-grupo" style="display:none; margin-top:8px;"></div>
-</div>
-<div class="mass-toggle-container" style="margin-bottom:8px;">
+</div><div class="mass-toggle-container" style="margin-bottom:8px;">
 <button class="btn-secondary" onclick="conmutarTodosLosServiciosCheckbox(false)" type="button">⬜ Desmarcar Todos</button>
 <button class="btn-success" onclick="conmutarTodosLosServiciosCheckbox(true)" type="button">☑️ Marcar Todos</button>
-</div>
-<button class="btn-secondary" onclick="abrirModalCategoriasServicios()" style="margin-top:0; width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;" type="button">
+</div><button class="btn-secondary" onclick="abrirModalCategoriasServicios()" style="margin-top:0; width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;" type="button">
 <span>📋 Ver todas las categorías (<span id="contador-categorias">0</span>)</span>
 <span aria-hidden="true">↗</span>
-</button>
-<div aria-hidden="true" class="hud-modal-overlay" id="modal-categorias-servicios" onclick="if(event.target===this) cerrarModalCategoriasServicios();" style="display:none;">
-<section aria-labelledby="titulo-modal-categorias" aria-modal="true" class="hud-modal-card" role="dialog">
-<header class="hud-modal-header">
-<div>
-<strong id="titulo-modal-categorias">📋 Categorías de servicios</strong>
-<div class="hud-modal-subtitle">Activa, desactiva, reordena o personaliza cada categoría.</div>
-</div>
-<button aria-label="Cerrar" class="hud-modal-close" onclick="cerrarModalCategoriasServicios()" type="button">✕</button>
-</header>
-<div class="hud-modal-list" id="dynamic-services-container"></div>
-<footer class="hud-modal-footer">
-<span id="resumen-categorias-modal">Administra tus categorías de búsqueda</span>
-<button class="btn-secondary" onclick="cerrarModalCategoriasServicios()" style="width:auto; margin:0;" type="button">Listo</button>
-</footer>
-</section>
-</div>
-<div style="border-top: 1px solid #2e3545; padding-top: 10px; margin-top: 10px;">
-<label style="color: #4facfe; margin-bottom: 6px; display:block; font-size:11px;">➕ AGREGAR SERVICIO PERSONALIZADO</label>
-<div class="form-group">
-<input id="new-srv-name" placeholder="Ej: Farmacia, Bencinera, Colegio..." style="margin-bottom:6px;" type="text"/>
-<details style="margin-bottom:6px;">
-<summary style="cursor:pointer; font-size:10px; color:#94a3b8;">Avanzado: consulta propia (opcional)</summary>
-<input id="new-srv-query" placeholder='Ej: nwr["amenity"="fuel"]{{GEO}};' style="margin-top:6px;" type="text"/>
-</details>
-<div style="display:flex; gap: 6px;">
-<input id="new-srv-emoji" placeholder="🎫" style="width:22%;" type="text"/>
-<input id="new-srv-color" style="width:18%; height:36px; padding:0; border:1px solid #2a313d; border-radius:8px; background:none; cursor:pointer;" type="color" value="#f59e0b"/>
-<button onclick="registrarNuevoServicioHUD()" style="margin:0; flex-grow:1;">Agregar</button>
-</div>
-<div style="font-size:9.5px; color:#64748b; margin-top:4px;">Solo el nombre — reconoce automáticamente farmacias, bencineras, colegios, bancos, etc.</div>
-</div>
-</div>
-</div><div class="collapsible-header" onclick="toggleSection('sec-radio-captura', 'arrow-radio-captura')">
+</button><div class="collapsible-header" onclick="toggleSection('sec-radio-captura', 'arrow-radio-captura')">
 <span>📏 Radios de Corte y Análisis</span>
 <span id="arrow-radio-captura">▲</span>
 </div><div class="collapsed collapsible-content" id="sec-radio-captura" style="padding:8px;">
@@ -798,7 +708,57 @@
 </label>
 <span style="font-size:10.5px; color:#94a3b8;">🏷️ Mostrar nombres de servicios en el mapa</span>
 </div>
-</div></div></details><div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div><details class="ib169-group" id="ib169-movilidad"><summary>03 · Metro y vialidad PRMS</summary><div class="ib169-body"><div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
+</div></div></details><details class="ib169-group" id="ib169-servicios"><summary>02 · Servicios y rutas peatonales</summary><div class="ib169-body"><button id="btn-trazado-manual" onclick="activarModoTrazadoManual()" style="background:#1e293b; color:#7dd3fc; border:1px solid #38bdf8; font-size:11px; padding:10px; font-weight:700; width:100%; margin-bottom:10px; border-radius:6px; cursor:pointer;">✏️ TRAZAR RUTA MANUAL A UN SERVICIO</button><div id="banner-trazado-manual" style="display:none; background:#0c4a6e; border:1px solid #38bdf8; color:#e0f2fe; font-size:11.5px; padding:10px; border-radius:6px; margin-bottom:12px; line-height:1.5;">
+<b>Modo trazado activo:</b> haz clic en el mapa siguiendo la calle real, punto por punto, desde tu dirección. Termina haciendo clic directo sobre el ícono del servicio correcto.
+            <div style="margin-top:8px; display:flex; gap:6px;">
+<button onclick="cancelarTrazadoManual()" style="flex:1; background:#dc2626; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;">Cancelar</button>
+<button onclick="deshacerUltimoPuntoTrazado()" style="flex:1; background:#334155; color:#fff; border:none; padding:6px; border-radius:4px; font-size:11px; cursor:pointer;">Deshacer último punto</button>
+</div>
+</div><div class="collapsible-header" onclick="toggleSection('sec-iconos', 'arrow-3')">
+<span>3. Filtros Estratégicos Inteligentes</span>
+<span id="arrow-3">▲</span>
+</div><div class="collapsed collapsible-content" id="sec-iconos" style="padding: 8px;">
+<div style="display:flex; align-items:center; gap:6px; background:#1e2430; border-radius:6px; padding:6px 8px; margin-bottom:8px;">
+<label class="switch" style="flex-shrink:0;" title="Mostrar líneas de tránsito peatonal">
+<input checked="" id="toggle-rutas-visibles" onchange="conmutarVisibilidadLineasRuta(this.checked); persistirConfiguracionGlobalEnStorage();" type="checkbox"/>
+<span class="slider-switch"></span>
+</label>
+<select id="route-display-mode" onchange="aplicarModoVisualizacionTrazados(); persistirConfiguracionGlobalEnStorage();" style="max-width:116px; font-size:10px; padding:4px;" title="Qué trazados mostrar">
+<option value="todos">Recta + manual</option>
+<option value="recta">Solo línea recta</option>
+<option value="manual">Solo trazado manual</option>
+</select>
+<select id="route-line-style-select" onchange="redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();" style="flex-grow:1; font-size:10.5px; padding:4px;" title="Tipo de línea peatonal">
+<option value="continua">⎯⎯⎯ Sólida</option>
+<option value="segmentada">╌╌╌ Segmentada</option>
+<option value="punteada">┈┈┈┈ Punteada</option>
+<option value="guiones-largos">▬ ▬ ▬ Guiones</option>
+<option value="mixta">─ ∙ ─ Mixta</option>
+</select>
+<input id="route-line-weight-slider" max="10" min="1" oninput="document.getElementById('route-weight-display').innerText = this.value + 'px'; redibujarEstilosLineasExistentesActivas(); persistirConfiguracionGlobalEnStorage();" step="1" style="width:50px; flex-shrink:0;" title="Grosor de línea" type="range" value="4"/>
+<span id="route-weight-display" style="font-size:9.5px; flex-shrink:0; width:22px;">4px</span>
+</div>
+
+
+
+
+<div style="border-top: 1px solid #2e3545; padding-top: 10px; margin-top: 10px;">
+<label style="color: #4facfe; margin-bottom: 6px; display:block; font-size:11px;">➕ AGREGAR SERVICIO PERSONALIZADO</label>
+<div class="form-group">
+<input id="new-srv-name" placeholder="Ej: Farmacia, Bencinera, Colegio..." style="margin-bottom:6px;" type="text"/>
+<details style="margin-bottom:6px;">
+<summary style="cursor:pointer; font-size:10px; color:#94a3b8;">Avanzado: consulta propia (opcional)</summary>
+<input id="new-srv-query" placeholder='Ej: nwr["amenity"="fuel"]{{GEO}};' style="margin-top:6px;" type="text"/>
+</details>
+<div style="display:flex; gap: 6px;">
+<input id="new-srv-emoji" placeholder="🎫" style="width:22%;" type="text"/>
+<input id="new-srv-color" style="width:18%; height:36px; padding:0; border:1px solid #2a313d; border-radius:8px; background:none; cursor:pointer;" type="color" value="#f59e0b"/>
+<button onclick="registrarNuevoServicioHUD()" style="margin:0; flex-grow:1;">Agregar</button>
+</div>
+<div style="font-size:9.5px; color:#64748b; margin-top:4px;">Solo el nombre — reconoce automáticamente farmacias, bencineras, colegios, bancos, etc.</div>
+</div>
+</div>
+</div></div></details><div id="panel-sugerencias-servicios" style="display:none; background:#1e2430; border:1px solid #f59e0b; border-radius:6px; padding:8px; margin-bottom:10px; font-size:11px;"></div><details class="ib169-group" id="ib169-movilidad"><summary>03 · Metro, transporte y vialidad</summary><div class="ib169-body"><div style="border:1px solid #334155;border-radius:8px;padding:9px;margin:0 0 10px;background:rgba(15,23,42,.65);">
 <div style="font-size:11px;font-weight:800;color:#e2e8f0;margin-bottom:7px;">🚇🚗 Infraestructura existente</div>
 <div class="metro-selector-compacto">
 <div class="metro-selector-head"><span>Seleccionar por línea</span><span class="metro-leyenda"><b>T</b> trazado <b>E</b> estaciones</span></div>
@@ -911,7 +871,7 @@
 <div id="san-status" role="status" style="font-size:11px;margin:8px 0">Capa desactivada.</div>
 <button id="san-check" type="button">Consultar cobertura del punto de origen</button>
 <small>Información referencial; no sustituye certificado de factibilidad. <a href="https://www.siss.gob.cl/589/w3-propertyvalue-8969.html" rel="noopener" target="_blank">Fuente SISS</a></small>
-</div></div></details><details class="ib169-group" id="ib169-visual"><summary>06 · Área de influencia y visualización</summary><div class="ib169-body"><div class="collapsible-header" onclick="toggleSection('sec-circulo', 'arrow-2')">
+</div></div></details><details class="ib169-group" id="ib169-visual"><summary>06 · Visualización y presentación</summary><div class="ib169-body"><div class="collapsible-header" onclick="toggleSection('sec-circulo', 'arrow-2')">
 <span>2. Área Visual de Influencia</span>
 <span id="arrow-2">▲</span>
 </div><div class="collapsed collapsible-content" id="sec-circulo" style="padding:8px;">
@@ -935,32 +895,47 @@
 <input id="circle-weight-slider" max="8" min="0" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();" step="1" style="flex-grow:1;" title="Grosor de borde" type="range" value="1"/>
 <input id="circle-opacity-slider" max="1" min="0" oninput="refrescarAtributosCirculo(); persistirConfiguracionGlobalEnStorage();" step="0.05" style="flex-grow:1;" title="Opacidad de fondo" type="range" value="0.15"/>
 </div>
-</div></div></details></div>
+</div></div></details><div aria-hidden="true" class="hud-modal-overlay" id="modal-categorias-servicios" onclick="if(event.target===this) cerrarModalCategoriasServicios();" style="display:none;">
+<section aria-labelledby="titulo-modal-categorias" aria-modal="true" class="hud-modal-card" role="dialog">
+<header class="hud-modal-header">
+<div>
+<strong id="titulo-modal-categorias">📋 Categorías de servicios</strong>
+<div class="hud-modal-subtitle">Activa, desactiva, reordena o personaliza cada categoría.</div>
+</div>
+<button aria-label="Cerrar" class="hud-modal-close" onclick="cerrarModalCategoriasServicios()" type="button">✕</button>
+</header>
+<div class="hud-modal-list" id="dynamic-services-container"></div>
+<footer class="hud-modal-footer">
+<span id="resumen-categorias-modal">Administra tus categorías de búsqueda</span>
+<button class="btn-secondary" onclick="cerrarModalCategoriasServicios()" style="width:auto; margin:0;" type="button">Listo</button>
+</footer>
+</section>
+</div></div>
     <div id="toggle-right-btn" class="toggle-sidebar-btn" onclick="toggleRightSidebar()">▶</div>
 
     <div id="results-panel">
-        <h2>Servicios Validados</h2><section style="padding:10px;border:1px solid #38bdf8;border-radius:6px;margin-bottom:10px"><b>IB RUTAS PEATONALES PRO · HUD</b><button style="width:100%;margin:8px 0" onclick="ibWalkAll()">CALCULAR RUTAS A PIE</button><div id="ib-walk-status" aria-live="polite">Genera el estudio urbano y calcula las rutas.</div><div id="ib-walk-results" hidden></div><small>Valhalla / OpenStreetMap · requiere internet. No sustituye el trazado manual.</small></section>
-        <section id="ds-report" class="ds-report" aria-live="polite">
-          <label for="ds-mode">INFORME AUTOMÁTICO DE PROXIMIDAD</label>
-          <select id="ds-mode" onchange="dsCambiarModo()"><option value="">Seleccionar evaluación</option><option value="DS19-DS49">DS19-DS49</option></select>
-          <div id="ds-content" class="ds-muted">Selecciona DS19-DS49 y busca una dirección o carga un KML/KMZ para evaluar los servicios cercanos.</div>
-          <button type="button" id="ds-refresh" onclick="dsAnalizar()" style="display:none">↻ Actualizar informe</button>
-          <button type="button" id="ds-copy" onclick="dsCopiar()" style="display:none">📋 Copiar informe escrito</button>
-        </section>
-        <button id="btn-copiar-reporte" onclick="mostrarVistaPreviaReporte()">📋 COPIAR REPORTE HUD</button>
-        <label for="captura-mapa-manual-input" style="display:block; width:100%; box-sizing:border-box; text-align:center; background:#161a24; color:#a855f7; font-size:10.5px; font-weight:700; padding:8px; border:1px dashed #7c3aed; border-radius:6px; margin-bottom:6px; cursor:pointer;">📷 Subir captura del mapa (recomendado)</label>
-        <input type="file" id="captura-mapa-manual-input" accept="image/*" style="display:none;" onchange="procesarCapturaMapaManual(this)">
-        <div id="preview-captura-mapa" style="display:none; font-size:9.5px; color:#22c55e; text-align:center; margin-bottom:6px;">✔ Captura cargada</div>
-        <button id="btn-exportar-lamina" onclick="generarLaminaProximidades()" style="width:100%; background:#1e293b; color:#fff; font-size:11px; font-weight:700; padding:10px; border:1px solid #7c3aed; border-radius:6px; margin-bottom:6px; display:none;">📸 EXPORTAR LÁMINA PARA PPT</button>
-        <div style="display:flex; align-items:center; gap:6px; margin-bottom:14px;">
-            <label for="logo-empresa-input" style="flex-grow:1; text-align:center; background:#161a24; color:#94a3b8; font-size:10px; padding:6px; border-radius:6px; cursor:pointer; border:1px dashed #334155;">🏢 Subir logo de empresa</label>
-            <input type="file" id="logo-empresa-input" accept="image/*" style="display:none;" onchange="procesarLogoEmpresa(this)">
-            <div id="preview-logo-empresa" style="width:26px; height:26px; flex-shrink:0; display:none; background:#fff; border-radius:4px; overflow:hidden;"></div>
-        </div>
-        <div id="results-container">
-            <p style="color: #94a3b8; font-size: 12px; line-height: 1.5;">Haz Clic Derecho en el mapa para fijar un origen exacto o busca una dirección, luego presiona "Generar Estudio Urbano". <br><br>💡<b>Tip Interactividad:</b> Haz clic y arrastra cualquier point intermedio de los trazos para recalcular rutas alternativas utilizando pasarelas y puentes peatonales.</p>
-        </div>
-    </div>
+<div class="ib170-quick"><button data-ib170-action="#ib170-distancias button" type="button">RUTAS A PIE</button><button data-ib170-action="#btn-copiar-reporte" type="button">REPORTE HUD</button></div><h2>Resultados del estudio</h2>
+
+
+
+
+
+
+
+
+<details class="ib169-group ib170-result" id="ib170-distancias"><summary>01 · Servicios y distancias</summary><div class="ib169-body"><section style="padding:10px;border:1px solid #38bdf8;border-radius:6px;margin-bottom:10px"><b>IB RUTAS PEATONALES PRO · HUD</b><button onclick="ibWalkAll()" style="width:100%;margin:8px 0">CALCULAR RUTAS A PIE</button><div aria-live="polite" id="ib-walk-status">Genera el estudio urbano y calcula las rutas.</div><div hidden="" id="ib-walk-results"></div><small>Valhalla / OpenStreetMap · requiere internet. No sustituye el trazado manual.</small></section><div id="results-container">
+<p style="color: #94a3b8; font-size: 12px; line-height: 1.5;">Haz Clic Derecho en el mapa para fijar un origen exacto o busca una dirección, luego presiona "Generar Estudio Urbano". <br/><br/>💡<b>Tip Interactividad:</b> Haz clic y arrastra cualquier point intermedio de los trazos para recalcular rutas alternativas utilizando pasarelas y puentes peatonales.</p>
+</div></div></details><details class="ib169-group ib170-result" id="ib170-ds"><summary>02 · Evaluación DS19–DS49</summary><div class="ib169-body"><section aria-live="polite" class="ds-report" id="ds-report">
+<label for="ds-mode">INFORME AUTOMÁTICO DE PROXIMIDAD</label>
+<select id="ds-mode" onchange="dsCambiarModo()"><option value="">Seleccionar evaluación</option><option value="DS19-DS49">DS19-DS49</option></select>
+<div class="ds-muted" id="ds-content">Selecciona DS19-DS49 y busca una dirección o carga un KML/KMZ para evaluar los servicios cercanos.</div>
+<button id="ds-refresh" onclick="dsAnalizar()" style="display:none" type="button">↻ Actualizar informe</button>
+<button id="ds-copy" onclick="dsCopiar()" style="display:none" type="button">📋 Copiar informe escrito</button>
+</section></div></details><details class="ib169-group ib170-result" id="ib170-export"><summary>03 · Informes y exportaciones</summary><div class="ib169-body"><button id="btn-copiar-reporte" onclick="mostrarVistaPreviaReporte()">📋 COPIAR REPORTE HUD</button><label for="captura-mapa-manual-input" style="display:block; width:100%; box-sizing:border-box; text-align:center; background:#161a24; color:#a855f7; font-size:10.5px; font-weight:700; padding:8px; border:1px dashed #7c3aed; border-radius:6px; margin-bottom:6px; cursor:pointer;">📷 Subir captura del mapa (recomendado)</label><input accept="image/*" id="captura-mapa-manual-input" onchange="procesarCapturaMapaManual(this)" style="display:none;" type="file"/><div id="preview-captura-mapa" style="display:none; font-size:9.5px; color:#22c55e; text-align:center; margin-bottom:6px;">✔ Captura cargada</div><button id="btn-exportar-lamina" onclick="generarLaminaProximidades()" style="width:100%; background:#1e293b; color:#fff; font-size:11px; font-weight:700; padding:10px; border:1px solid #7c3aed; border-radius:6px; margin-bottom:6px; display:none;">📸 EXPORTAR LÁMINA PARA PPT</button><div style="display:flex; align-items:center; gap:6px; margin-bottom:14px;">
+<label for="logo-empresa-input" style="flex-grow:1; text-align:center; background:#161a24; color:#94a3b8; font-size:10px; padding:6px; border-radius:6px; cursor:pointer; border:1px dashed #334155;">🏢 Subir logo de empresa</label>
+<input accept="image/*" id="logo-empresa-input" onchange="procesarLogoEmpresa(this)" style="display:none;" type="file"/>
+<div id="preview-logo-empresa" style="width:26px; height:26px; flex-shrink:0; display:none; background:#fff; border-radius:4px; overflow:hidden;"></div>
+</div></div></details></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
@@ -5969,5 +5944,5 @@ async function ibWalkAll(){
  }if(active())status.textContent=`${ok} rutas a pie · ${manual} manuales conservadas · ${failed} no disponibles. Distancias referenciales.`;
 }
 function ibWalkReset(){++ibWalkRun;document.getElementById('ib-walk-results').replaceChildren();document.getElementById('ib-walk-status').textContent='Origen actualizado. Calcula nuevamente.';if(ibWalkLayer){map.removeLayer(ibWalkLayer);ibWalkLayer=null;}}
-</script></body>
+</script><script id="ib170-js">document.addEventListener('DOMContentLoaded',()=>{const d=document.getElementById('ib170-distancias');document.querySelectorAll('[data-ib170-action]').forEach(b=>b.addEventListener('click',()=>{const t=document.querySelector(b.dataset.ib170Action);if(t){const g=t.closest('details');if(g)g.open=true;t.click();}}));document.getElementById('btn-analizar')?.addEventListener('click',()=>{d.open=true;});});</script></body>
 </html>
