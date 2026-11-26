@@ -959,7 +959,7 @@
     <div id="toggle-right-btn" class="toggle-sidebar-btn" onclick="toggleRightSidebar()">▶</div>
 
     <div id="results-panel">
-        <h2>Servicios Validados</h2><section style="padding:10px;border:1px solid #38bdf8;border-radius:6px;margin-bottom:10px"><b>IB RUTAS PEATONALES PRO · PILOTO</b><button style="width:100%;margin:8px 0" onclick="ibWalkAll()">CALCULAR RUTAS A PIE</button><div id="ib-walk-status" aria-live="polite">Genera el estudio urbano y calcula las rutas.</div><div id="ib-walk-results"></div><small>Valhalla / OpenStreetMap · requiere internet. No sustituye el trazado manual.</small></section>
+        <h2>Servicios Validados</h2><section style="padding:10px;border:1px solid #38bdf8;border-radius:6px;margin-bottom:10px"><b>IB RUTAS PEATONALES PRO · HUD</b><button style="width:100%;margin:8px 0" onclick="ibWalkAll()">CALCULAR RUTAS A PIE</button><div id="ib-walk-status" aria-live="polite">Genera el estudio urbano y calcula las rutas.</div><div id="ib-walk-results" hidden></div><small>Valhalla / OpenStreetMap · requiere internet. No sustituye el trazado manual.</small></section>
         <section id="ds-report" class="ds-report" aria-live="polite">
           <label for="ds-mode">INFORME AUTOMÁTICO DE PROXIMIDAD</label>
           <select id="ds-mode" onchange="dsCambiarModo()"><option value="">Seleccionar evaluación</option><option value="DS19-DS49">DS19-DS49</option></select>
@@ -1190,7 +1190,7 @@ function sincronizarGrupos114(){
             const dash = obtenerDashArrayPorEstiloHUD(document.getElementById('route-line-style-select')?.value || 'continua');
             esVisibleLineasRutaGlobal = mostrar;
             Object.values(elementosMapeadosActivos || {}).forEach(item => {
-                const mostrarRecta = mostrar && modo !== 'manual';
+                const mostrarRecta = mostrar && modo !== 'manual' && (!item.ibWalkAutomatic || modo === 'recta');
                 const mostrarManual = mostrar && modo !== 'recta';
                 if (item.lineaRectaEditable) {
                     item.lineaRectaEditable.setStyle({weight:peso, opacity:0.9, dashArray:dash});
@@ -1202,7 +1202,7 @@ function sincronizarGrupos114(){
                     else map.removeLayer(m);
                 });
                 if (item.lineaManual) {
-                    item.lineaManual.setStyle({weight:peso, opacity:0.9, dashArray:dash});
+                    item.lineaManual.setStyle({color:targetColorInput(item.catId),weight:peso, opacity:0.9, dashArray:dash});
                     if (mostrarManual) { if (!serviciosLayerGroup.hasLayer(item.lineaManual)) item.lineaManual.addTo(serviciosLayerGroup); }
                     else serviciosLayerGroup.removeLayer(item.lineaManual);
                 }
@@ -2225,6 +2225,7 @@ function sincronizarGrupos114(){
             if (!item || !item.trazadoAjustadoPuntos || item.trazadoAjustadoPuntos.length < 2) return;
             const pts = item.trazadoAjustadoPuntos;
             const distancia = sumarDistanciaDeTrazado(pts);
+            if(item.ibWalkAutomatic){if(item.lineaManual)serviciosLayerGroup.removeLayer(item.lineaManual);item.lineaManual=null;item.trazadoManual=false;item.ibWalkAutomatic=false;item.trazadoPuntos=null;}
             item.distanciaLinea = distancia;
             item.distanciaAjustada = true;
             item.distance = distancia;
@@ -2580,6 +2581,7 @@ function sincronizarGrupos114(){
             item.distance = distanciaMedida;
             item.tiempo = tiempoEstimado;
             item.trazadoManual = true;
+            item.ibWalkAutomatic = false;
             item.lineaManual = lineaManualDefinitiva;
             item.trazadoPuntos = puntosFinales; // Se guarda completo para poder reusarlo después
 
@@ -4289,6 +4291,7 @@ async function ibExpressCombined(query){await ibExpressReady;let local=[],localO
                         m.on('dragend', function(ev) {
                             let nuevaPos = ev.target.getLatLng();
                             let item = elementosMapeadosActivos[uid];
+                            if(item.ibWalkAutomatic){if(item.lineaManual)serviciosLayerGroup.removeLayer(item.lineaManual);item.lineaManual=null;item.trazadoManual=false;item.ibWalkAutomatic=false;item.trazadoPuntos=null;item.distance=null;item.tiempo=null;}
                             item.lat = nuevaPos.lat;
                             item.lng = nuevaPos.lng;
                             item.verificadoManual = true;
@@ -4408,7 +4411,7 @@ async function ibExpressCombined(query){await ibExpressReady;let local=[],localO
 
             for (let uid in elementosMapeadosActivos) {
                 let x = elementosMapeadosActivos[uid];
-                if (logsAgrupados[x.grupo]) logsAgrupados[x.grupo].push({ uid, name: x.name, distance: x.distance, tiempo: x.tiempo, distanciaLinea: x.distanciaLinea, verificadoManual: x.verificadoManual, trazadoManual: x.trazadoManual, lat: x.lat, lng: x.lng });
+                if (logsAgrupados[x.grupo]) logsAgrupados[x.grupo].push({ uid, name: x.name, distance: x.distance, tiempo: x.tiempo, distanciaLinea: x.distanciaLinea, verificadoManual: x.verificadoManual, trazadoManual: x.trazadoManual, ibWalkAutomatic:x.ibWalkAutomatic, ibWalkError:x.ibWalkError, lat: x.lat, lng: x.lng });
             }
 
             let c = document.getElementById('results-container'); c.innerHTML = ""; let total = 0;
@@ -4462,10 +4465,10 @@ async function ibExpressCombined(query){await ibExpressReady;let local=[],localO
                     let bloqueDistancia, botonAccion;
                     if (item.trazadoManual && item.distance !== null) {
                         let tiempoTxt = item.tiempo !== undefined ? ` · <img src="${ICONO_CAMINANTE}" style="width:14px;height:14px;vertical-align:middle;"> ${formatoTiempoCaminando(item.tiempo)}` : '';
-                        bloqueDistancia = `<span class="distance">📏 ${item.distance} m${tiempoTxt}</span>`;
-                        botonAccion = `<button class="btn-remove-item" style="background:#334155; color:#fff; font-size:10px; border-radius:4px; padding:4px 6px; border:none; cursor:pointer;" onclick="iniciarTrazadoParaServicio('${item.uid}')" title="Volver a trazar esta ruta">🔁</button>`;
+                        bloqueDistancia = `<span class="distance">📏 ${item.distance} m${tiempoTxt}${item.ibWalkAutomatic ? ' · A pie' : ' · Manual'}</span>`;
+                        botonAccion = `<button class="btn-remove-item" style="background:#334155; color:#fff; font-size:10px; border-radius:4px; padding:4px 6px; border:none; cursor:pointer;" onclick="iniciarTrazadoParaServicio('${item.uid}')" title="Editar o volver a trazar esta ruta">✏️ Editar</button>`;
                     } else {
-                        bloqueDistancia = `<span class="distance" style="opacity:0.7;" title="Distancia en línea recta, aún no trazada a mano">📐 ~${item.distanciaLinea} m</span>`;
+                        bloqueDistancia = `<span class="distance" style="opacity:0.7;" title="Distancia en línea recta, aún no trazada a mano">📐 ~${item.distanciaLinea} m${item.ibWalkError ? ' · Ruta no disponible' : ''}</span>`;
                         botonAccion = `<button style="background:#0369a1; color:#fff; font-size:10px; font-weight:700; border-radius:4px; padding:4px 8px; border:none; cursor:pointer;" onclick="iniciarTrazadoParaServicio('${item.uid}')" title="Trazar la ruta real a este servicio">✏️ Trazar</button>`;
                     }
                     iDiv.style.flexDirection = 'column';
@@ -4812,7 +4815,7 @@ async function ibExpressCombined(query){await ibExpressReady;let local=[],localO
                                         : (item.name || item.nombre || '')))),
                         distance: distanciaReporte,
                         tiempo: tiempoReporte,
-                        tipoTrayecto: usaTrazadoManual ? 'TRAZADO MANUAL' : (usaTrazadoAjustado ? 'TRAZADO AJUSTADO' : 'LÍNEA RECTA'),
+                        tipoTrayecto: usaTrazadoManual ? (item.ibWalkAutomatic ? 'RUTA PEATONAL AUTOMÁTICA' : 'TRAZADO MANUAL') : (usaTrazadoAjustado ? 'TRAZADO AJUSTADO' : 'LÍNEA RECTA'),
                         esDistanciaAproximada: !usaTrazadoManual && !usaTrazadoAjustado
                     };
                 })
@@ -5961,19 +5964,29 @@ async function ibWalkFetch(o,i){
  if(points.length<2||points.some(p=>!p.every(Number.isFinite)))throw Error('Geometría inválida');
  const result={m:Math.round(t.summary.length*1000),points};ibWalkCache.set(key,result);return result;
 }
-function ibWalkShow(result){if(ibWalkLayer)map.removeLayer(ibWalkLayer);ibWalkLayer=L.polyline(result.points,{color:'#38bdf8',weight:5,opacity:.9}).addTo(map);map.fitBounds(ibWalkLayer.getBounds(),{padding:[35,35]});}
+function ibWalkApply(item,result){
+ if(item.lineaManual)serviciosLayerGroup.removeLayer(item.lineaManual);
+ item.trazadoPuntos=result.points.map(p=>L.latLng(p[0],p[1]));
+ item.lineaManual=L.polyline(item.trazadoPuntos,{color:targetColorInput(item.catId),weight:4,opacity:.9}).addTo(serviciosLayerGroup);
+ item.distance=result.m;item.tiempo=Math.round(result.m/1.39);item.trazadoManual=true;item.ibWalkAutomatic=true;item.ibWalkError=false;
+ item.marker?.setPopupContent(`<b>${escaparHTML(item.name)}</b><br>🚶 ${result.m} m · Ruta peatonal automática`);
+}
 async function ibWalkAll(){
- const panel=document.getElementById('ib-walk-results'), status=document.getElementById('ib-walk-status');const run=++ibWalkRun;
- panel.replaceChildren();if(ibWalkLayer){map.removeLayer(ibWalkLayer);ibWalkLayer=null;}
+ const status=document.getElementById('ib-walk-status'),run=++ibWalkRun;
  if(!coordenadasOrigen){status.textContent='Fija primero el origen.';return;}
- const o={...coordenadasOrigen},items=Object.values(elementosMapeadosActivos).filter(i=>Number.isFinite(Number(i.lat))&&Number.isFinite(Number(i.lng)));
+ const o={...coordenadasOrigen},items=Object.entries(elementosMapeadosActivos).filter(([uid,i])=>i.lat!=null&&i.lng!=null&&Number.isFinite(Number(i.lat))&&Number.isFinite(Number(i.lng)));
  if(!items.length){status.textContent='Genera primero el estudio urbano.';return;}
- for(let n=0;n<items.length;n++){if(run!==ibWalkRun||!coordenadasOrigen||o.lat!==coordenadasOrigen.lat||o.lng!==coordenadasOrigen.lng)return;
- const i=items[n];status.textContent=`Calculando ${n+1}/${items.length}…`;const row=document.createElement('div');row.style.cssText='padding:7px 0;border-bottom:1px solid #334155';row.textContent=i.name+' · ';panel.append(row);
- try{const result=await ibWalkFetch(o,i);if(run!==ibWalkRun||!coordenadasOrigen||o.lat!==coordenadasOrigen.lat||o.lng!==coordenadasOrigen.lng)return;
- row.append(document.createTextNode(result.m.toLocaleString('es-CL')+' m a pie '));const b=document.createElement('button');b.textContent='Ver ruta';b.onclick=()=>ibWalkShow(result);row.append(b);
- }catch(e){row.append(document.createTextNode('No verificada: '+e.message));} if(n<items.length-1)await new Promise(r=>setTimeout(r,1000));
- }if(run===ibWalkRun)status.textContent='Finalizado · distancias referenciales';
+ const active=()=>run===ibWalkRun&&coordenadasOrigen&&o.lat===coordenadasOrigen.lat&&o.lng===coordenadasOrigen.lng;
+ let ok=0,failed=0,manual=0;
+ for(let n=0;n<items.length;n++){
+ if(!active())return;const [uid,i]=items[n];if(elementosMapeadosActivos[uid]!==i)continue;
+ if(i.trazadoManual&&!i.ibWalkAutomatic||i.distanciaAjustada){manual++;continue;}
+ const lat=i.lat,lng=i.lng;status.textContent=`Calculando ${n+1}/${items.length}…`;
+ try{const result=await ibWalkFetch(o,i);if(!active())return;if(elementosMapeadosActivos[uid]!==i||i.lat!==lat||i.lng!==lng||i.trazadoManual&&!i.ibWalkAutomatic||i.distanciaAjustada)continue;ibWalkApply(i,result);ok++;}
+ catch(e){if(!active())return;if(elementosMapeadosActivos[uid]===i){i.ibWalkError=true;failed++;}}
+ aplicarModoVisualizacionTrazados();rebuildPanelResultadosAcumulado();
+ if(n<items.length-1)await new Promise(r=>setTimeout(r,1000));
+ }if(active())status.textContent=`${ok} rutas a pie · ${manual} manuales conservadas · ${failed} no disponibles. Distancias referenciales.`;
 }
 function ibWalkReset(){++ibWalkRun;document.getElementById('ib-walk-results').replaceChildren();document.getElementById('ib-walk-status').textContent='Origen actualizado. Calcula nuevamente.';if(ibWalkLayer){map.removeLayer(ibWalkLayer);ibWalkLayer=null;}}
 </script></body>
